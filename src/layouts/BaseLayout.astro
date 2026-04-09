@@ -63,7 +63,8 @@ const toBase = (path = "") => `${base}${path}`;
 
       const updateGlow = (x, y) => {
         if (!glow) return;
-        glow.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+        glow.style.left = `${x}px`;
+        glow.style.top = `${y + 22}px`;
       };
 
       window.addEventListener('pointermove', (event) => {
