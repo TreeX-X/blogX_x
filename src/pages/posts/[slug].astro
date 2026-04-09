@@ -1,11 +1,17 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getPublishedPosts, formatDate } from '../../lib/content';
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getPublishedPosts, formatDate } from "../../lib/content";
 
 export async function getStaticPaths() {
   const posts = await getPublishedPosts();
+
+  if (posts.length > 0) {
+    console.log("=== 正在检查第一篇文章的数据 ===");
+    console.log("有没有 slug? :", posts[0].slug);
+    console.log("有没有 id? :", posts[0].id);
+  }
   return posts.map((post) => ({
-    params: { slug: post.slug },
+    params: { slug: post.slug || post.id },
     props: { post },
   }));
 }
@@ -14,10 +20,17 @@ const { post } = Astro.props;
 const { Content } = await post.render();
 ---
 
-<BaseLayout title={`${post.data.title} | BlogX_x`} description={post.data.description}>
+<BaseLayout
+  title={`${post.data.title} | BlogX_x`}
+  description={post.data.description}
+>
   <article class="prose-wrap">
     <p class="meta">{formatDate(post.data.date)}</p>
-    <h1 style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;">{post.data.title}</h1>
+    <h1
+      style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;"
+    >
+      {post.data.title}
+    </h1>
     <p class="meta" style="margin-bottom: 1.4rem;">{post.data.description}</p>
     <Content />
   </article>
