@@ -1,0 +1,74 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getAllNotes, getPublishedPosts, formatDate } from "../lib/content";
+
+const posts = (await getPublishedPosts()).slice(0, 3);
+const notes = (await getAllNotes()).slice(0, 3);
+---
+
+<BaseLayout
+	title="BlogX_x | 首页"
+	description="BlogX_x 是一个极简黑白风格的个人数字花园。"
+>
+	<section>
+		<p class="meta">PERSONAL DIGITAL GARDEN</p>
+		<h1
+			class="section-title"
+			style="font-size: clamp(2rem, 1.6rem + 2vw, 3rem); margin-bottom: 0.5rem;"
+		>
+			树码空间
+		</h1>
+		<p class="meta" style="max-width: 58ch;">
+			这里沉淀长篇技术文章与碎片化笔记。没有多余装饰，只有清晰结构、可靠信息和持续迭代。
+		</p>
+	</section>
+
+	<section class="section">
+		<div
+			style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
+		>
+			<h2 class="section-title">最新文章</h2>
+			<a class="meta" href="/posts">查看全部 →</a>
+		</div>
+		<div class="stagger" style="display: grid; gap: 0.8rem;">
+			{
+				posts.map((post) => (
+					<a class="card" href={`/posts/${post.slug}`}>
+						<h3 style="margin: 0 0 0.35rem;">{post.data.title}</h3>
+						<p class="meta" style="margin: 0 0 0.4rem;">
+							{formatDate(post.data.date)}
+						</p>
+						<p style="margin: 0;">{post.data.description}</p>
+					</a>
+				))
+			}
+		</div>
+	</section>
+
+	<section class="section">
+		<div
+			style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
+		>
+			<h2 class="section-title">最近笔记</h2>
+			<a class="meta" href="/notes">查看全部 →</a>
+		</div>
+		<ul
+			class="stagger"
+			style="list-style: none; padding: 0; margin: 0; display: grid; gap: 0.8rem;"
+		>
+			{
+				notes.map((note) => (
+					<li class="card">
+						<p style="margin: 0 0 0.35rem;">
+							<span style="margin-right: 0.45rem;">
+								{note.data.mood ?? "✍️"}
+							</span>
+							<span class="meta">{formatDate(note.data.date)}</span>
+						</p>
+						<p style="margin: 0;">{note.body}</p>
+					</li>
+				))
+			}
+		</ul>
+	</section>
+</BaseLayout>
