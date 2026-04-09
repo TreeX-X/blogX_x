@@ -1,18 +1,13 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { render } from "astro:content";
 import { getPublishedPosts, formatDate } from "../../lib/content";
 
 export async function getStaticPaths() {
   const posts = await getPublishedPosts();
 
-  // 只返回可序列化的 params，避免将包含函数的对象传入 props
-  if (posts.length > 0) {
-    console.log("=== 正在检查第一篇文章的数据 ===");
-    console.log("有没有 slug? :", posts[0].slug);
-    console.log("有没有 id? :", posts[0].id);
-  }
   return posts.map((post) => ({
-    params: { slug: post.slug || post.id },
+    params: { slug: post.slug ?? post.id },
   }));
 }
 
@@ -20,7 +15,7 @@ const params = Astro.params;
 const posts = await getPublishedPosts();
 const post = posts.find((p) => p.slug === params.slug || p.id === params.slug);
 if (!post) throw new Error(`Post not found: ${params.slug}`);
-const { Content } = await post.render();
+const { Content } = await render(post);
 ---
 
 <BaseLayout

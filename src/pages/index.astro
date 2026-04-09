@@ -33,7 +33,7 @@ const notes = (await getAllNotes()).slice(0, 3);
 		<div class="stagger" style="display: grid; gap: 0.8rem;">
 			{
 				posts.map((post) => (
-					<a class="card" href={`/posts/${post.slug}`}>
+					<a class="card" href={`/posts/${post.slug ?? post.id}`}>
 						<h3 style="margin: 0 0 0.35rem;">{post.data.title}</h3>
 						<p class="meta" style="margin: 0 0 0.4rem;">
 							{formatDate(post.data.date)}
