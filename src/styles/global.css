@@ -25,10 +25,47 @@ html {
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: radial-gradient(circle at 20% 0%, #fafafa 0%, var(--bg) 52%);
   color: var(--text);
   font-family: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", sans-serif;
   line-height: 1.7;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.cursor-glow {
+  width: 320px;
+  height: 320px;
+  position: fixed;
+  left: 50vw;
+  top: 22vh;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.88) 0%,
+    rgba(255, 255, 255, 0.3) 45%,
+    rgba(255, 255, 255, 0) 75%
+  );
+  filter: blur(2px);
+  transition: opacity 180ms ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: radial-gradient(circle at 20% 0%, #121212 0%, var(--bg) 52%);
+  }
+
+  .cursor-glow {
+    background: radial-gradient(
+      circle at center,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.1) 45%,
+      rgba(255, 255, 255, 0) 75%
+    );
+  }
 }
 
 a {
@@ -43,7 +80,8 @@ a {
 
 .site-header {
   border-bottom: 1px solid var(--line);
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(5px);
   position: sticky;
   top: 0;
   z-index: 20;
@@ -90,23 +128,58 @@ a {
   padding: 1.5rem 0 3rem;
   color: var(--text-muted);
   font-size: 0.9rem;
+  position: relative;
+  z-index: 1;
 }
 
 main {
   padding: 2.4rem 0 1rem;
+  position: relative;
+  z-index: 1;
 }
 
 .card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 1rem;
-  background: var(--bg);
-  transition: transform 160ms ease, background-color 160ms ease;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  transition:
+    transform 220ms ease,
+    background-color 180ms ease,
+    box-shadow 220ms ease,
+    border-color 180ms ease;
 }
 
 .card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px) scale(1.01);
   background: var(--bg-soft);
+  border-color: color-mix(in srgb, var(--text) 18%, var(--line));
+  box-shadow:
+    0 11px 25px -18px color-mix(in srgb, var(--text) 50%, transparent),
+    0 1px 0 0 color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.16rem 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--bg-soft) 65%, transparent);
+}
+
+.post-head {
+  margin-bottom: 1.2rem;
 }
 
 .meta {
@@ -138,6 +211,20 @@ main {
   border-radius: var(--radius);
   padding: 0.95rem;
   overflow: auto;
+  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
+}
+
+.prose-wrap img {
+  width: 100%;
+  border-radius: calc(var(--radius) + 2px);
+  border: 1px solid var(--line);
+}
+
+.prose-wrap p code {
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg-soft) 72%, transparent);
 }
 
 .prose-wrap code {

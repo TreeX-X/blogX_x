@@ -4,6 +4,8 @@ import { getAllNotes, getPublishedPosts, formatDate } from "../lib/content";
 
 const posts = (await getPublishedPosts()).slice(0, 3);
 const notes = (await getAllNotes()).slice(0, 3);
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => `${base}${path}`;
 ---
 
 <BaseLayout
@@ -28,17 +30,26 @@ const notes = (await getAllNotes()).slice(0, 3);
 			style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
 		>
 			<h2 class="section-title">最新文章</h2>
-			<a class="meta" href="/posts">查看全部 →</a>
+			<a class="meta" href={toBase("posts")}>查看全部 →</a>
 		</div>
 		<div class="stagger" style="display: grid; gap: 0.8rem;">
 			{
 				posts.map((post) => (
-					<a class="card" href={`/posts/${post.slug ?? post.id}`}>
+					<a class="card" href={toBase(`posts/${post.slug ?? post.id}`)}>
 						<h3 style="margin: 0 0 0.35rem;">{post.data.title}</h3>
 						<p class="meta" style="margin: 0 0 0.4rem;">
 							{formatDate(post.data.date)}
 						</p>
 						<p style="margin: 0;">{post.data.description}</p>
+						{
+							post.data.tags?.length ? (
+								<div class="tag-list" aria-label="文章标签">
+									{post.data.tags.map((tag) => (
+										<span class="tag">#{tag}</span>
+									))}
+								</div>
+							) : null
+						}
 					</a>
 				))
 			}
@@ -50,7 +61,7 @@ const notes = (await getAllNotes()).slice(0, 3);
 			style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
 		>
 			<h2 class="section-title">最近笔记</h2>
-			<a class="meta" href="/notes">查看全部 →</a>
+			<a class="meta" href={toBase("notes")}>查看全部 →</a>
 		</div>
 		<ul
 			class="stagger"

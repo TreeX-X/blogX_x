@@ -1,5 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => `${base}${path}`;
 ---
 
 <BaseLayout title="BlogX_x | 关于" description="关于 BlogX_x 和作者。">
@@ -9,7 +11,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <div
         style="width: 72px; height: 72px; border-radius: 999px; border: 2px solid var(--line); display: grid; place-items: center; font-weight: 700;"
       >
-        <img src="/about/me.png" alt="avatar" />
+        <img src={toBase("about/me.png")} alt="avatar" />
       </div>
       <p style="margin: 0;">
         我在这里记录技术实践、设计思考和日常学习笔记。BlogX_x
