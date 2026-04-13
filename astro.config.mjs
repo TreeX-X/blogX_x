@@ -1,15 +1,11 @@
-// @ts-check
-import { defineConfig } from 'astro/config';
-import tailwindcss from '@tailwindcss/vite';
-
-import vercel from '@astrojs/vercel';
+import { defineConfig } from "astro/config";
+import vercel from "@astrojs/vercel";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  site: 'https://TreeX-X.github.io',
-
+  output: "server",
+  adapter: vercel(),
   vite: {
     plugins: [tailwindcss()],
   },
-
-  adapter: vercel(),
 });

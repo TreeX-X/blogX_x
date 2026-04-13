@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { getAllNotes, getPublishedPosts, formatDate } from "../lib/content";
+import { getAllNotes, getPublishedPosts, formatDate, getEntrySlug } from "../lib/content";
 
 const posts = (await getPublishedPosts()).slice(0, 3);
 const notes = (await getAllNotes()).slice(0, 3);
@@ -27,6 +27,27 @@ const toBase = (path = "") => {
 		<p class="meta" style="max-width: 58ch;">
 			这里沉淀长篇技术文章与碎片化笔记。没有多余装饰，只有清晰结构、可靠信息和持续迭代。
 		</p>
+	</section>
+
+	<section class="section">
+		<h2 class="section-title">搜索</h2>
+		<form
+			id="siteSearchForm"
+			class="search-form"
+			data-api={toBase("api/search")}
+			data-base={toBase()}
+		>
+			<input
+				id="siteSearchInput"
+				name="q"
+				type="search"
+				placeholder="输入关键词，例如：Astro、排版、笔记"
+				autocomplete="off"
+			/>
+			<button type="submit">搜索</button>
+		</form>
+		<p id="searchStatus" class="meta" style="margin: 0.55rem 0 0.9rem;">输入后回车即可搜索。</p>
+		<div id="searchResults" class="search-results" aria-live="polite"></div>
 	</section>
 
 	<section class="section">
@@ -73,7 +94,8 @@ const toBase = (path = "") => {
 		>
 			{
 				notes.map((note) => (
-					<li class="card">
+					<li>
+						<a class="card" href={toBase(`notes/${getEntrySlug(note)}`)}>
 						<p style="margin: 0 0 0.35rem;">
 							<span style="margin-right: 0.45rem;">
 								{note.data.mood ?? "✍️"}
@@ -81,9 +103,77 @@ const toBase = (path = "") => {
 							<span class="meta">{formatDate(note.data.date)}</span>
 						</p>
 						<p style="margin: 0;">{note.body}</p>
+						</a>
 					</li>
 				))
 			}
 		</ul>
 	</section>
 </BaseLayout>
+
+<script is:inline>
+	const form = document.getElementById("siteSearchForm");
+	const input = document.getElementById("siteSearchInput");
+	const status = document.getElementById("searchStatus");
+	const results = document.getElementById("searchResults");
+
+	const escapeHtml = (value) =>
+		value
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/\"/g, "&quot;")
+			.replace(/'/g, "&#039;");
+
+	const toAbsolute = (base, url) => {
+		if (!url) return "#";
+		if (!url.startsWith("/")) return url;
+		const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+		return `${normalizedBase}${url}`;
+	};
+
+	if (form && input && status && results) {
+		form.addEventListener("submit", async (event) => {
+			event.preventDefault();
+			const query = input.value.trim();
+			if (!query) {
+				status.textContent = "请输入搜索关键词。";
+				results.innerHTML = "";
+				return;
+			}
+
+			const api = form.dataset.api;
+			const base = form.dataset.base ?? "/";
+			status.textContent = "搜索中...";
+			results.innerHTML = "";
+
+			try {
+				const response = await fetch(`${api}?q=${encodeURIComponent(query)}&limit=6`);
+				const payload = await response.json();
+				if (!response.ok) throw new Error(payload?.error ?? "搜索失败");
+
+				const items = payload?.results ?? [];
+				status.textContent = `找到 ${items.length} 条结果`;
+				if (!items.length) {
+					results.innerHTML = "";
+					return;
+				}
+
+				results.innerHTML = items
+					.map(
+						(item) => `
+							<a class="card" href="${toAbsolute(base, String(item.url ?? ""))}">
+								<h3 style="margin: 0 0 0.32rem;">${escapeHtml(String(item.title ?? ""))}</h3>
+								<p class="meta" style="margin: 0 0 0.38rem;">${escapeHtml(String(item.collection ?? ""))}</p>
+								<p style="margin: 0;">${escapeHtml(String(item.content ?? "")).slice(0, 90)}...</p>
+							</a>
+						`
+					)
+					.join("");
+			} catch (error) {
+				status.textContent = `搜索失败：${error.message}`;
+				results.innerHTML = "";
+			}
+		});
+	}
+</script>

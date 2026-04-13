@@ -1,8 +1,14 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getAllNotes, formatDate } from '../../lib/content';
+import { getAllNotes, formatDate, getEntrySlug } from '../../lib/content';
 
 const notes = await getAllNotes();
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
 ---
 
 <BaseLayout title="BlogX_x | 笔记" description="BlogX_x 的碎片化学习笔记。">
@@ -13,12 +19,14 @@ const notes = await getAllNotes();
 
   <ul class="section stagger" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 0.85rem;">
     {notes.map((note) => (
-      <li class="card">
+      <li>
+        <a class="card" href={toBase(`notes/${getEntrySlug(note)}`)}>
         <p style="margin: 0 0 0.35rem;">
           <span style="margin-right: 0.45rem;">{note.data.mood ?? '✍️'}</span>
           <span class="meta">{formatDate(note.data.date)}</span>
         </p>
         <p style="margin: 0;">{note.body}</p>
+        </a>
       </li>
     ))}
   </ul>

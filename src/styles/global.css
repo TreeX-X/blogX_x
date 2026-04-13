@@ -197,6 +197,45 @@ main {
   margin-top: 2.5rem;
 }
 
+.search-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+}
+
+.search-form input,
+.search-form button {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  color: var(--text);
+  padding: 0.62rem 0.75rem;
+  font: inherit;
+}
+
+.search-form input:focus-visible,
+.search-form button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--text) 22%, transparent);
+  outline-offset: 1px;
+}
+
+.search-form button {
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    background-color 180ms ease;
+}
+
+.search-form button:hover {
+  background: var(--bg-soft);
+  transform: translateY(-1px);
+}
+
+.search-results {
+  display: grid;
+  gap: 0.8rem;
+}
+
 .prose-wrap {
   max-width: 72ch;
 }
@@ -367,6 +406,10 @@ main {
 }
 
 @media (max-width: 700px) {
+  .search-form {
+    grid-template-columns: 1fr;
+  }
+
   .github-entry {
     padding-right: 0.8rem;
   }

@@ -1,0 +1,33 @@
+name: Sync LanceDB Index
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  sync-index:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SF_TOKEN: ${{ secrets.SF_TOKEN }}
+      LANCEDB_URI: ${{ secrets.LANCEDB_URI }}
+      LANCEDB_API_KEY: ${{ secrets.LANCEDB_API_KEY }}
+      LANCEDB_TABLE: blog_index
+      EMBEDDING_DIM: 1024
+      LANCEDB_CLOUD_REQUIRED: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build vector index and sync LanceDB
+        run: npm run init-db

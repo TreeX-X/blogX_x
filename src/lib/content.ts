@@ -10,6 +10,11 @@ export async function getAllNotes() {
   return notes.sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 }
 
+export function getEntrySlug(entry: { slug?: string; id: string }) {
+  if (entry.slug && entry.slug.length > 0) return entry.slug;
+  return entry.id.replace(/\\/g, '/').replace(/^.*\//, '').replace(/\.mdx?$/, '');
+}
+
 export function formatDate(date: Date) {
   return new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric',
