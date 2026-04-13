@@ -12,6 +12,10 @@ const SF_MODEL = env("SF_MODEL") || "BAAI/bge-m3";
 const TABLE_NAME = env("LANCEDB_TABLE") || "blog_index";
 const EMBEDDING_DIM = Number.parseInt(env("EMBEDDING_DIM") || "1024", 10);
 const LOCAL_DB_PATH = env("LANCEDB_LOCAL_PATH") || ".lancedb";
+const IS_VERCEL = env("VERCEL") === "1";
+const ALLOW_LOCAL_FALLBACK = env("SEARCH_ALLOW_LOCAL_FALLBACK")
+  ? env("SEARCH_ALLOW_LOCAL_FALLBACK") === "true"
+  : !IS_VERCEL;
 
 function getLimit(value: unknown): number {
   const parsed = typeof value === "number" ? value : Number.parseInt(String(value ?? "10"), 10);
@@ -75,14 +79,18 @@ async function embedQuery(query: string): Promise<number[]> {
 async function trySearchCloud(vector: number[], limit: number) {
   const uri = env("LANCEDB_URI");
   const apiKey = env("LANCEDB_API_KEY");
-  if (!uri || !apiKey) return null;
+  if (!uri || !apiKey) return { rows: null as Record<string, unknown>[] | null, error: "missing_cloud_env" };
 
   try {
     const cloudDb = await lancedb.connect(uri, { apiKey });
     const cloudTable = await cloudDb.openTable(TABLE_NAME);
-    return await cloudTable.search(vector).limit(limit).toArray();
-  } catch {
-    return null;
+    const rows = await cloudTable.search(vector).limit(limit).toArray();
+    return { rows, error: null as string | null };
+  } catch (error) {
+    return {
+      rows: null as Record<string, unknown>[] | null,
+      error: error instanceof Error ? error.message : "cloud_search_failed",
+    };
   }
 }
 
@@ -117,15 +125,23 @@ async function searchLanceDB(query: string, limit: number) {
   const vector = await embedQuery(query);
   const candidateLimit = Math.max(limit * 5, 20);
 
-  const cloudRows = await trySearchCloud(vector, candidateLimit);
-  const rows =
-    cloudRows && cloudRows.length > 0
-      ? cloudRows
-      : await (async () => {
-          const localDb = await lancedb.connect(LOCAL_DB_PATH);
-          const localTable = await localDb.openTable(TABLE_NAME);
-          return await localTable.search(vector).limit(candidateLimit).toArray();
-        })();
+  const cloud = await trySearchCloud(vector, candidateLimit);
+
+  let rows: Record<string, unknown>[] | null = cloud.rows;
+  if (!rows && ALLOW_LOCAL_FALLBACK) {
+    const localDb = await lancedb.connect(LOCAL_DB_PATH);
+    const localTable = await localDb.openTable(TABLE_NAME);
+    rows = await localTable.search(vector).limit(candidateLimit).toArray();
+  }
+
+  if (!rows) {
+    if (cloud.error === "missing_cloud_env") {
+      throw new Error(
+        "Search backend is not configured. Please set LANCEDB_URI and LANCEDB_API_KEY in Vercel project env."
+      );
+    }
+    throw new Error(`LanceDB cloud search failed: ${cloud.error}`);
+  }
 
   const terms = tokenize(query);
   const strictKeywordMode = isShortCjkQuery(query);
