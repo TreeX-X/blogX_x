@@ -13,13 +13,16 @@
     "init-db": "node scripts/init-db.mjs"
   },
   "dependencies": {
+    "@astrojs/react": "^4.4.0",
     "@astrojs/vercel": "^10.0.4",
-    "@huggingface/inference": "^4.13.15",
     "@lancedb/lancedb": "^0.27.2",
     "@tailwindcss/vite": "^4.2.2",
     "astro": "^6.1.5",
     "dotenv": "^17.4.2",
     "gray-matter": "^4.0.3",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-force-graph-2d": "^1.29.1",
     "tailwindcss": "^4.2.2"
   },
   "devDependencies": {

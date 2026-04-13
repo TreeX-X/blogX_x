@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import KnowledgeGraph from "../components/KnowledgeGraph";
 import { getAllNotes, getPublishedPosts, formatDate, getEntrySlug } from "../lib/content";
 
 const posts = (await getPublishedPosts()).slice(0, 3);
@@ -29,86 +30,98 @@ const toBase = (path = "") => {
 		</p>
 	</section>
 
-	<section class="section">
-		<h2 class="section-title">搜索</h2>
-		<form
-			id="siteSearchForm"
-			class="search-form"
-			data-api={toBase("api/search")}
-			data-base={toBase()}
-		>
-			<input
-				id="siteSearchInput"
-				name="q"
-				type="search"
-				placeholder="输入关键词，例如：Astro、排版、笔记"
-				autocomplete="off"
-			/>
-			<button type="submit">搜索</button>
-		</form>
-		<p id="searchStatus" class="meta" style="margin: 0.55rem 0 0.9rem;">输入后回车即可搜索。</p>
-		<div id="searchResults" class="search-results" aria-live="polite"></div>
-	</section>
+	<div class="home-layout section">
+		<div class="home-main">
+			<section>
+				<h2 class="section-title">搜索</h2>
+				<form
+					id="siteSearchForm"
+					class="search-form"
+					data-api={toBase("api/search")}
+					data-base={toBase()}
+				>
+					<input
+						id="siteSearchInput"
+						name="q"
+						type="search"
+						placeholder="输入关键词，例如：Astro、排版、笔记"
+						autocomplete="off"
+					/>
+					<button type="submit">搜索</button>
+				</form>
+				<p id="searchStatus" class="meta" style="margin: 0.55rem 0 0.9rem;">输入后回车即可搜索。</p>
+				<div id="searchResults" class="search-results" aria-live="polite"></div>
+			</section>
 
-	<section class="section">
-		<div
-			style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
-		>
-			<h2 class="section-title">最新文章</h2>
-			<a class="meta" href={toBase("posts")}>查看全部 →</a>
-		</div>
-		<div class="stagger" style="display: grid; gap: 0.8rem;">
-			{
-				posts.map((post) => (
-					<a class="card" href={toBase(`posts/${post.slug ?? post.id}`)}>
-						<h3 style="margin: 0 0 0.35rem;">{post.data.title}</h3>
-						<p class="meta" style="margin: 0 0 0.4rem;">
-							{formatDate(post.data.date)}
-						</p>
-						<p style="margin: 0;">{post.data.description}</p>
-						{
-							post.data.tags?.length ? (
-								<div class="tag-list" aria-label="文章标签">
-									{post.data.tags.map((tag) => (
-										<span class="tag">#{tag}</span>
-									))}
-								</div>
-							) : null
-						}
-					</a>
-				))
-			}
-		</div>
-	</section>
+			<section class="section">
+				<div
+					style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
+				>
+					<h2 class="section-title">最新文章</h2>
+					<a class="meta" href={toBase("posts")}>查看全部 →</a>
+				</div>
+				<div class="stagger" style="display: grid; gap: 0.8rem;">
+					{
+						posts.map((post) => (
+							<a class="card" href={toBase(`posts/${post.slug ?? post.id}`)}>
+								<h3 style="margin: 0 0 0.35rem;">{post.data.title}</h3>
+								<p class="meta" style="margin: 0 0 0.4rem;">
+									{formatDate(post.data.date)}
+								</p>
+								<p style="margin: 0;">{post.data.description}</p>
+								{
+									post.data.tags?.length ? (
+										<div class="tag-list" aria-label="文章标签">
+											{post.data.tags.map((tag) => (
+												<span class="tag">#{tag}</span>
+											))}
+										</div>
+									) : null
+								}
+							</a>
+						))
+					}
+				</div>
+			</section>
 
-	<section class="section">
-		<div
-			style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
-		>
-			<h2 class="section-title">最近笔记</h2>
-			<a class="meta" href={toBase("notes")}>查看全部 →</a>
+			<section class="section">
+				<div
+					style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
+				>
+					<h2 class="section-title">最近笔记</h2>
+					<a class="meta" href={toBase("notes")}>查看全部 →</a>
+				</div>
+				<ul
+					class="stagger"
+					style="list-style: none; padding: 0; margin: 0; display: grid; gap: 0.8rem;"
+				>
+					{
+						notes.map((note) => (
+							<li>
+								<a class="card" href={toBase(`notes/${getEntrySlug(note)}`)}>
+								<p style="margin: 0 0 0.35rem;">
+									<span style="margin-right: 0.45rem;">
+										{note.data.mood ?? "✍️"}
+									</span>
+									<span class="meta">{formatDate(note.data.date)}</span>
+								</p>
+								<p style="margin: 0;">{note.body}</p>
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</section>
 		</div>
-		<ul
-			class="stagger"
-			style="list-style: none; padding: 0; margin: 0; display: grid; gap: 0.8rem;"
-		>
-			{
-				notes.map((note) => (
-					<li>
-						<a class="card" href={toBase(`notes/${getEntrySlug(note)}`)}>
-						<p style="margin: 0 0 0.35rem;">
-							<span style="margin-right: 0.45rem;">
-								{note.data.mood ?? "✍️"}
-							</span>
-							<span class="meta">{formatDate(note.data.date)}</span>
-						</p>
-						<p style="margin: 0;">{note.body}</p>
-						</a>
-					</li>
-				))
-			}
-		</ul>
-	</section>
+
+		<aside class="home-sidebar">
+			<h2 class="section-title" style="margin-bottom: 0.7rem;">知识图谱</h2>
+			<p class="meta" style="margin: 0 0 0.75rem;">
+				基于向量相似度自动构建关系网络（每篇最多 5 条关联）。
+			</p>
+			<KnowledgeGraph apiUrl={toBase("api/knowledge-graph")} client:media="(min-width: 901px)" />
+		</aside>
+	</div>
 </BaseLayout>
 
 <script is:inline>
