@@ -139,6 +139,7 @@ main {
 }
 
 .card {
+  display: block;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 1rem;

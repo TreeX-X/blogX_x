@@ -1,7 +1,12 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import KnowledgeGraph from "../components/KnowledgeGraph";
-import { getAllNotes, getPublishedPosts, formatDate, getEntrySlug } from "../lib/content";
+import {
+	getAllNotes,
+	getPublishedPosts,
+	formatDate,
+	getEntrySlug,
+} from "../lib/content";
 
 const posts = (await getPublishedPosts()).slice(0, 3);
 const notes = (await getAllNotes()).slice(0, 3);
@@ -9,7 +14,9 @@ const base = import.meta.env.BASE_URL;
 const toBase = (path = "") => {
 	const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
 	const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
-	return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+	return normalizedPath
+		? `${normalizedBase}/${normalizedPath}`
+		: `${normalizedBase}/`;
 };
 ---
 
@@ -49,7 +56,9 @@ const toBase = (path = "") => {
 					/>
 					<button type="submit">搜索</button>
 				</form>
-				<p id="searchStatus" class="meta" style="margin: 0.55rem 0 0.9rem;">输入后回车即可搜索。</p>
+				<p id="searchStatus" class="meta" style="margin: 0.55rem 0 0.9rem;">
+					输入后回车即可搜索。
+				</p>
 				<div id="searchResults" class="search-results" aria-live="polite"></div>
 			</section>
 
@@ -69,15 +78,13 @@ const toBase = (path = "") => {
 									{formatDate(post.data.date)}
 								</p>
 								<p style="margin: 0;">{post.data.description}</p>
-								{
-									post.data.tags?.length ? (
-										<div class="tag-list" aria-label="文章标签">
-											{post.data.tags.map((tag) => (
-												<span class="tag">#{tag}</span>
-											))}
-										</div>
-									) : null
-								}
+								{post.data.tags?.length ? (
+									<div class="tag-list" aria-label="文章标签">
+										{post.data.tags.map((tag) => (
+											<span class="tag">#{tag}</span>
+										))}
+									</div>
+								) : null}
 							</a>
 						))
 					}
@@ -91,14 +98,10 @@ const toBase = (path = "") => {
 					<h2 class="section-title">最近笔记</h2>
 					<a class="meta" href={toBase("notes")}>查看全部 →</a>
 				</div>
-				<ul
-					class="stagger"
-					style="list-style: none; padding: 0; margin: 0; display: grid; gap: 0.8rem;"
-				>
+				<div class="stagger" style="display: grid; gap: 0.8rem;">
 					{
 						notes.map((note) => (
-							<li>
-								<a class="card" href={toBase(`notes/${getEntrySlug(note)}`)}>
+							<a class="card" href={toBase(`notes/${getEntrySlug(note)}`)}>
 								<p style="margin: 0 0 0.35rem;">
 									<span style="margin-right: 0.45rem;">
 										{note.data.mood ?? "✍️"}
@@ -106,20 +109,22 @@ const toBase = (path = "") => {
 									<span class="meta">{formatDate(note.data.date)}</span>
 								</p>
 								<p style="margin: 0;">{note.body}</p>
-								</a>
-							</li>
+							</a>
 						))
 					}
-				</ul>
+				</div>
 			</section>
 		</div>
 
 		<aside class="home-sidebar">
 			<h2 class="section-title" style="margin-bottom: 0.7rem;">知识图谱</h2>
 			<p class="meta" style="margin: 0 0 0.75rem;">
-				基于向量相似度自动构建关系网络（每篇最多 5 条关联）。
+				基于向量相似度自动构建关系网络。
 			</p>
-			<KnowledgeGraph apiUrl={toBase("api/knowledge-graph")} client:media="(min-width: 901px)" />
+			<KnowledgeGraph
+				apiUrl={toBase("api/knowledge-graph")}
+				client:media="(min-width: 901px)"
+			/>
 		</aside>
 	</div>
 </BaseLayout>
@@ -161,7 +166,9 @@ const toBase = (path = "") => {
 			results.innerHTML = "";
 
 			try {
-				const response = await fetch(`${api}?q=${encodeURIComponent(query)}&limit=6`);
+				const response = await fetch(
+					`${api}?q=${encodeURIComponent(query)}&limit=6`,
+				);
 				const payload = await response.json();
 				if (!response.ok) throw new Error(payload?.error ?? "搜索失败");
 
@@ -180,7 +187,7 @@ const toBase = (path = "") => {
 								<p class="meta" style="margin: 0 0 0.38rem;">${escapeHtml(String(item.collection ?? ""))}</p>
 								<p style="margin: 0;">${escapeHtml(String(item.content ?? "")).slice(0, 90)}...</p>
 							</a>
-						`
+						`,
 					)
 					.join("");
 			} catch (error) {
