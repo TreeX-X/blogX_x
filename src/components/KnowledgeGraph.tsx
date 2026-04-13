@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import ForceGraph2D from "react-force-graph-2d";
 
 type Node = {
   id: string;
@@ -38,6 +37,7 @@ function getNodeColor(collection: string) {
 export default function KnowledgeGraph({ apiUrl }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const graphRef = useRef<any>(null);
+  const [GraphImpl, setGraphImpl] = useState<any>(null);
   const [width, setWidth] = useState(320);
   const [height, setHeight] = useState(430);
   const [loading, setLoading] = useState(true);
@@ -88,6 +88,22 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     };
   }, [apiUrl]);
 
+  useEffect(() => {
+    let active = true;
+    import("react-force-graph-2d")
+      .then((mod) => {
+        if (!active) return;
+        setGraphImpl(() => mod.default);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError("图谱渲染库加载失败");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const graphData = useMemo(() => ({ nodes: payload.nodes, links: payload.links }), [payload]);
 
   useEffect(() => {
@@ -97,7 +113,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     graphRef.current.zoomToFit(500, 20);
   }, [payload]);
 
-  if (loading) {
+  if (loading || !GraphImpl) {
     return (
       <div className="kg-panel" ref={containerRef}>
         <p className="meta">知识图谱加载中...</p>
@@ -124,7 +140,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
   return (
     <div className="kg-panel" ref={containerRef}>
       <p className="kg-meta">节点 {payload.nodeCount} / 关系 {payload.linkCount}</p>
-      <ForceGraph2D
+      <GraphImpl
         ref={graphRef}
         width={width}
         height={height}
