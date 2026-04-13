@@ -1,5 +1,5 @@
 ---
-import '../styles/global.css';
+import "../styles/global.css";
 
 interface Props {
   title: string;
@@ -12,7 +12,9 @@ const base = import.meta.env.BASE_URL;
 const toBase = (path = "") => {
   const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
-  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+  return normalizedPath
+    ? `${normalizedBase}/${normalizedPath}`
+    : `${normalizedBase}/`;
 };
 ---
 
@@ -22,8 +24,8 @@ const toBase = (path = "") => {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
-    <link rel="icon" type="image/png" href={toBase("logo/treeXLogo.png")} />
-    <link rel="shortcut icon" type="image/png" href={toBase("logo/treeXLogo.png")} />
+    <link rel="icon" type="image/svg+xml" href={toBase("favicon.svg")} />
+    <link rel="icon" href={toBase("favicon.ico")} />
     <title>{title}</title>
   </head>
   <body>
@@ -31,7 +33,13 @@ const toBase = (path = "") => {
     <header class="site-header">
       <div class="container inner">
         <a class="brand" href={toBase()}>BlogX_x</a>
-        <button id="menuToggle" class="menu-toggle" aria-expanded="false" aria-controls="siteNav" type="button">
+        <button
+          id="menuToggle"
+          class="menu-toggle"
+          aria-expanded="false"
+          aria-controls="siteNav"
+          type="button"
+        >
           Menu
         </button>
         <nav id="siteNav" class="nav-links" data-open="false">
@@ -48,20 +56,20 @@ const toBase = (path = "") => {
     </main>
 
     <footer class="site-footer">
-      <div class="container">© {currentYear} BlogX_x. Minimal black and white digital garden.</div>
+      <div class="container">© {currentYear} BlogX_x's Digital Garden.</div>
     </footer>
 
     <script>
-      const button = document.getElementById('menuToggle');
-      const nav = document.getElementById('siteNav');
-      const glow = document.getElementById('cursorGlow');
+      const button = document.getElementById("menuToggle");
+      const nav = document.getElementById("siteNav");
+      const glow = document.getElementById("cursorGlow");
       let frame = 0;
 
       if (button && nav) {
-        button.addEventListener('click', () => {
-          const isOpen = nav.dataset.open === 'true';
+        button.addEventListener("click", () => {
+          const isOpen = nav.dataset.open === "true";
           nav.dataset.open = String(!isOpen);
-          button.setAttribute('aria-expanded', String(!isOpen));
+          button.setAttribute("aria-expanded", String(!isOpen));
         });
       }
 
@@ -71,7 +79,7 @@ const toBase = (path = "") => {
         glow.style.top = `${y + 22}px`;
       };
 
-      window.addEventListener('pointermove', (event) => {
+      window.addEventListener("pointermove", (event) => {
         if (frame) cancelAnimationFrame(frame);
         frame = requestAnimationFrame(() => {
           updateGlow(event.clientX, event.clientY);
@@ -79,7 +87,7 @@ const toBase = (path = "") => {
         });
       });
 
-      window.addEventListener('mousemove', (event) => {
+      window.addEventListener("mousemove", (event) => {
         if (frame) cancelAnimationFrame(frame);
         frame = requestAnimationFrame(() => {
           updateGlow(event.clientX, event.clientY);
@@ -88,11 +96,11 @@ const toBase = (path = "") => {
       });
 
       window.addEventListener(
-        'pointerleave',
+        "pointerleave",
         () => {
           updateGlow(window.innerWidth * 0.5, window.innerHeight * 0.22);
         },
-        { passive: true }
+        { passive: true },
       );
     </script>
   </body>
