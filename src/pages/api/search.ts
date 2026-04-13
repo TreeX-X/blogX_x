@@ -1,10 +1,15 @@
 import type { APIRoute } from "astro";
 import * as lancedb from "@lancedb/lancedb";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export const prerender = false;
 
 const env = (name: string): string | undefined => {
-  const value = (import.meta.env as Record<string, string | undefined>)[name] ?? process.env[name];
+  const fromProcess = process.env[name];
+  const fromMeta = (import.meta.env as Record<string, string | undefined>)[name];
+  const value = fromProcess || fromMeta;
   return value && value.length > 0 ? value : undefined;
 };
 
@@ -110,6 +115,18 @@ function isShortCjkQuery(query: string) {
   return /[\u4e00-\u9fff]/.test(compact) && compact.length <= 4;
 }
 
+function isShortAsciiQuery(query: string) {
+  const compact = query.toLowerCase().replace(/\s+/g, "");
+  return /^[a-z0-9]+$/.test(compact) && compact.length <= 6;
+}
+
+function isAsciiSingleTokenQuery(query: string) {
+  const terms = tokenize(query);
+  if (terms.length !== 1) return false;
+  const compact = terms[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+  return compact.length > 0 && compact.length <= 24;
+}
+
 function getSafeUrl(row: Record<string, unknown>) {
   const raw = String(row.url ?? "");
   if (raw.startsWith("/posts/") || raw.startsWith("/notes/")) return raw;
@@ -119,6 +136,25 @@ function getSafeUrl(row: Record<string, unknown>) {
   if (!slug) return "#";
   if (collection === "posts" || collection === "notes") return `/${collection}/${slug}`;
   return "#";
+}
+
+function getSemanticThreshold(distances: number[]) {
+  if (distances.length === 0) return Number.NEGATIVE_INFINITY;
+  const sorted = [...distances].sort((a, b) => a - b);
+  const best = sorted[0];
+  return Math.min(best + 0.12, 0.62);
+}
+
+function hasConfidentSemanticSignal(distances: number[]) {
+  if (distances.length === 0) return false;
+  const sorted = [...distances].sort((a, b) => a - b);
+  const best = sorted[0];
+  if (best <= 0.35) return true;
+
+  // If top results are too dense, semantic ranking is likely noise.
+  const probeIndex = Math.min(sorted.length - 1, 3);
+  const gap = sorted[probeIndex] - best;
+  return gap >= 0.04;
 }
 
 async function searchLanceDB(query: string, limit: number) {
@@ -144,16 +180,15 @@ async function searchLanceDB(query: string, limit: number) {
   }
 
   const terms = tokenize(query);
-  const strictKeywordMode = isShortCjkQuery(query);
+  const strictKeywordMode = isShortCjkQuery(query) || isShortAsciiQuery(query) || isAsciiSingleTokenQuery(query);
 
-  const ranked = rows.map((row: Record<string, unknown>) => {
+  const ranked = rows.map((row) => {
     const title = String(row.title ?? "");
     const content = String(row.content ?? "");
     const haystack = normalizeText(`${title} ${content}`);
 
     let lexicalScore = 0;
     for (const term of terms) {
-      if (!term) continue;
       const termNormalized = normalizeText(term);
       if (!termNormalized) continue;
       if (normalizeText(title).includes(termNormalized)) lexicalScore += 4;
@@ -167,18 +202,18 @@ async function searchLanceDB(query: string, limit: number) {
           ? row.score
           : Number.POSITIVE_INFINITY;
 
-    return {
-      row,
-      lexicalScore,
-      distance,
-    };
+    return { row, lexicalScore, distance };
   });
+
+  const finiteDistances = ranked.map((x) => x.distance).filter((x) => Number.isFinite(x)) as number[];
+  const semanticThreshold = getSemanticThreshold(finiteDistances);
+  const semanticSignalOk = hasConfidentSemanticSignal(finiteDistances);
 
   const filtered = strictKeywordMode
     ? ranked.filter((item) => item.lexicalScore > 0)
-    : ranked.filter((item) => item.lexicalScore > 0 || item.distance < 0.75);
+    : ranked.filter((item) => item.lexicalScore > 0 || (semanticSignalOk && item.distance <= semanticThreshold));
 
-  const sorted = (filtered.length > 0 ? filtered : ranked)
+  const sorted = filtered
     .sort((a, b) => {
       if (b.lexicalScore !== a.lexicalScore) return b.lexicalScore - a.lexicalScore;
       return a.distance - b.distance;
