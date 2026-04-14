@@ -26,8 +26,12 @@ Thumbs.db
 
 /docs
 /.vscode
+/.codex
+/.claude
 
 /.github/*
 !/.github/workflows
 .vercel
 .lancedb
+AGENTS.md
+CLAUDE.md

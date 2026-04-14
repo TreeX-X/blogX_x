@@ -13,15 +13,18 @@ const posts = defineCollection({
   }),
 });
 
-const notes = defineCollection({
-  loader: glob({ pattern: '**/*.md', base: './src/content/notes' }),
+const knowledgeBase = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/knowledge-base' }),
   schema: z.object({
-    date: z.coerce.date(),
-    mood: z.string().optional(),
+    title: z.string().optional(),
+    date: z.coerce.date().optional(),
+    description: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    isDraft: z.boolean().default(false),
   }),
 });
 
 export const collections = {
   posts,
-  notes,
+  knowledgeBase,
 };

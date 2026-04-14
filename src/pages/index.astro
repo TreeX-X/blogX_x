@@ -2,14 +2,17 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import KnowledgeGraph from "../components/KnowledgeGraph";
 import {
-	getAllNotes,
+	getKnowledgeBaseEntries,
 	getPublishedPosts,
+	getContentDate,
+	getContentSummary,
+	getContentTitle,
+	getEntryPath,
 	formatDate,
-	getEntrySlug,
 } from "../lib/content";
 
 const posts = (await getPublishedPosts()).slice(0, 3);
-const notes = (await getAllNotes()).slice(0, 3);
+const knowledgeEntries = (await getKnowledgeBaseEntries()).slice(0, 3);
 const base = import.meta.env.BASE_URL;
 const toBase = (path = "") => {
 	const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
@@ -33,7 +36,7 @@ const toBase = (path = "") => {
 			树码空间
 		</h1>
 		<p class="meta" style="max-width: 58ch;">
-			这里沉淀长篇技术文章与碎片化笔记。没有多余装饰，只有清晰结构、可靠信息和持续迭代。
+			这里沉淀长篇技术文章与 Obsidian 本地知识库。没有多余装饰，只有清晰结构、可靠信息和持续迭代。
 		</p>
 	</section>
 
@@ -51,7 +54,7 @@ const toBase = (path = "") => {
 						id="siteSearchInput"
 						name="q"
 						type="search"
-						placeholder="输入关键词，例如：Astro、排版、笔记"
+						placeholder="输入关键词，例如：Astro、排版、知识库"
 						autocomplete="off"
 					/>
 					<button type="submit">搜索</button>
@@ -95,20 +98,18 @@ const toBase = (path = "") => {
 				<div
 					style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
 				>
-					<h2 class="section-title">最近笔记</h2>
-					<a class="meta" href={toBase("notes")}>查看全部 →</a>
+					<h2 class="section-title">最近知识库</h2>
+					<a class="meta" href={toBase("knowledge-base")}>查看全部 →</a>
 				</div>
 				<div class="stagger" style="display: grid; gap: 0.8rem;">
 					{
-						notes.map((note) => (
-							<a class="card" href={toBase(`notes/${getEntrySlug(note)}`)}>
-								<p style="margin: 0 0 0.35rem;">
-									<span style="margin-right: 0.45rem;">
-										{note.data.mood ?? "✍️"}
-									</span>
-									<span class="meta">{formatDate(note.data.date)}</span>
+						knowledgeEntries.map((entry) => (
+							<a class="card" href={toBase(`knowledge-base/${getEntryPath(entry)}`)}>
+								<p class="meta" style="margin: 0 0 0.35rem;">
+									{formatDate(getContentDate(entry))}
 								</p>
-								<p style="margin: 0;">{note.body}</p>
+								<h3 style="margin: 0 0 0.35rem;">{getContentTitle(entry)}</h3>
+								<p style="margin: 0;">{getContentSummary(entry, 88)}</p>
 							</a>
 						))
 					}

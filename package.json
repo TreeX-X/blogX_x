@@ -10,7 +10,10 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "init-db": "node scripts/init-db.mjs"
+    "sync-kb": "node scripts/sync-obsidian-kb.mjs",
+    "sync-kb:stage": "node scripts/sync-obsidian-kb.mjs --stage",
+    "init-db": "node scripts/init-db.mjs",
+    "prepare": "node scripts/setup-git-hooks.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.0",

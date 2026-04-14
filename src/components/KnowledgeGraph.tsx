@@ -27,7 +27,7 @@ type Props = {
 
 const NODE_COLORS: Record<string, string> = {
   posts: "#111111",
-  notes: "#6b7280",
+  "knowledge-base": "#6b7280",
 };
 
 function getNodeColor(collection: string) {
@@ -175,7 +175,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
           window.location.href = n.url;
         }}
       />
-      <p className="kg-tip meta">点击节点可跳转到对应文章或笔记</p>
+      <p className="kg-tip meta">点击节点可跳转到对应文章或知识库条目</p>
     </div>
   );
 }

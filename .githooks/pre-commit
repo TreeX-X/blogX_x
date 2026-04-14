@@ -1,0 +1,13 @@
+#!/bin/sh
+
+echo "[pre-commit] Syncing Obsidian knowledge base..."
+npm run sync-kb:stage
+status=$?
+
+if [ "$status" -ne 0 ]; then
+  echo "[pre-commit] Sync failed, commit aborted."
+  exit $status
+fi
+
+echo "[pre-commit] Knowledge base synced and staged."
+exit 0

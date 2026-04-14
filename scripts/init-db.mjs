@@ -9,7 +9,7 @@ dotenv.config();
 // 硅基流动推荐使用的强大中文向量模型，维度默认 1024
 const SF_MODEL = "BAAI/bge-m3";
 const TABLE_NAME = process.env.LANCEDB_TABLE || "blog_index";
-const CONTENT_DIRS = ["src/content/posts", "src/content/notes"];
+const CONTENT_DIRS = ["src/content/posts", "src/content/knowledge-base"];
 // 注意：bge-m3 模型的输出维度是 1024，默认值已修改
 const EMBEDDING_DIM = Number.parseInt(process.env.EMBEDDING_DIM || "1024", 10);
 const LOCAL_DB_PATH = process.env.LANCEDB_LOCAL_PATH || ".lancedb";
@@ -111,8 +111,10 @@ async function main() {
     const { data, content } = matter(raw);
 
     const relativePath = path.relative(process.cwd(), file).replace(/\\/g, "/");
-    const collection = relativePath.includes("/notes/") ? "notes" : "posts";
-    const slug = path.basename(file).replace(/\.mdx?$/, "");
+    const collection = relativePath.includes("/knowledge-base/") ? "knowledge-base" : "posts";
+    const normalizedPath = relativePath.replace(/^src\/content\/(posts|knowledge-base)\//, "");
+    const fullSlug = normalizedPath.replace(/\.mdx?$/, "");
+    const slug = collection === "knowledge-base" ? fullSlug : path.basename(file).replace(/\.mdx?$/, "");
     const title = typeof data.title === "string" && data.title.trim() ? data.title.trim() : slug;
     const plainText = stripMarkdown(content).slice(0, 700);
     const textToEmbed = `标题: ${title}\n内容: ${plainText}`;

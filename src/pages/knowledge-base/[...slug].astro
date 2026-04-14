@@ -1,0 +1,44 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { render } from "astro:content";
+import {
+  getKnowledgeBaseEntries,
+  getContentDate,
+  getContentSummary,
+  getContentTitle,
+  getEntryPath,
+  formatDate,
+} from "../../lib/content";
+
+export async function getStaticPaths() {
+  const entries = await getKnowledgeBaseEntries();
+  return entries.map((entry) => ({
+    params: { slug: getEntryPath(entry) },
+  }));
+}
+
+const paramSlug = String(Astro.params.slug ?? "");
+const entries = await getKnowledgeBaseEntries();
+const entry = entries.find((item) => getEntryPath(item) === paramSlug);
+
+if (!entry) throw new Error(`Knowledge entry not found: ${paramSlug}`);
+const { Content } = await render(entry);
+---
+
+<BaseLayout
+  title={`${getContentTitle(entry)} | 知识库 | BlogX_x`}
+  description={getContentSummary(entry, 120)}
+>
+  <article class="prose-wrap">
+    <header class="post-head">
+      <p class="meta">{formatDate(getContentDate(entry))}</p>
+      <h1
+        style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;"
+      >
+        {getContentTitle(entry)}
+      </h1>
+      <p class="meta" style="margin-bottom: 0.85rem;">来自本地 Obsidian 知识库同步</p>
+    </header>
+    <Content />
+  </article>
+</BaseLayout>
