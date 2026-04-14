@@ -10,6 +10,19 @@ import {
 } from "../../lib/content";
 
 const entries = await getKnowledgeBaseEntries();
+const groupedEntries = entries.reduce(
+  (acc, entry) => {
+    const entryPath = getEntryPath(entry);
+    const [groupName] = entryPath.split("/");
+    const key = groupName || "未分类";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(entry);
+    return acc;
+  },
+  {} as Record<string, typeof entries>
+);
+
+const groupNames = Object.keys(groupedEntries).sort((a, b) => a.localeCompare(b, "zh-CN"));
 const base = import.meta.env.BASE_URL;
 const toBase = (path = "") => {
   const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
@@ -25,13 +38,20 @@ const toBase = (path = "") => {
   </section>
 
   <section class="section">
-    <div class="stagger" style="display: grid; gap: 0.9rem;">
-      {entries.map((entry) => (
-        <a class="card" href={toBase(`knowledge-base/${getEntryPath(entry)}`)}>
-          <p class="meta" style="margin: 0 0 0.35rem;">{formatDate(getContentDate(entry))}</p>
-          <h2 style="margin: 0 0 0.4rem; font-size: 1.2rem;">{getContentTitle(entry)}</h2>
-          <p style="margin: 0;">{getContentSummary(entry, 120)}</p>
-        </a>
+    <div class="stagger" style="display: grid; gap: 1.2rem;">
+      {groupNames.map((groupName) => (
+        <section class="kg-group">
+          <h2 class="section-title" style="font-size: 1.2rem; margin-bottom: 0.7rem;">{groupName}</h2>
+          <div style="display: grid; gap: 0.9rem;">
+            {groupedEntries[groupName].map((entry) => (
+              <a class="card" href={toBase(`knowledge-base/${getEntryPath(entry)}`)}>
+                <p class="meta" style="margin: 0 0 0.35rem;">{formatDate(getContentDate(entry))}</p>
+                <h3 style="margin: 0 0 0.4rem; font-size: 1.05rem;">{getContentTitle(entry)}</h3>
+                <p style="margin: 0;">{getContentSummary(entry, 120)}</p>
+              </a>
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   </section>

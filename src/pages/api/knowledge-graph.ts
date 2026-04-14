@@ -138,26 +138,30 @@ export const GET: APIRoute = async () => {
         .limit(Math.max(20, MAX_EDGES_PER_NODE * 4))
         .toArray()) as Row[];
 
-      const sourceLinks: GraphLink[] = [];
+      const allCandidates: GraphLink[] = [];
       for (const candidate of candidateRows) {
         const targetId = String(candidate.id ?? "");
         if (!targetId || targetId === sourceId) continue;
         if (!nodeIdSet.has(targetId)) continue;
         const distance = toDistance(candidate);
         const similarity = toSimilarity(distance);
-        if (similarity < MIN_SIMILARITY) continue;
-
-        const edgeKey = sourceId < targetId ? `${sourceId}__${targetId}` : `${targetId}__${sourceId}`;
-        if (edgeSet.has(edgeKey)) continue;
-
-        sourceLinks.push({ source: sourceId, target: targetId, distance, similarity });
-        if (sourceLinks.length >= MAX_EDGES_PER_NODE) break;
+        allCandidates.push({ source: sourceId, target: targetId, distance, similarity });
       }
 
-      // Prefer 3~5 neighbors, but if threshold is strict allow fewer.
-      const picked = sourceLinks.slice(0, Math.max(MIN_NEIGHBORS_PER_NODE, Math.min(MAX_EDGES_PER_NODE, sourceLinks.length)));
+      const preferred = allCandidates.filter((link) => link.similarity >= MIN_SIMILARITY);
+      const sourceLinks = preferred.length > 0 ? preferred : allCandidates;
+      const desiredCount = Math.max(
+        1,
+        Math.min(
+          MAX_EDGES_PER_NODE,
+          Math.max(MIN_NEIGHBORS_PER_NODE, Math.min(MAX_EDGES_PER_NODE, sourceLinks.length))
+        )
+      );
+
+      const picked = sourceLinks.slice(0, desiredCount);
       for (const link of picked) {
         const edgeKey = link.source < link.target ? `${link.source}__${link.target}` : `${link.target}__${link.source}`;
+        if (edgeSet.has(edgeKey)) continue;
         edgeSet.add(edgeKey);
         links.push(link);
       }

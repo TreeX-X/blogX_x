@@ -8,6 +8,7 @@ import {
 	getContentSummary,
 	getContentTitle,
 	getEntryPath,
+	getEntrySlug,
 	formatDate,
 } from "../lib/content";
 
@@ -75,7 +76,7 @@ const toBase = (path = "") => {
 				<div class="stagger" style="display: grid; gap: 0.8rem;">
 					{
 						posts.map((post) => (
-							<a class="card" href={toBase(`posts/${post.slug ?? post.id}`)}>
+							<a class="card" href={toBase(`posts/${getEntrySlug(post)}`)}>
 								<h3 style="margin: 0 0 0.35rem;">{post.data.title}</h3>
 								<p class="meta" style="margin: 0 0 0.4rem;">
 									{formatDate(post.data.date)}

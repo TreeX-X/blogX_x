@@ -34,6 +34,13 @@ function getNodeColor(collection: string) {
   return NODE_COLORS[collection] || "#9ca3af";
 }
 
+function toAppUrl(rawUrl: string) {
+  if (!rawUrl || rawUrl === "#") return "#";
+  if (!rawUrl.startsWith("/")) return rawUrl;
+  const base = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "");
+  return `${base}${rawUrl}`;
+}
+
 export default function KnowledgeGraph({ apiUrl }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const graphRef = useRef<any>(null);
@@ -172,7 +179,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         onNodeClick={(node) => {
           const n = node as Node;
           if (!n?.url || n.url === "#") return;
-          window.location.href = n.url;
+          window.location.href = toAppUrl(n.url);
         }}
       />
       <p className="kg-tip meta">点击节点可跳转到对应文章或知识库条目</p>
