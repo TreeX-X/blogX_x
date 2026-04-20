@@ -1,0 +1,19 @@
+#!/bin/sh
+
+echo "[pre-push] Syncing Obsidian knowledge base..."
+npm run sync-kb
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "[pre-push] Sync failed, push aborted."
+  exit $status
+fi
+
+git update-index -q --refresh
+if ! git diff --quiet -- src/content/knowledge-base; then
+  echo "[pre-push] Detected uncommitted knowledge-base changes after sync."
+  echo "[pre-push] Run: git add src/content/knowledge-base && git commit --amend or new commit."
+  exit 1
+fi
+
+echo "[pre-push] Knowledge base is up to date."
+exit 0

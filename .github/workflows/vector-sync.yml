@@ -2,7 +2,18 @@ name: Sync LanceDB Index
 
 on:
   push:
+    paths:
+      - "src/content/posts/**"
+      - "src/content/knowledge-base/**"
+      - "scripts/init-db.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/vector-sync.yml"
   workflow_dispatch:
+
+concurrency:
+  group: vector-sync-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   sync-index:

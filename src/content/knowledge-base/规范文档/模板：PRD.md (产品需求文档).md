@@ -58,18 +58,15 @@ source: 'obsidian:规范文档/模板：PRD.md (产品需求文档).md'
 
 - **验收标准 (Acceptance Criteria)**：
 
-
 ### 功能 2：[]
 
 - **描述**：
 
 - **实现要求**
 
-
 - **验收标准 (Acceptance Criteria)**：
 
 ### 子功能 2-1：
-
 
 ## 5. 🛡️ 非功能性需求 (Non-Functional Requirements)
 

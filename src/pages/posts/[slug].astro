@@ -15,30 +15,46 @@ const params = Astro.params;
 const posts = await getPublishedPosts();
 const post = posts.find((p) => getEntrySlug(p) === params.slug);
 if (!post) throw new Error(`Post not found: ${params.slug}`);
-const { Content } = await render(post);
+const { Content, headings } = await render(post);
+const toc = (headings ?? []).filter((item) => item.depth >= 2 && item.depth <= 4);
 ---
 
 <BaseLayout
   title={`${post.data.title} | BlogX_x`}
   description={post.data.description}
 >
-  <article class="prose-wrap">
-    <header class="post-head">
-      <p class="meta">{formatDate(post.data.date)}</p>
-      <h1
-        style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;"
-      >
-        {post.data.title}
-      </h1>
-      <p class="meta" style="margin-bottom: 0.85rem;">{post.data.description}</p>
-      {post.data.tags?.length ? (
-        <div class="tag-list" aria-label="文章标签">
-          {post.data.tags.map((tag) => (
-            <span class="tag">#{tag}</span>
+  <div class="article-layout">
+    <article class="prose-wrap">
+      <header class="post-head">
+        <p class="meta">{formatDate(post.data.date)}</p>
+        <h1
+          style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;"
+        >
+          {post.data.title}
+        </h1>
+        <p class="meta" style="margin-bottom: 0.85rem;">{post.data.description}</p>
+        {post.data.tags?.length ? (
+          <div class="tag-list" aria-label="文章标签">
+            {post.data.tags.map((tag) => (
+              <span class="tag">#{tag}</span>
+            ))}
+          </div>
+        ) : null}
+      </header>
+      <Content />
+    </article>
+
+    {toc.length > 0 ? (
+      <aside class="toc-panel" aria-label="文章目录">
+        <p class="toc-title">快速跳转</p>
+        <nav class="toc-list">
+          {toc.map((item) => (
+            <a class={`toc-item depth-${item.depth}`} href={`#${item.slug}`}>
+              {item.text}
+            </a>
           ))}
-        </div>
-      ) : null}
-    </header>
-    <Content />
-  </article>
+        </nav>
+      </aside>
+    ) : null}
+  </div>
 </BaseLayout>

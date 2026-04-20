@@ -12,7 +12,10 @@
     "astro": "astro",
     "sync-kb": "node scripts/sync-obsidian-kb.mjs",
     "sync-kb:stage": "node scripts/sync-obsidian-kb.mjs --stage",
+    "sync-kb:check": "node scripts/sync-obsidian-kb.mjs && git diff --quiet -- src/content/knowledge-base",
     "init-db": "node scripts/init-db.mjs",
+    "mcp:kb": "node scripts/kb-mcp-server.mjs",
+    "mcp:kb:http": "node scripts/kb-mcp-http-server.mjs",
     "prepare": "node scripts/setup-git-hooks.mjs"
   },
   "dependencies": {
