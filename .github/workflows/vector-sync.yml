@@ -5,6 +5,7 @@ on:
     paths:
       - "src/content/posts/**"
       - "src/content/knowledge-base/**"
+      - "src/content/wiki/**"
       - "scripts/init-db.mjs"
       - "package.json"
       - "package-lock.json"

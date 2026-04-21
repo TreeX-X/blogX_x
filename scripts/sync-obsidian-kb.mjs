@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import matter from "gray-matter";
 import dotenv from "dotenv";
@@ -16,6 +17,14 @@ const PROJECT_ROOT = process.cwd();
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function toPosixPath(value) {
+  return value.replace(/\\/g, "/");
+}
+
+function computeHash(text) {
+  return crypto.createHash("md5").update(text, "utf8").digest("hex");
 }
 
 function stripMarkdown(text) {
@@ -141,23 +150,6 @@ function assertSafeTargetDir() {
   }
 }
 
-function clearTargetMarkdown(dir) {
-  if (!fs.existsSync(dir)) return;
-  const names = fs.readdirSync(dir);
-  for (const name of names) {
-    const absolutePath = path.join(dir, name);
-    const stat = fs.statSync(absolutePath);
-    if (stat.isDirectory()) {
-      clearTargetMarkdown(absolutePath);
-      if (fs.readdirSync(absolutePath).length === 0) fs.rmdirSync(absolutePath);
-      continue;
-    }
-    if (absolutePath.toLowerCase().endsWith(".md") || absolutePath.toLowerCase().endsWith(".mdx")) {
-      fs.unlinkSync(absolutePath);
-    }
-  }
-}
-
 function normalizeMarkdown(rawContent, sourceFilePath, sourceRoot) {
   const parsed = matter(rawContent);
   const stat = fs.statSync(sourceFilePath);
@@ -198,9 +190,40 @@ function syncKnowledgeBase() {
 
   const markdownFiles = getAllMarkdownFiles(sourceAbs);
   ensureDir(TARGET_PATH);
-  clearTargetMarkdown(TARGET_PATH);
 
-  let syncedCount = 0;
+  let addedCount = 0;
+  let modifiedCount = 0;
+  let unchangedCount = 0;
+  let deletedCount = 0;
+
+  // Phase 1: 收集源端相对路径集合
+  const sourceRelPaths = new Set();
+  for (const sourceFile of markdownFiles) {
+    const relative = path.relative(sourceAbs, sourceFile);
+    sourceRelPaths.add(toPosixPath(relative));
+  }
+
+  // Phase 2: 删除目标端中源端已不存在的文件
+  const existingTargetFiles = getAllMarkdownFiles(TARGET_PATH);
+  for (const targetFile of existingTargetFiles) {
+    const relative = path.relative(TARGET_PATH, targetFile);
+    const posixRelative = toPosixPath(relative);
+    if (!sourceRelPaths.has(posixRelative)) {
+      fs.unlinkSync(targetFile);
+      deletedCount += 1;
+      // 清理空目录
+      const parentDir = path.dirname(targetFile);
+      try {
+        if (fs.readdirSync(parentDir).length === 0) {
+          fs.rmdirSync(parentDir);
+        }
+      } catch {
+        // 目录可能已非空，忽略
+      }
+    }
+  }
+
+  // Phase 3: 仅写入新增或修改的文件
   for (const sourceFile of markdownFiles) {
     const relative = path.relative(sourceAbs, sourceFile);
     const targetFile = path.join(TARGET_PATH, relative);
@@ -208,11 +231,34 @@ function syncKnowledgeBase() {
 
     const raw = fs.readFileSync(sourceFile, "utf-8");
     const normalized = normalizeMarkdown(raw, sourceFile, sourceAbs);
-    fs.writeFileSync(targetFile, normalized, "utf-8");
-    syncedCount += 1;
+    const newHash = computeHash(normalized);
+
+    if (!fs.existsSync(targetFile)) {
+      // 目标文件不存在，新增
+      fs.writeFileSync(targetFile, normalized, "utf-8");
+      addedCount += 1;
+    } else {
+      // 比较内容哈希，判断是否需要写入
+      const existingContent = fs.readFileSync(targetFile, "utf-8");
+      const existingHash = computeHash(existingContent);
+
+      if (existingHash !== newHash) {
+        fs.writeFileSync(targetFile, normalized, "utf-8");
+        modifiedCount += 1;
+      } else {
+        unchangedCount += 1;
+      }
+    }
   }
 
-  return { syncedCount, sourceAbs };
+  return {
+    syncedCount: addedCount + modifiedCount + unchangedCount,
+    addedCount,
+    modifiedCount,
+    unchangedCount,
+    deletedCount,
+    sourceAbs,
+  };
 }
 
 function stageKnowledgeBaseChanges() {
@@ -226,9 +272,10 @@ function stageKnowledgeBaseChanges() {
 }
 
 function main() {
-  const { syncedCount, sourceAbs } = syncKnowledgeBase();
-  console.log(`[sync-kb] synced ${syncedCount} files -> ${TARGET_RELATIVE_PATH}`);
-  console.log(`[sync-kb] source: ${sourceAbs}`);
+  const result = syncKnowledgeBase();
+  console.log(`[sync-kb] synced ${result.syncedCount} files -> ${TARGET_RELATIVE_PATH}`);
+  console.log(`[sync-kb] +${result.addedCount} added, ~${result.modifiedCount} modified, =${result.unchangedCount} unchanged, -${result.deletedCount} deleted`);
+  console.log(`[sync-kb] source: ${result.sourceAbs}`);
   console.log("[sync-kb] to change source path, set OBSIDIAN_KB_PATH");
 
   if (SHOULD_STAGE) {

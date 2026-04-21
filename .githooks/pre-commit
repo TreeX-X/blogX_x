@@ -1,5 +1,16 @@
 #!/bin/sh
 
+# 检查用户是否手动暂存了 knowledge-base 文件
+KB_STAGED=$(git diff --cached --name-only -- src/content/knowledge-base/ | head -1)
+
+if [ -n "$KB_STAGED" ]; then
+  echo "[pre-commit] Detected manually staged knowledge-base changes, skipping auto-sync."
+  echo "[pre-commit] If you want to force sync, unstage knowledge-base files first:"
+  echo "  git reset HEAD -- src/content/knowledge-base/"
+  exit 0
+fi
+
+# 没有手动编辑 KB，安全执行自动同步
 echo "[pre-commit] Syncing Obsidian knowledge base..."
 npm run sync-kb:stage
 status=$?

@@ -11,6 +11,208 @@ const PORT = Number.parseInt(process.env.BLOGX_KB_HTTP_PORT || "8787", 10);
 const HOST = process.env.BLOGX_KB_HTTP_HOST || "127.0.0.1";
 const SERVER_ENTRY = path.join(ROOT, "scripts", "kb-mcp-server.mjs");
 
+class PersistentMcpClient {
+  constructor() {
+    this.child = null;
+    this.requestId = 0;
+    this.pending = new Map();
+    this.stdoutBuffer = Buffer.alloc(0);
+    this.expectedLength = null;
+    this.starting = null;
+  }
+
+  async ensureStarted() {
+    if (this.child && !this.child.killed) return;
+    if (this.starting) {
+      return this.starting;
+    }
+    this.starting = this._start();
+    try {
+      await this.starting;
+    } finally {
+      this.starting = null;
+    }
+  }
+
+  _start() {
+    return new Promise((resolve, reject) => {
+      this.child = spawn(process.execPath, [SERVER_ENTRY], {
+        cwd: ROOT,
+        env: { ...process.env, BLOGX_KB_ROOT: ROOT },
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+
+      this.stdoutBuffer = Buffer.alloc(0);
+      this.expectedLength = null;
+
+      this.child.on("error", (error) => {
+        process.stderr.write(`[kb-mcp-http] child error: ${error.message}\n`);
+        this.rejectAll(new Error(`MCP child error: ${error.message}`));
+        this.child = null;
+        reject(error);
+      });
+
+      this.child.on("exit", (code) => {
+        process.stderr.write(`[kb-mcp-http] child exited with code ${code}\n`);
+        this.rejectAll(new Error(`MCP child exited (code ${code})`));
+        this.child = null;
+      });
+
+      this.child.stderr.on("data", (chunk) => {
+        process.stderr.write(`[kb-mcp-stderr] ${chunk.toString("utf8")}`);
+      });
+
+      this.child.stdout.on("data", (chunk) => {
+        this._handleData(chunk);
+      });
+
+      // 发送 initialize 握手
+      const initId = String(++this.requestId);
+      const initMessage = {
+        jsonrpc: "2.0",
+        id: initId,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "kb-mcp-http", version: "1.0.0" },
+        },
+      };
+
+      this.pending.set(initId, {
+        resolve: () => {
+          // 发送 initialized 通知（无 id，不期待响应）
+          this._sendRaw({ jsonrpc: "2.0", method: "initialized" });
+          resolve();
+        },
+        reject,
+        timer: setTimeout(() => {
+          this.pending.delete(initId);
+          reject(new Error("MCP initialize timed out"));
+        }, 15000),
+      });
+
+      this._writeMessage(initMessage);
+    });
+  }
+
+  _handleData(chunk) {
+    this.stdoutBuffer = Buffer.concat([this.stdoutBuffer, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)]);
+
+    while (true) {
+      if (this.expectedLength == null) {
+        const crlf = this.stdoutBuffer.indexOf(Buffer.from("\r\n\r\n"));
+        const lf = this.stdoutBuffer.indexOf(Buffer.from("\n\n"));
+        let headerEnd = -1;
+        let headerSize = 0;
+
+        if (crlf >= 0 && (lf < 0 || crlf < lf)) {
+          headerEnd = crlf;
+          headerSize = 4;
+        } else if (lf >= 0) {
+          headerEnd = lf;
+          headerSize = 2;
+        } else {
+          break;
+        }
+
+        const headerBlock = this.stdoutBuffer.toString("utf8", 0, headerEnd);
+        const match = headerBlock.match(/Content-Length:\s*(\d+)/i);
+        if (!match) {
+          this.stdoutBuffer = this.stdoutBuffer.slice(headerEnd + headerSize);
+          continue;
+        }
+        this.expectedLength = Number.parseInt(match[1], 10);
+        this.stdoutBuffer = this.stdoutBuffer.slice(headerEnd + headerSize);
+      }
+
+      if (this.stdoutBuffer.length < this.expectedLength) break;
+      const body = this.stdoutBuffer.subarray(0, this.expectedLength).toString("utf8");
+      this.stdoutBuffer = this.stdoutBuffer.slice(this.expectedLength);
+      this.expectedLength = null;
+
+      try {
+        const message = JSON.parse(body);
+        this._handleMessage(message);
+      } catch (error) {
+        process.stderr.write(`[kb-mcp-http] invalid JSON from child: ${error.message}\n`);
+      }
+    }
+  }
+
+  _handleMessage(message) {
+    if (message.id != null) {
+      const id = String(message.id);
+      const pending = this.pending.get(id);
+      if (pending) {
+        this.pending.delete(id);
+        clearTimeout(pending.timer);
+        if (message.error) {
+          pending.reject(new Error(message.error.message || "MCP error"));
+        } else {
+          pending.resolve(message);
+        }
+      }
+    }
+  }
+
+  _writeMessage(message) {
+    if (!this.child || this.child.killed) return;
+    const json = JSON.stringify(message);
+    const framed = `Content-Length: ${Buffer.byteLength(json, "utf8")}\r\n\r\n${json}`;
+    this.child.stdin.write(framed);
+  }
+
+  _sendRaw(message) {
+    if (!this.child || this.child.killed) return;
+    this._writeMessage(message);
+  }
+
+  rejectAll(error) {
+    for (const [, pending] of this.pending) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
+  }
+
+  async request(message) {
+    await this.ensureStarted();
+
+    const isNotification = !Object.prototype.hasOwnProperty.call(message ?? {}, "id");
+    if (isNotification) {
+      this._sendRaw(message);
+      return null;
+    }
+
+    const id = String(++this.requestId);
+    const messageWithId = { ...message, id };
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error("MCP request timed out"));
+      }, 15000);
+
+      this.pending.set(id, { resolve, reject, timer });
+      this._writeMessage(messageWithId);
+    });
+  }
+
+  async shutdown() {
+    if (!this.child || this.child.killed) return;
+    try {
+      await this.request({ jsonrpc: "2.0", method: "shutdown" });
+    } catch {
+      // 忽略关闭时的错误
+    }
+    this.child.kill();
+    this.child = null;
+  }
+}
+
+const mcpClient = new PersistentMcpClient();
+
 function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -38,107 +240,16 @@ function parseJsonBody(req) {
   });
 }
 
-function runStdioRequest(message) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [SERVER_ENTRY], {
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        BLOGX_KB_ROOT: ROOT,
-      },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    const request = JSON.stringify(message);
-    const framed = `Content-Length: ${Buffer.byteLength(request, "utf8")}\r\n\r\n${request}`;
-    const stdoutChunks = [];
-    const stderrChunks = [];
-    let stdoutBuffer = Buffer.alloc(0);
-    let expectedLength = null;
-    let settled = false;
-    const isNotification = !Object.prototype.hasOwnProperty.call(message ?? {}, "id");
-
-    const finish = (fn, value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      child.kill();
-      fn(value);
-    };
-
-    const timer = setTimeout(() => {
-      finish(reject, new Error("MCP request timed out"));
-    }, 15000);
-
-    child.stderr.on("data", (chunk) => {
-      stderrChunks.push(Buffer.from(chunk));
-    });
-
-    child.stdout.on("data", (chunk) => {
-      stdoutBuffer = Buffer.concat([stdoutBuffer, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)]);
-
-      while (true) {
-        if (expectedLength == null) {
-          const headerEnd = stdoutBuffer.indexOf(Buffer.from("\r\n\r\n"));
-          if (headerEnd < 0) break;
-          const headerBlock = stdoutBuffer.toString("utf8", 0, headerEnd);
-          const match = headerBlock.match(/Content-Length:\s*(\d+)/i);
-          if (!match) {
-            stdoutBuffer = stdoutBuffer.slice(headerEnd + 4);
-            continue;
-          }
-          expectedLength = Number.parseInt(match[1], 10);
-          stdoutBuffer = stdoutBuffer.slice(headerEnd + 4);
-        }
-
-        if (stdoutBuffer.length < expectedLength) break;
-        const body = stdoutBuffer.subarray(0, expectedLength).toString("utf8");
-        stdoutBuffer = stdoutBuffer.slice(expectedLength);
-        expectedLength = null;
-
-        try {
-          const response = JSON.parse(body);
-          finish(resolve, response);
-          return;
-        } catch (error) {
-          finish(reject, error);
-          return;
-        }
-      }
-    });
-
-    child.on("error", (error) => {
-      finish(reject, error);
-    });
-
-    child.on("exit", (code) => {
-      if (!settled) {
-        if (isNotification && code === 0) {
-          finish(resolve, null);
-          return;
-        }
-        const stderr = Buffer.concat(stderrChunks).toString("utf8").trim();
-        finish(
-          reject,
-          new Error(stderr || `MCP child exited before responding (code ${code})`)
-        );
-      }
-    });
-
-    child.stdin.end(framed);
-  });
-}
-
 async function handleRpc(payload) {
   if (Array.isArray(payload)) {
     const results = [];
     for (const message of payload) {
-      const result = await runStdioRequest(message);
+      const result = await mcpClient.request(message);
       if (result != null) results.push(result);
     }
     return results;
   }
-  return runStdioRequest(payload);
+  return mcpClient.request(payload);
 }
 
 const server = http.createServer(async (req, res) => {
@@ -183,6 +294,19 @@ const server = http.createServer(async (req, res) => {
     );
   }
 });
+
+function gracefulShutdown(signal) {
+  process.stderr.write(`[kb-mcp-http] received ${signal}, shutting down...\n`);
+  mcpClient.shutdown().then(() => {
+    server.close();
+    process.exit(0);
+  }).catch(() => {
+    process.exit(1);
+  });
+}
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
 server.listen(PORT, HOST, () => {
   process.stderr.write(`[kb-mcp-http] listening on http://${HOST}:${PORT}/mcp\n`);

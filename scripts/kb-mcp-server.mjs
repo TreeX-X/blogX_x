@@ -12,6 +12,7 @@ const KB_SOURCES = [
   { scope: "knowledge-base", dir: "src/content/knowledge-base" },
   { scope: "wiki", dir: "src/content/wiki" },
 ];
+const INDEX_TTL_MS = 5 * 60 * 1000;
 
 const MIME_BY_EXT = new Map([
   [".md", "text/markdown"],
@@ -196,6 +197,35 @@ async function loadIndex() {
   return { items, byUri };
 }
 
+async function getIndexMtimes() {
+  const mtimes = new Map();
+  for (const source of KB_SOURCES) {
+    const root = path.join(ROOT, source.dir);
+    try {
+      const entries = await fs.readdir(root, { withFileTypes: true });
+      for (const entry of entries) {
+        try {
+          const stats = await fs.stat(path.join(root, entry.name));
+          mtimes.set(`${source.scope}/${entry.name}`, stats.mtimeMs);
+        } catch {
+          // 忽略无法访问的文件
+        }
+      }
+    } catch {
+      // 目录可能不存在
+    }
+  }
+  return mtimes;
+}
+
+function mtimesChanged(oldMtimes, newMtimes) {
+  if (!oldMtimes || oldMtimes.size !== newMtimes.size) return true;
+  for (const [key, value] of newMtimes) {
+    if (oldMtimes.get(key) !== value) return true;
+  }
+  return false;
+}
+
 function asTextResult(payload) {
   return {
     content: [
@@ -222,7 +252,7 @@ function parseUri(uri) {
 async function main() {
   const stdin = process.stdin;
   const stdout = process.stdout;
-  let indexPromise = null;
+  let indexCache = null;
 
   let buffer = Buffer.alloc(0);
   let expectedLength = null;
@@ -240,14 +270,23 @@ async function main() {
     stdout.write(`Content-Length: ${Buffer.byteLength(json, "utf8")}\r\n\r\n${json}`);
   }
 
-  function getIndex() {
-    if (!indexPromise) {
-      indexPromise = loadIndex().catch((error) => {
-        indexPromise = null;
-        throw error;
-      });
+  async function getIndex(forceRefresh = false) {
+    const now = Date.now();
+
+    if (!forceRefresh && indexCache) {
+      const age = now - indexCache.builtAt;
+      if (age < INDEX_TTL_MS) {
+        const currentMtimes = await getIndexMtimes();
+        if (!mtimesChanged(indexCache.mtimes, currentMtimes)) {
+          return indexCache;
+        }
+      }
     }
-    return indexPromise;
+
+    const { items, byUri } = await loadIndex();
+    const mtimes = await getIndexMtimes();
+    indexCache = { items, byUri, builtAt: now, mtimes };
+    return indexCache;
   }
 
   async function handleMessage(message) {
@@ -330,6 +369,15 @@ async function main() {
                   },
                   limit: { type: "number", minimum: 1, maximum: 200, default: 100 },
                 },
+                additionalProperties: false,
+              },
+            },
+            {
+              name: "refresh_index",
+              description: "Force refresh the knowledge base and wiki index to pick up recent changes.",
+              inputSchema: {
+                type: "object",
+                properties: {},
                 additionalProperties: false,
               },
             },
@@ -441,6 +489,16 @@ async function main() {
             count: entries.length,
             entries,
           }),
+        });
+        return;
+      }
+
+      if (name === "refresh_index") {
+        const refreshed = await getIndex(true);
+        send({
+          jsonrpc: "2.0",
+          id: message.id,
+          result: asTextResult({ status: "refreshed", entries: refreshed.items.length }),
         });
         return;
       }

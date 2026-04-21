@@ -129,12 +129,12 @@ function isAsciiSingleTokenQuery(query: string) {
 
 function getSafeUrl(row: Record<string, unknown>) {
   const raw = String(row.url ?? "");
-  if (raw.startsWith("/posts/") || raw.startsWith("/knowledge-base/")) return raw;
+  if (raw.startsWith("/posts/") || raw.startsWith("/knowledge-base/") || raw.startsWith("/wiki/")) return raw;
 
   const collection = String(row.collection ?? "");
   const slug = String(row.slug ?? "").trim();
   if (!slug) return "#";
-  if (collection === "posts" || collection === "knowledge-base") return `/${collection}/${slug}`;
+  if (collection === "posts" || collection === "knowledge-base" || collection === "wiki") return `/${collection}/${slug}`;
   return "#";
 }
 
