@@ -56,11 +56,11 @@ body {
 .pixel-clock {
   position: fixed;
   right: 1.1rem;
-  top: 1rem;
-  z-index: 8;
+  top: calc(64px + 0.85rem);
+  z-index: 18;
   pointer-events: none;
   user-select: none;
-  opacity: 0.9;
+  opacity: 1;
 }
 
 .pixel-clock__value {
@@ -68,21 +68,31 @@ body {
   align-items: center;
   justify-content: center;
   min-width: 4.8ch;
-  padding: 0.55rem 0.7rem 0.48rem;
-  border: 1px solid color-mix(in srgb, var(--text) 14%, var(--line));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  color: #ffffff;
+  padding: 0.6rem 0.78rem 0.54rem;
+  border: 2px solid #f4f4f4;
+  border-radius: 5px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(245, 245, 245, 0.98)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.035) 0,
+      rgba(0, 0, 0, 0.035) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  color: #111111;
   font-family: "Press Start 2P", "IBM Plex Mono", "JetBrains Mono", monospace;
   font-size: 0.72rem;
   line-height: 1;
   letter-spacing: 0.12em;
   text-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.45),
-    0 0 10px rgba(255, 255, 255, 0.2);
+    0 1px 0 rgba(255, 255, 255, 0.8);
   box-shadow:
-    0 10px 24px -18px color-mix(in srgb, var(--text) 70%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    3px 3px 0 rgba(0, 0, 0, 0.12),
+    6px 6px 0 rgba(0, 0, 0, 0.08),
+    0 10px 24px -18px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04);
   image-rendering: pixelated;
   transform: translateZ(0);
 }
@@ -102,11 +112,21 @@ body {
   }
 
   .pixel-clock__value {
-    background: color-mix(in srgb, var(--bg-soft) 84%, transparent);
-    border-color: color-mix(in srgb, var(--text) 20%, var(--line));
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(247, 247, 247, 0.99)),
+      repeating-linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.04) 0,
+        rgba(0, 0, 0, 0.04) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+    border-color: #f5f5f5;
     box-shadow:
-      0 10px 24px -18px rgba(0, 0, 0, 0.55),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      3px 3px 0 rgba(0, 0, 0, 0.12),
+      6px 6px 0 rgba(0, 0, 0, 0.08),
+      0 10px 24px -18px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 }
 
@@ -605,7 +625,7 @@ main {
 @media (max-width: 700px) {
   .pixel-clock {
     right: 0.8rem;
-    top: 0.8rem;
+    top: calc(64px + 0.65rem);
   }
 
   .pixel-clock__value {
