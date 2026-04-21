@@ -29,6 +29,9 @@ const toBase = (path = "") => {
   </head>
   <body>
     <div id="cursorGlow" class="cursor-glow" aria-hidden="true"></div>
+    <div class="pixel-clock" aria-hidden="true">
+      <span id="pixelClockValue" class="pixel-clock__value">00:00</span>
+    </div>
     <header class="site-header">
       <div class="container inner">
         <a class="brand" href={toBase()}>BlogX_x</a>
@@ -62,6 +65,7 @@ const toBase = (path = "") => {
       const button = document.getElementById("menuToggle");
       const nav = document.getElementById("siteNav");
       const glow = document.getElementById("cursorGlow");
+      const clockValue = document.getElementById("pixelClockValue");
       let frame = 0;
 
       if (button && nav) {
@@ -76,6 +80,14 @@ const toBase = (path = "") => {
         if (!glow) return;
         glow.style.left = `${x}px`;
         glow.style.top = `${y + 22}px`;
+      };
+
+      const updateClock = () => {
+        if (!clockValue) return;
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        clockValue.textContent = `${hours}:${minutes}`;
       };
 
       window.addEventListener("pointermove", (event) => {
@@ -101,6 +113,9 @@ const toBase = (path = "") => {
         },
         { passive: true },
       );
+
+      updateClock();
+      window.setInterval(updateClock, 1000);
     </script>
   </body>
 </html>

@@ -1,11 +1,11 @@
 ---
 tags:
   - note
-date: '2026-04-17'
+date: '2026-04-21'
 title: vscode AI
 description: >-
-  xWorkFlow copilot wiki claude node codex Harness Design X x 参考： 面对全栈的基本工作流：
-  Planner：规划 倾听与扩展 ：无论
+  xWorkFlow copilot wiki claude node codex Skill Andrej karpathy skill: Harness
+  Design X x 参考： 面对全
 source: 'obsidian:AI使用技巧/vscode-AI.md'
 ---
 ## xWorkFlow
@@ -27,6 +27,12 @@ set API_TIMEOUT_MS=300000
 ```
 
 # codex
+
+# Skill
+
+Andrej karpathy - skill:
+
+[forrestchang/andrej-karpathy-skills: A single CLAUDE.md file to improve Claude Code behavior, derived from Andrej Karpathy's observations on LLM coding pitfalls.](https://github.com/forrestchang/andrej-karpathy-skills#)
 
 # Harness Design X_x
 
