@@ -29,21 +29,6 @@ const toBase = (path = "") => {
   </head>
   <body>
     <div id="cursorGlow" class="cursor-glow" aria-hidden="true"></div>
-    <div class="pixel-clock" aria-hidden="true">
-      <div class="pixel-clock__shell">
-        <div class="pixel-clock__display">
-          <div class="pixel-clock__pair">
-            <span id="pixelClockHourA" class="pixel-clock__digit" data-digit="0"></span>
-            <span id="pixelClockHourB" class="pixel-clock__digit" data-digit="0"></span>
-          </div>
-          <span class="pixel-clock__separator" aria-hidden="true"></span>
-          <div class="pixel-clock__pair">
-            <span id="pixelClockMinuteA" class="pixel-clock__digit" data-digit="0"></span>
-            <span id="pixelClockMinuteB" class="pixel-clock__digit" data-digit="0"></span>
-          </div>
-        </div>
-      </div>
-    </div>
     <header class="site-header">
       <div class="container inner">
         <a class="brand" href={toBase()}>BlogX_x</a>
@@ -77,10 +62,6 @@ const toBase = (path = "") => {
       const button = document.getElementById("menuToggle");
       const nav = document.getElementById("siteNav");
       const glow = document.getElementById("cursorGlow");
-      const hourA = document.getElementById("pixelClockHourA");
-      const hourB = document.getElementById("pixelClockHourB");
-      const minuteA = document.getElementById("pixelClockMinuteA");
-      const minuteB = document.getElementById("pixelClockMinuteB");
       let frame = 0;
 
       if (button && nav) {
@@ -95,17 +76,6 @@ const toBase = (path = "") => {
         if (!glow) return;
         glow.style.left = `${x}px`;
         glow.style.top = `${y + 22}px`;
-      };
-
-      const updateClock = () => {
-        if (!hourA || !hourB || !minuteA || !minuteB) return;
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, "0");
-        const minutes = String(now.getMinutes()).padStart(2, "0");
-        hourA.dataset.digit = hours[0];
-        hourB.dataset.digit = hours[1];
-        minuteA.dataset.digit = minutes[0];
-        minuteB.dataset.digit = minutes[1];
       };
 
       window.addEventListener("pointermove", (event) => {
@@ -131,9 +101,6 @@ const toBase = (path = "") => {
         },
         { passive: true },
       );
-
-      updateClock();
-      window.setInterval(updateClock, 1000);
     </script>
   </body>
 </html>
