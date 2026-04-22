@@ -185,7 +185,7 @@ const toBase = (path = "") => {
 
 		const time = formatTime(new Date());
 		messageDiv.innerHTML = `
-			<p class="message-content">${content}</p>
+			<p class="message-content">${escapeHtml(content)}</p>
 			<span class="message-time">${time}</span>
 		`;
 
@@ -232,11 +232,14 @@ const toBase = (path = "") => {
 			// 显示输入指示器和聊天上下文
 			typingIndicator.style.display = "flex";
 			chatContext.style.display = "block";
-			status.textContent = "";
+			status.textContent = "正在搜索...";
 			results.innerHTML = "";
 
+			// 清空聊天消息
+			chatMessages.innerHTML = "";
+			chatHistory = [];
+
 			// 添加用户消息到聊天历史
-			chatHistory.push({ content: query, role: 'user', timestamp: formatTime(new Date()) });
 			addChatMessage(query, true);
 
 			try {

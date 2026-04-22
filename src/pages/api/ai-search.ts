@@ -183,10 +183,14 @@ ${context}
     }
 
     const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
+      choices?: Array<{ message?: { content?: string; reasoning_content?: string } }>;
     };
 
-    return data?.choices?.[0]?.message?.content || "AI 未能生成回复。";
+    const messageContent = data?.choices?.[0]?.message?.content ||
+                           data?.choices?.[0]?.message?.reasoning_content ||
+                           "AI 未能生成回复。";
+
+    return messageContent;
   } catch (error) {
     console.error("GLM API call failed:", error);
     return `AI 调用失败：${error instanceof Error ? error.message : "未知错误"}`;
