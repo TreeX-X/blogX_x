@@ -44,25 +44,40 @@ const toBase = (path = "") => {
 	<div class="home-layout section">
 		<div class="home-main">
 			<section>
-				<h2 class="section-title">搜索</h2>
+				<h2 class="section-title">AI 搜索</h2>
 				<form
 					id="siteSearchForm"
-					class="search-form"
-					data-api={toBase("api/search")}
+					class="ai-search-form"
+					data-api={toBase("api/ai-search")}
 					data-base={toBase()}
 				>
-					<input
-						id="siteSearchInput"
-						name="q"
-						type="search"
-						placeholder="输入关键词，例如：Astro、排版、知识库"
-						autocomplete="off"
-					/>
-					<button type="submit">搜索</button>
+					<div class="ai-search-container">
+						<input
+							id="siteSearchInput"
+							name="q"
+							type="search"
+							placeholder="输入问题或关键词，例如：如何使用 Astro？"
+							autocomplete="off"
+						/>
+						<button type="submit" id="searchButton">搜索</button>
+					</div>
+					<div id="aiTypingIndicator" class="ai-typing-indicator" style="display: none;">
+						<span class="typing-dots">
+							<span></span>
+							<span></span>
+							<span></span>
+						</span>
+						<span class="typing-text">AI 正在思考...</span>
+					</div>
 				</form>
-				<p id="searchStatus" class="meta" style="margin: 0.55rem 0 0.9rem;">
-					输入后回车即可搜索。
-				</p>
+				<div id="aiChatContext" class="ai-chat-context" style="display: none;">
+					<div class="chat-header">
+						<h3>AI 对话</h3>
+						<button id="clearChat" class="clear-chat-btn">清除对话</button>
+					</div>
+					<div id="chatMessages" class="chat-messages"></div>
+				</div>
+				<div id="searchStatus" class="meta" style="margin: 0.55rem 0 0.9rem;"></div>
 				<div id="searchResults" class="search-results" aria-live="polite"></div>
 			</section>
 
@@ -136,66 +151,135 @@ const toBase = (path = "") => {
 	const input = document.getElementById("siteSearchInput");
 	const status = document.getElementById("searchStatus");
 	const results = document.getElementById("searchResults");
+	const typingIndicator = document.getElementById("aiTypingIndicator");
+	const chatContext = document.getElementById("aiChatContext");
+	const chatMessages = document.getElementById("chatMessages");
+	const clearChatBtn = document.getElementById("clearChat");
+	let chatHistory = [];
 
 	const escapeHtml = (value) =>
 		value
 			.replace(/&/g, "&amp;")
 			.replace(/</g, "&lt;")
 			.replace(/>/g, "&gt;")
-			.replace(/\"/g, "&quot;")
+			.replace(/"/g, "&quot;")
 			.replace(/'/g, "&#039;");
 
 	const toAbsolute = (base, url) => {
 		if (!url) return "#";
 		if (!url.startsWith("/")) return url;
-		const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+		const normalizedBase = base.endsWith("/") ? base.slice(0, -1);
 		return `${normalizedBase}${url}`;
 	};
 
-	if (form && input && status && results) {
+	const formatTime = (date) => {
+		return new Intl.DateTimeFormat('zh-CN', {
+			hour: '2-digit',
+			minute: '2-digit'
+		}).format(date);
+	};
+
+	const addChatMessage = (content, isUser = false) => {
+		const messageDiv = document.createElement('div');
+		messageDiv.className = `chat-message ${isUser ? 'user' : 'ai'}`;
+
+		const time = formatTime(new Date());
+		messageDiv.innerHTML = `
+			<p class="message-content">${content}</p>
+			<span class="message-time">${time}</span>
+		`;
+
+		chatMessages.appendChild(messageDiv);
+		chatMessages.scrollTop = chatMessages.scrollHeight;
+
+		if (!isUser) {
+			chatHistory.push({ content, role: 'ai', timestamp: time });
+		}
+	};
+
+	const showResults = (items) => {
+		if (!items.length) {
+			status.textContent = "没有找到相关内容。";
+			return;
+		}
+
+		results.innerHTML = items
+			.map(
+				(item) => `
+					<a class="card" href="${toAbsolute(form.dataset.base, item.url)}">
+						<h3 style="margin: 0 0 0.32rem;">${escapeHtml(item.title)}</h3>
+						<p class="meta" style="margin: 0 0 0.38rem;">${escapeHtml(item.collection)}</p>
+						<p style="margin: 0;">${escapeHtml(item.content).slice(0, 90)}...</p>
+					</a>
+				`,
+			)
+			.join("");
+	};
+
+	if (form && input && status && results && typingIndicator && chatContext && chatMessages) {
 		form.addEventListener("submit", async (event) => {
 			event.preventDefault();
 			const query = input.value.trim();
 			if (!query) {
-				status.textContent = "请输入搜索关键词。";
+				status.textContent = "请输入搜索内容。";
 				results.innerHTML = "";
 				return;
 			}
 
 			const api = form.dataset.api;
 			const base = form.dataset.base ?? "/";
-			status.textContent = "搜索中...";
+
+			// 显示输入指示器和聊天上下文
+			typingIndicator.style.display = "flex";
+			chatContext.style.display = "block";
+			status.textContent = "";
 			results.innerHTML = "";
 
+			// 添加用户消息到聊天历史
+			chatHistory.push({ content: query, role: 'user', timestamp: formatTime(new Date()) });
+			addChatMessage(query, true);
+
 			try {
-				const response = await fetch(
-					`${api}?q=${encodeURIComponent(query)}&limit=6`,
-				);
+				const response = await fetch(`${api}`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({ q: query, limit: 6 }),
+				});
+
 				const payload = await response.json();
 				if (!response.ok) throw new Error(payload?.error ?? "搜索失败");
 
-				const items = payload?.results ?? [];
-				status.textContent = `找到 ${items.length} 条结果`;
-				if (!items.length) {
-					results.innerHTML = "";
-					return;
+				typingIndicator.style.display = "none";
+
+				// 显示 AI 回复
+				status.textContent = "";
+				if (payload.aiResponse) {
+					addChatMessage(payload.aiResponse);
 				}
 
-				results.innerHTML = items
-					.map(
-						(item) => `
-							<a class="card" href="${toAbsolute(base, String(item.url ?? ""))}">
-								<h3 style="margin: 0 0 0.32rem;">${escapeHtml(String(item.title ?? ""))}</h3>
-								<p class="meta" style="margin: 0 0 0.38rem;">${escapeHtml(String(item.collection ?? ""))}</p>
-								<p style="margin: 0;">${escapeHtml(String(item.content ?? "")).slice(0, 90)}...</p>
-							</a>
-						`,
-					)
-					.join("");
+				// 显示搜索结果
+				if (payload.results) {
+					showResults(payload.results);
+				}
 			} catch (error) {
+				typingIndicator.style.display = "none";
 				status.textContent = `搜索失败：${error.message}`;
 				results.innerHTML = "";
 			}
 		});
+
+		if (clearChatBtn) {
+			clearChatBtn.addEventListener("click", () => {
+				chatMessages.innerHTML = "";
+				chatHistory = [];
+				chatContext.style.display = "none";
+				status.textContent = "";
+				results.innerHTML = "";
+				input.value = "";
+				input.focus();
+			});
+		}
 	}
 </script>
