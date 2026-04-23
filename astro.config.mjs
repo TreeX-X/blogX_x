@@ -8,10 +8,12 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   integrations: [react()],
-  alias: {
-    "@": fileURLToPath(new URL("./src", import.meta.url)),
-  },
   vite: {
+    resolve: {
+      alias: {
+        "@": fileURLToPath(new URL("./src", import.meta.url)),
+      },
+    },
     plugins: [tailwindcss()],
   },
 });
