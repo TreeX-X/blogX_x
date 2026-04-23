@@ -13,8 +13,6 @@ const env = (name: string): string | undefined => {
   return value && value.length > 0 ? value : undefined;
 };
 
-const GLM_API_KEY = env("GLM_API_KEY");
-const GLM_MODEL = env("GLM_MODEL") || "glm-4.5-air";
 const TABLE_NAME = env("LANCEDB_TABLE") || "blog_index";
 const EMBEDDING_DIM = Number.parseInt(env("EMBEDDING_DIM") || "1024", 10);
 const LOCAL_DB_PATH = env("LANCEDB_LOCAL_PATH") || ".lancedb";
@@ -142,8 +140,11 @@ async function searchLanceDB(query: string, limit: number) {
 }
 
 async function callGLMAPI(query: string, context: string): Promise<string> {
+  const GLM_API_KEY = env("GLM_API_KEY");
+  const GLM_MODEL = env("GLM_MODEL") || "glm-4.5-air";
+
   if (!GLM_API_KEY) {
-    return "AI 搜索功能未配置。请在 .env 文件中设置 GLM_API_KEY。";
+    throw new Error("GLM_API_KEY is missing from runtime environment");
   }
 
   const systemPrompt = `你是一个智能搜索助手，帮助用户在博客和知识库中查找信息。
@@ -195,6 +196,17 @@ ${context}
     console.error("GLM API call failed:", error);
     return `AI 调用失败：${error instanceof Error ? error.message : "未知错误"}`;
   }
+}
+
+function getSearchEnvStatus() {
+  return {
+    glmApiKey: Boolean(env("GLM_API_KEY")),
+    glmModel: env("GLM_MODEL") || "glm-4.5-air",
+    lancedbUri: Boolean(env("LANCEDB_URI")),
+    lancedbApiKey: Boolean(env("LANCEDB_API_KEY")),
+    sfToken: Boolean(env("SF_TOKEN")),
+    localFallback: ALLOW_LOCAL_FALLBACK,
+  };
 }
 
 function formatContext(results: Array<{ title: string; content: string; collection: string }>): string {
@@ -297,6 +309,16 @@ export const GET: APIRoute = async ({ request, clientAddress }) => {
   }
 
   const url = new URL(request.url);
+  if (url.searchParams.get("health") === "1") {
+    return new Response(
+      JSON.stringify({ ok: true, env: getSearchEnvStatus() }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+
   const query = url.searchParams.get("q")?.trim() || "";
   const limit = Number.parseInt(url.searchParams.get("limit") || "6", 10);
 
