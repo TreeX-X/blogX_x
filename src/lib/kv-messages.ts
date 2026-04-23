@@ -194,6 +194,10 @@ export async function submitFunMessage(name: string, content: string, ip: string
   success: boolean;
   message?: string;
   messageId?: string;
+  audit?: {
+    safe: boolean;
+    reason?: string;
+  };
 }> {
   const ipCheck = await checkFunMessageRateLimit(ip);
   const globalCheck = await checkGlobalRateLimit();
@@ -217,8 +221,18 @@ export async function submitFunMessage(name: string, content: string, ip: string
   };
 
   try {
+    const audit = await auditContent(name, content);
+    if (!audit.safe) {
+      return {
+        success: false,
+        message: audit.reason || "留言未通过审核",
+        audit,
+      };
+    }
+
     const existing = await redisGet("fun-messages:list");
     const list = parseMessageList<FunMessage>(existing);
+    message.status = "approved";
     list.unshift(message);
     const trimmed = list.slice(0, 100);
     await redisSet("fun-messages:list", JSON.stringify(trimmed));
@@ -226,7 +240,8 @@ export async function submitFunMessage(name: string, content: string, ip: string
     return {
       success: true,
       messageId: message.id,
-      message: "提交成功，正在等待AI审核",
+      message: "审核通过，留言已发布",
+      audit,
     };
   } catch (error) {
     console.error("Submit fun message error:", error);
@@ -244,6 +259,19 @@ export async function getApprovedFunMessages(limit: number = MAX_DISPLAY): Promi
     return messages.filter((msg) => msg.status === "approved").slice(0, limit);
   } catch (error) {
     console.error("Get approved fun messages error:", error);
+    return [];
+  }
+}
+
+/**
+ * Get all fun messages for moderation or status lookup
+ */
+export async function getAllFunMessages(): Promise<FunMessage[]> {
+  try {
+    const data = await redisGet("fun-messages:list");
+    return parseMessageList<FunMessage>(data);
+  } catch (error) {
+    console.error("Get all fun messages error:", error);
     return [];
   }
 }

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { submitFunMessage, auditContent, processFunMessages } from "@/lib/kv-messages";
+import { submitFunMessage, processFunMessages, getAllFunMessages } from "@/lib/kv-messages";
 
 export const prerender = false;
 
@@ -25,16 +25,13 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
       );
     }
 
-    // Process pending messages first
-    await processFunMessages();
-
     // Submit message
     const result = await submitFunMessage(name, content, ip);
 
     if (!result.success) {
       return new Response(
-        JSON.stringify({ error: result.message }),
-        { status: 429, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: result.message || "提交失败，请稍后重试" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -57,14 +54,16 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
 export const GET: APIRoute = async () => {
   try {
-    // Process pending messages before returning approved ones
     await processFunMessages();
 
-    const { getApprovedFunMessages } = await import("@/lib/kv-messages");
-    const messages = await getApprovedFunMessages();
+    const messages = await getAllFunMessages();
 
     return new Response(
-      JSON.stringify({ messages }),
+      JSON.stringify({
+        messages: messages.filter((msg) => msg.status === "approved"),
+        pendingCount: messages.filter((msg) => msg.status === "pending").length,
+        status: messages.some((msg) => msg.status === "pending") ? "pending" : "ready",
+      }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {

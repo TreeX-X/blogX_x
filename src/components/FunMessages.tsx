@@ -39,14 +39,17 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('');
+  const [pendingCount, setPendingCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const lastSubmitRef = useRef<number>(0);
 
   // Load messages on mount
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchMessages, 5000);
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   // Add new messages to floating queue
@@ -68,6 +71,12 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
       const data = await response.json();
       if (data.messages) {
         setMessages(data.messages);
+      }
+      if (typeof data.pendingCount === 'number') {
+        setPendingCount(data.pendingCount);
+      }
+      if (data.status === 'pending') {
+        setStatus((current) => current || '留言已提交，正在审核中');
       }
     } catch (error) {
       console.error('Failed to fetch messages:', error);
@@ -108,13 +117,15 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setStatus('提交成功，正在等待AI审核');
+        const finalMessage = typeof data.message === 'string' ? data.message : '提交成功';
+        setStatus(finalMessage);
         setName('');
         setContent('');
         lastSubmitRef.current = now;
-        setTimeout(fetchMessages, 2000);
+        await fetchMessages();
       } else {
         setStatus(data.error || '提交失败');
+        await fetchMessages();
       }
     } catch (error) {
       setStatus('提交失败，请稍后重试');
@@ -147,6 +158,17 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
           </p>
         )}
       </div>
+
+      {messages.length > 0 && (
+        <p className="meta" style={{ textAlign: 'right', marginTop: '0.5rem' }}>
+          当前已展示 {messages.length} 条留言
+        </p>
+      )}
+      {pendingCount > 0 && (
+        <p className="meta" style={{ textAlign: 'right', marginTop: '0.25rem' }}>
+          还有 {pendingCount} 条留言正在审核
+        </p>
+      )}
 
       {/* Submission form */}
       <form className="message-form" onSubmit={handleSubmit}>
