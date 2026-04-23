@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { submitFunMessage, auditContent, processFunMessages } from "../../lib/kv-messages";
+import { submitFunMessage, auditContent, processFunMessages } from "@/lib/kv-messages";
 
 export const prerender = false;
 
@@ -60,7 +60,7 @@ export const GET: APIRoute = async () => {
     // Process pending messages before returning approved ones
     await processFunMessages();
 
-    const { getApprovedFunMessages } = await import("../../lib/kv-messages");
+    const { getApprovedFunMessages } = await import("@/lib/kv-messages");
     const messages = await getApprovedFunMessages();
 
     return new Response(

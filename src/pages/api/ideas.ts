@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { submitIdea } from "../../lib/kv-messages";
+import { submitIdea } from "@/lib/kv-messages";
 
 export const prerender = false;
 
@@ -54,7 +54,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
 export const GET: APIRoute = async () => {
   try {
-    const { getApprovedIdeas } = await import("../../lib/kv-messages");
+    const { getApprovedIdeas } = await import("@/lib/kv-messages");
     const ideas = await getApprovedIdeas();
 
     return new Response(

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { getAllIdeas, reviewIdea } from "../../lib/kv-messages";
+import { getAllIdeas, reviewIdea } from "@/lib/kv-messages";
 
 export const prerender = false;
 
