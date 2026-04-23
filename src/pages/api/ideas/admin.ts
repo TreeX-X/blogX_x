@@ -1,15 +1,24 @@
 import type { APIRoute } from "astro";
 import { getAllIdeas, reviewIdea } from "@/lib/kv-messages";
+import { ADMIN_SESSION_COOKIE, verifyAdminSession, isAdminAuthConfigured } from "@/lib/admin-auth";
 
 export const prerender = false;
 
 // Verify admin token
 function verifyAdmin(request: Request): boolean {
-  const token = request.headers.get("X-Admin-Token");
-  return token === import.meta.env.ADMIN_TOKEN;
+  const cookie = request.headers.get("cookie") || "";
+  const sessionMatch = cookie.match(new RegExp(`${ADMIN_SESSION_COOKIE}=([^;]+)`));
+  return verifyAdminSession(sessionMatch?.[1] ?? null);
 }
 
 export const GET: APIRoute = async ({ request }) => {
+  if (!isAdminAuthConfigured()) {
+    return new Response(
+      JSON.stringify({ error: "管理员认证未配置" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   if (!verifyAdmin(request)) {
     return new Response(
       JSON.stringify({ error: "未授权" }),
@@ -34,6 +43,13 @@ export const GET: APIRoute = async ({ request }) => {
 };
 
 export const POST: APIRoute = async ({ request }) => {
+  if (!isAdminAuthConfigured()) {
+    return new Response(
+      JSON.stringify({ error: "管理员认证未配置" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   if (!verifyAdmin(request)) {
     return new Response(
       JSON.stringify({ error: "未授权" }),

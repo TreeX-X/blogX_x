@@ -8,16 +8,28 @@ const toBase = (path = "") => {
   return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
 };
 
-const ideasApi = toBase("api/ideas");
-const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
+const adminLoginApi = toBase("api/admin/login");
+const adminLogoutApi = toBase("api/admin/logout");
+const ideasAdminApi = toBase("api/ideas/admin");
 ---
 
 <BaseLayout title="BlogX_x | 点子管理" description="管理留言和点子审核。">
   <section>
     <h1 class="section-title">点子管理后台</h1>
 
-    {ADMIN_TOKEN ? (
-      <div class="admin-container">
+    <div class="admin-container">
+      <div id="auth-panel" class="admin-auth">
+        <h2>管理员登录</h2>
+        <p class="meta">输入后台密码后访问审核功能，密码不会暴露到浏览器脚本。</p>
+        <div class="admin-login-form">
+          <input id="admin-password" type="password" placeholder="管理员密码" />
+          <button id="admin-login-btn" type="button">登录</button>
+          <button id="admin-logout-btn" type="button" class="logout-btn">退出</button>
+        </div>
+        <p id="auth-status" class="status-text"></p>
+      </div>
+
+      <div id="admin-panel" style="display: none;">
         <div class="admin-header">
           <h2>待审核点子</h2>
           <p class="meta">审核用户提交的点子，设置实现状态</p>
@@ -42,18 +54,13 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
               </div>
               <div class="admin-note">
                 <label>管理员备注（可选）：</label>
-                <input type="text" id="admin-note" placeholder="填写拒绝原因或其他说明">
+                <input type="text" id="admin-note" placeholder="填写拒绝原因或其他说明" />
               </div>
             </div>
           </div>
         </div>
       </div>
-    ) : (
-      <div class="error-container">
-        <h2>访问错误</h2>
-        <p>管理员Token未配置，请在 .env 文件中设置 ADMIN_TOKEN。</p>
-      </div>
-    )}
+    </div>
   </section>
 
   <style>
@@ -61,6 +68,44 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
       max-width: 800px;
       margin: 0 auto;
       padding: 2rem;
+    }
+
+    .admin-auth {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.5rem;
+      background: var(--bg);
+      margin-bottom: 2rem;
+    }
+
+    .admin-login-form {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .admin-login-form input {
+      flex: 1;
+      padding: 0.8rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .admin-login-form button {
+      padding: 0.8rem 1rem;
+      border: none;
+      border-radius: 8px;
+      background: var(--text);
+      color: var(--bg);
+      cursor: pointer;
+    }
+
+    .logout-btn {
+      background: transparent !important;
+      color: var(--text) !important;
+      border: 1px solid var(--line) !important;
     }
 
     .admin-header {
@@ -193,6 +238,7 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
       display: flex;
       gap: 1rem;
       margin-bottom: 1rem;
+      flex-wrap: wrap;
     }
 
     .btn-approve,
@@ -205,6 +251,7 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
       font-size: 0.95rem;
       cursor: pointer;
       transition: all 0.2s;
+      min-width: 120px;
     }
 
     .btn-approve {
@@ -235,23 +282,12 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
       color: var(--text);
     }
 
-    .error-container {
-      text-align: center;
-      padding: 2rem;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    .error-container h2 {
-      color: #dc2626;
-      margin-bottom: 1rem;
-    }
-
     @media (max-width: 600px) {
       .admin-container {
         padding: 1rem;
       }
 
+      .admin-login-form,
       .review-actions {
         flex-direction: column;
       }
@@ -262,33 +298,64 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
     }
   </style>
 
-  <script is:inline define:vars={{ ADMIN_TOKEN, base }}>
-    const toBase = (path = "") => {
-      const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
-      const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
-      return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
-    };
-
+  <script is:inline define:vars={{ adminLoginApi, adminLogoutApi, ideasAdminApi }}>
     let currentIdeaId = null;
+
+    async function fetchWithAuth(url, options = {}) {
+      return fetch(url, {
+        ...options,
+        credentials: "include"
+      });
+    }
+
+    async function loginAdmin() {
+      const password = document.getElementById("admin-password").value;
+      const status = document.getElementById("auth-status");
+
+      status.textContent = "登录中...";
+
+      try {
+        const response = await fetchWithAuth(adminLoginApi, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          status.textContent = data.error || "登录失败";
+          return;
+        }
+
+        document.getElementById("auth-panel").style.display = "none";
+        document.getElementById("admin-panel").style.display = "block";
+        await loadIdeas();
+      } catch (error) {
+        status.textContent = "登录失败，请稍后重试";
+      }
+    }
+
+    async function logoutAdmin() {
+      await fetchWithAuth(adminLogoutApi, { method: "POST" });
+      document.getElementById("admin-panel").style.display = "none";
+      document.getElementById("auth-panel").style.display = "block";
+      document.getElementById("auth-status").textContent = "已退出登录";
+    }
 
     async function loadIdeas() {
       try {
-        const response = await fetch(toBase("api/ideas/admin"), {
-          headers: {
-            "X-Admin-Token": ADMIN_TOKEN
-          }
-        });
+        const response = await fetchWithAuth(ideasAdminApi);
 
         if (!response.ok) {
           throw new Error("获取点子列表失败");
         }
 
         const data = await response.json();
-        displayIdeas(data.ideas);
+        displayIdeas(data.ideas || []);
       } catch (error) {
         console.error("Load ideas error:", error);
         document.getElementById("ideas-list").innerHTML =
-          '<p class="meta" style="color: #dc2626;">加载失败，请检查权限配置</p>';
+          '<p class="meta" style="color: #dc2626;">加载失败，请重新登录或检查服务端配置</p>';
       }
     }
 
@@ -322,18 +389,13 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
       }).join("");
     }
 
-    function openModal(ideaId) {
+    async function openModal(ideaId) {
       currentIdeaId = ideaId;
 
-      // Find the idea details
-      fetch(toBase("api/ideas/admin"), {
-        headers: {
-          "X-Admin-Token": ADMIN_TOKEN
-        }
-      })
-      .then(response => response.json())
-      .then(data => {
-        const idea = data.ideas.find(i => i.id === ideaId);
+      try {
+        const response = await fetchWithAuth(ideasAdminApi);
+        const data = await response.json();
+        const idea = (data.ideas || []).find(i => i.id === ideaId);
         if (idea) {
           document.getElementById("idea-details").innerHTML = `
             <h4>${escapeHtml(idea.idea)}</h4>
@@ -344,7 +406,9 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
           document.getElementById("admin-note").value = "";
           document.getElementById("review-modal").style.display = "flex";
         }
-      });
+      } catch (error) {
+        alert("加载点子详情失败");
+      }
     }
 
     function closeModal() {
@@ -352,16 +416,15 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
       currentIdeaId = null;
     }
 
-    function approveIdea(implemented) {
+    async function approveIdea(implemented) {
       if (!currentIdeaId) return;
 
       const adminNote = document.getElementById("admin-note").value.trim();
 
-      fetch(toBase("api/ideas/admin"), {
+      const response = await fetchWithAuth(ideasAdminApi, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "X-Admin-Token": ADMIN_TOKEN
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           id: currentIdeaId,
@@ -369,50 +432,41 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
           implemented: implemented,
           adminNote: adminNote
         })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          closeModal();
-          loadIdeas();
-        } else {
-          alert("操作失败：" + data.message);
-        }
-      })
-      .catch(error => {
-        alert("操作失败：" + error.message);
       });
+
+      const data = await response.json();
+      if (data.success) {
+        closeModal();
+        loadIdeas();
+      } else {
+        alert("操作失败：" + (data.message || "未知错误"));
+      }
     }
 
-    function rejectIdea() {
+    async function rejectIdea() {
       if (!currentIdeaId) return;
 
       const adminNote = document.getElementById("admin-note").value.trim();
 
-      fetch(toBase("api/ideas/admin"), {
+      const response = await fetchWithAuth(ideasAdminApi, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "X-Admin-Token": ADMIN_TOKEN
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           id: currentIdeaId,
           action: "reject",
           adminNote: adminNote
         })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          closeModal();
-          loadIdeas();
-        } else {
-          alert("操作失败：" + data.message);
-        }
-      })
-      .catch(error => {
-        alert("操作失败：" + error.message);
       });
+
+      const data = await response.json();
+      if (data.success) {
+        closeModal();
+        loadIdeas();
+      } else {
+        alert("操作失败：" + (data.message || "未知错误"));
+      }
     }
 
     function escapeHtml(text) {
@@ -426,15 +480,20 @@ const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
       return date.toLocaleString('zh-CN');
     }
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', loadIdeas);
+    document.getElementById("admin-login-btn").addEventListener("click", loginAdmin);
+    document.getElementById("admin-logout-btn").addEventListener("click", logoutAdmin);
+    document.getElementById("admin-password").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") loginAdmin();
+    });
 
-    // Close modal on outside click
+    window.closeModal = closeModal;
+    window.openModal = openModal;
+
     window.onclick = function(event) {
       const modal = document.getElementById("review-modal");
       if (event.target === modal) {
         closeModal();
       }
-    }
+    };
   </script>
 </BaseLayout>
