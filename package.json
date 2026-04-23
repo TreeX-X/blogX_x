@@ -23,6 +23,7 @@
     "@astrojs/vercel": "^10.0.4",
     "@lancedb/lancedb": "^0.27.2",
     "@tailwindcss/vite": "^4.2.2",
+    "@vercel/kv": "^3.0.0",
     "astro": "^6.1.5",
     "dotenv": "^17.4.2",
     "gray-matter": "^4.0.3",

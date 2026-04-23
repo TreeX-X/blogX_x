@@ -36,6 +36,9 @@ pnpm-debug.log*
 .codex/
 .claude/
 
+# Claude Code memory files (contains project-specific information and secrets)
+/memory/
+
 # GitHub Actions should be versioned; other GitHub metadata stays local unless explicitly added.
 .github/*
 !.github/

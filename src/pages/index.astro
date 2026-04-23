@@ -144,145 +144,139 @@ const toBase = (path = "") => {
 			/>
 		</aside>
 	</div>
-</BaseLayout>
 
-<script is:inline>
-	const form = document.getElementById("siteSearchForm");
-	const input = document.getElementById("siteSearchInput");
-	const status = document.getElementById("searchStatus");
-	const results = document.getElementById("searchResults");
-	const typingIndicator = document.getElementById("aiTypingIndicator");
-	const chatContext = document.getElementById("aiChatContext");
-	const chatMessages = document.getElementById("chatMessages");
-	const clearChatBtn = document.getElementById("clearChat");
-	let chatHistory = [];
+	<script is:inline>
+		(function() {
+			var form = document.getElementById("siteSearchForm");
+			var input = document.getElementById("siteSearchInput");
+			var status = document.getElementById("searchStatus");
+			var results = document.getElementById("searchResults");
+			var typingIndicator = document.getElementById("aiTypingIndicator");
+			var chatContext = document.getElementById("aiChatContext");
+			var chatMessages = document.getElementById("chatMessages");
+			var clearChatBtn = document.getElementById("clearChat");
+			var chatHistory = [];
 
-	const escapeHtml = (value) =>
-		value
-			.replace(/&/g, "&amp;")
-			.replace(/</g, "&lt;")
-			.replace(/>/g, "&gt;")
-			.replace(/"/g, "&quot;")
-			.replace(/'/g, "&#039;");
-
-	const toAbsolute = (base, url) => {
-		if (!url) return "#";
-		if (!url.startsWith("/")) return url;
-		const normalizedBase = base.endsWith("/") ? base.slice(0, -1);
-		return `${normalizedBase}${url}`;
-	};
-
-	const formatTime = (date) => {
-		return new Intl.DateTimeFormat('zh-CN', {
-			hour: '2-digit',
-			minute: '2-digit'
-		}).format(date);
-	};
-
-	const addChatMessage = (content, isUser = false) => {
-		const messageDiv = document.createElement('div');
-		messageDiv.className = `chat-message ${isUser ? 'user' : 'ai'}`;
-
-		const time = formatTime(new Date());
-		messageDiv.innerHTML = `
-			<p class="message-content">${escapeHtml(content)}</p>
-			<span class="message-time">${time}</span>
-		`;
-
-		chatMessages.appendChild(messageDiv);
-		chatMessages.scrollTop = chatMessages.scrollHeight;
-
-		if (!isUser) {
-			chatHistory.push({ content, role: 'ai', timestamp: time });
-		}
-	};
-
-	const showResults = (items) => {
-		if (!items.length) {
-			status.textContent = "没有找到相关内容。";
-			return;
-		}
-
-		results.innerHTML = items
-			.map(
-				(item) => `
-					<a class="card" href="${toAbsolute(form.dataset.base, item.url)}">
-						<h3 style="margin: 0 0 0.32rem;">${escapeHtml(item.title)}</h3>
-						<p class="meta" style="margin: 0 0 0.38rem;">${escapeHtml(item.collection)}</p>
-						<p style="margin: 0;">${escapeHtml(item.content).slice(0, 90)}...</p>
-					</a>
-				`,
-			)
-			.join("");
-	};
-
-	if (form && input && status && results && typingIndicator && chatContext && chatMessages) {
-		form.addEventListener("submit", async (event) => {
-			event.preventDefault();
-			const query = input.value.trim();
-			if (!query) {
-				status.textContent = "请输入搜索内容。";
-				results.innerHTML = "";
-				return;
+			function escapeHtml(value) {
+				return value
+					.replace(/&/g, "&amp;")
+					.replace(/</g, "&lt;")
+					.replace(/>/g, "&gt;")
+					.replace(/"/g, "&quot;")
+					.replace(/'/g, "&#039;");
 			}
 
-			const api = form.dataset.api;
-			const base = form.dataset.base ?? "/";
+			function toAbsolute(base, url) {
+				if (!url) return "#";
+				if (url.indexOf("/") !== 0) return url;
+				var normalizedBase = base;
+				if (base.charAt(base.length - 1) === "/") {
+					normalizedBase = base.substring(0, base.length - 1);
+				}
+				return normalizedBase + url;
+			}
 
-			// 显示输入指示器和聊天上下文
-			typingIndicator.style.display = "flex";
-			chatContext.style.display = "block";
-			status.textContent = "正在搜索...";
-			results.innerHTML = "";
+			function formatTime(date) {
+				var hours = date.getHours();
+				var minutes = date.getMinutes();
+				return (hours < 10 ? "0" : "") + hours + ":" + (minutes < 10 ? "0" : "") + minutes;
+			}
 
-			// 清空聊天消息
-			chatMessages.innerHTML = "";
-			chatHistory = [];
+			function addChatMessage(content, isUser) {
+				var messageDiv = document.createElement("div");
+				messageDiv.className = "chat-message " + (isUser ? "user" : "ai");
+				var time = formatTime(new Date());
+				messageDiv.innerHTML = '<p class="message-content">' + escapeHtml(content) + '</p><span class="message-time">' + time + '</span>';
+				chatMessages.appendChild(messageDiv);
+				chatMessages.scrollTop = chatMessages.scrollHeight;
+				if (!isUser) {
+					chatHistory.push({ content: content, role: "ai", timestamp: time });
+				}
+			}
 
-			// 添加用户消息到聊天历史
-			addChatMessage(query, true);
+			function showResults(items) {
+				if (!items || items.length === 0) {
+					status.textContent = "没有找到相关内容。";
+					return;
+				}
+				var html = "";
+				for (var i = 0; i < items.length; i++) {
+					var item = items[i];
+					var itemContent = item.content || "";
+					var displayContent = itemContent.length > 90 ? itemContent.substring(0, 90) : itemContent;
+					html += '<a class="card" href="' + toAbsolute(form.dataset.base, item.url) + '">';
+					html += '<h3 style="margin: 0 0 0.32rem;">' + escapeHtml(item.title || "") + '</h3>';
+					html += '<p class="meta" style="margin: 0 0 0.38rem;">' + escapeHtml(item.collection || "") + '</p>';
+					html += '<p style="margin: 0;">' + escapeHtml(displayContent) + '...</p>';
+					html += '</a>';
+				}
+				results.innerHTML = html;
+			}
 
-			try {
-				const response = await fetch(`${api}`, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify({ q: query, limit: 6 }),
+			if (form && input && status && results && typingIndicator && chatContext && chatMessages) {
+				form.addEventListener("submit", function(event) {
+					event.preventDefault();
+					event.stopPropagation();
+
+					var query = input.value.trim();
+					if (!query) {
+						status.textContent = "请输入搜索内容。";
+						results.innerHTML = "";
+						return;
+					}
+
+					var api = form.dataset.api;
+					var baseVal = form.dataset.base || "/";
+
+					typingIndicator.style.display = "flex";
+					chatContext.style.display = "block";
+					status.textContent = "正在搜索...";
+					results.innerHTML = "";
+
+					chatMessages.innerHTML = "";
+					chatHistory = [];
+
+					addChatMessage(query, true);
+
+					fetch(api, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({ q: query, limit: 6 }),
+					})
+					.then(function(response) {
+						return response.json();
+					})
+					.then(function(payload) {
+						typingIndicator.style.display = "none";
+						status.textContent = "";
+						if (payload.aiResponse) {
+							addChatMessage(payload.aiResponse);
+						}
+						if (payload.results) {
+							showResults(payload.results);
+						}
+					})
+					.catch(function(error) {
+						typingIndicator.style.display = "none";
+						status.textContent = "搜索失败：" + error.message;
+						results.innerHTML = "";
+					});
 				});
 
-				const payload = await response.json();
-				if (!response.ok) throw new Error(payload?.error ?? "搜索失败");
-
-				typingIndicator.style.display = "none";
-
-				// 显示 AI 回复
-				status.textContent = "";
-				if (payload.aiResponse) {
-					addChatMessage(payload.aiResponse);
+				if (clearChatBtn) {
+					clearChatBtn.addEventListener("click", function() {
+						chatMessages.innerHTML = "";
+						chatHistory = [];
+						chatContext.style.display = "none";
+						status.textContent = "";
+						results.innerHTML = "";
+						input.value = "";
+						input.focus();
+					});
 				}
-
-				// 显示搜索结果
-				if (payload.results) {
-					showResults(payload.results);
-				}
-			} catch (error) {
-				typingIndicator.style.display = "none";
-				status.textContent = `搜索失败：${error.message}`;
-				results.innerHTML = "";
 			}
-		});
-
-		if (clearChatBtn) {
-			clearChatBtn.addEventListener("click", () => {
-				chatMessages.innerHTML = "";
-				chatHistory = [];
-				chatContext.style.display = "none";
-				status.textContent = "";
-				results.innerHTML = "";
-				input.value = "";
-				input.focus();
-			});
-		}
-	}
-</script>
+		})();
+	</script>
+</BaseLayout>

@@ -1,0 +1,440 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+
+const ideasApi = toBase("api/ideas");
+const ADMIN_TOKEN = import.meta.env.ADMIN_TOKEN;
+---
+
+<BaseLayout title="BlogX_x | 点子管理" description="管理留言和点子审核。">
+  <section>
+    <h1 class="section-title">点子管理后台</h1>
+
+    {ADMIN_TOKEN ? (
+      <div class="admin-container">
+        <div class="admin-header">
+          <h2>待审核点子</h2>
+          <p class="meta">审核用户提交的点子，设置实现状态</p>
+        </div>
+
+        <div id="ideas-list" class="ideas-list">
+          <p class="meta">加载中...</p>
+        </div>
+
+        <div id="review-modal" class="modal" style="display: none;">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3>审核点子</h3>
+              <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+              <div id="idea-details"></div>
+              <div class="review-actions">
+                <button onclick="approveIdea(true)" class="btn-approve">通过并已实现</button>
+                <button onclick="approveIdea(false)" class="btn-pending">通过但待实现</button>
+                <button onclick="rejectIdea()" class="btn-reject">拒绝</button>
+              </div>
+              <div class="admin-note">
+                <label>管理员备注（可选）：</label>
+                <input type="text" id="admin-note" placeholder="填写拒绝原因或其他说明">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div class="error-container">
+        <h2>访问错误</h2>
+        <p>管理员Token未配置，请在 .env 文件中设置 ADMIN_TOKEN。</p>
+      </div>
+    )}
+  </section>
+
+  <style>
+    .admin-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .admin-header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .ideas-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .idea-card {
+      padding: 1.5rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .idea-card:hover {
+      border-color: var(--text);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .idea-card.pending {
+      border-left: 4px solid #f59e0b;
+    }
+
+    .idea-card.approved {
+      border-left: 4px solid #16a34a;
+    }
+
+    .idea-card.rejected {
+      border-left: 4px solid #dc2626;
+      opacity: 0.7;
+    }
+
+    .idea-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .idea-title {
+      font-weight: 500;
+      font-size: 1.1rem;
+    }
+
+    .idea-status {
+      font-size: 0.85rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--text) 10%, transparent);
+    }
+
+    .idea-status.pending {
+      color: #f59e0b;
+    }
+
+    .idea-status.approved {
+      color: #16a34a;
+    }
+
+    .idea-status.rejected {
+      color: #dc2626;
+    }
+
+    .idea-content {
+      margin-bottom: 0.8rem;
+      line-height: 1.5;
+    }
+
+    .idea-meta {
+      font-size: 0.85rem;
+      color: color-mix(in srgb, var(--text) 50%, transparent);
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-header h3 {
+      margin: 0;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: color-mix(in srgb, var(--text) 60%, transparent);
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+    }
+
+    .review-actions {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .btn-approve,
+    .btn-pending,
+    .btn-reject {
+      flex: 1;
+      padding: 0.8rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-approve {
+      background: #16a34a;
+      color: white;
+    }
+
+    .btn-pending {
+      background: #f59e0b;
+      color: white;
+    }
+
+    .btn-reject {
+      background: #dc2626;
+      color: white;
+    }
+
+    .admin-note {
+      margin-top: 1rem;
+    }
+
+    .admin-note input {
+      width: 100%;
+      padding: 0.6rem;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .error-container {
+      text-align: center;
+      padding: 2rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .error-container h2 {
+      color: #dc2626;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 600px) {
+      .admin-container {
+        padding: 1rem;
+      }
+
+      .review-actions {
+        flex-direction: column;
+      }
+
+      .modal-content {
+        width: 95%;
+      }
+    }
+  </style>
+
+  <script is:inline define:vars={{ ADMIN_TOKEN, base }}>
+    const toBase = (path = "") => {
+      const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+      const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+      return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+    };
+
+    let currentIdeaId = null;
+
+    async function loadIdeas() {
+      try {
+        const response = await fetch(toBase("api/ideas/admin"), {
+          headers: {
+            "X-Admin-Token": ADMIN_TOKEN
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error("获取点子列表失败");
+        }
+
+        const data = await response.json();
+        displayIdeas(data.ideas);
+      } catch (error) {
+        console.error("Load ideas error:", error);
+        document.getElementById("ideas-list").innerHTML =
+          '<p class="meta" style="color: #dc2626;">加载失败，请检查权限配置</p>';
+      }
+    }
+
+    function displayIdeas(ideas) {
+      const container = document.getElementById("ideas-list");
+
+      if (ideas.length === 0) {
+        container.innerHTML = "<p class='meta'>暂无待审核点子</p>";
+        return;
+      }
+
+      container.innerHTML = ideas.map(idea => {
+        const statusClass = idea.status;
+        const statusText = idea.status === 'pending' ? '待审核' :
+                          idea.status === 'approved' ? '已通过' : '已拒绝';
+        const implementedText = idea.implemented ? '✓ 已实现' : '○ 待实现';
+
+        return `
+          <div class="idea-card ${statusClass}" onclick="openModal('${idea.id}')">
+            <div class="idea-header">
+              <span class="idea-title">${escapeHtml(idea.idea)}</span>
+              <span class="idea-status ${statusClass}">${statusText}</span>
+            </div>
+            <div class="idea-content">
+              提交者：${escapeHtml(idea.name)} | ${formatTime(idea.createdAt)}
+              ${idea.implemented !== undefined ? `<br>${implementedText}` : ''}
+              ${idea.adminNote ? `<br><br><small style="color: color-mix(in srgb, var(--text) 60%, transparent)">备注：${escapeHtml(idea.adminNote)}</small>` : ''}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function openModal(ideaId) {
+      currentIdeaId = ideaId;
+
+      // Find the idea details
+      fetch(toBase("api/ideas/admin"), {
+        headers: {
+          "X-Admin-Token": ADMIN_TOKEN
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        const idea = data.ideas.find(i => i.id === ideaId);
+        if (idea) {
+          document.getElementById("idea-details").innerHTML = `
+            <h4>${escapeHtml(idea.idea)}</h4>
+            <p><strong>提交者：</strong>${escapeHtml(idea.name)}</p>
+            <p><strong>提交时间：</strong>${formatTime(idea.createdAt)}</p>
+            ${idea.adminNote ? `<p><strong>当前备注：</strong>${escapeHtml(idea.adminNote)}</p>` : ''}
+          `;
+          document.getElementById("admin-note").value = "";
+          document.getElementById("review-modal").style.display = "flex";
+        }
+      });
+    }
+
+    function closeModal() {
+      document.getElementById("review-modal").style.display = "none";
+      currentIdeaId = null;
+    }
+
+    function approveIdea(implemented) {
+      if (!currentIdeaId) return;
+
+      const adminNote = document.getElementById("admin-note").value.trim();
+
+      fetch(toBase("api/ideas/admin"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Token": ADMIN_TOKEN
+        },
+        body: JSON.stringify({
+          id: currentIdeaId,
+          action: "approve",
+          implemented: implemented,
+          adminNote: adminNote
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          closeModal();
+          loadIdeas();
+        } else {
+          alert("操作失败：" + data.message);
+        }
+      })
+      .catch(error => {
+        alert("操作失败：" + error.message);
+      });
+    }
+
+    function rejectIdea() {
+      if (!currentIdeaId) return;
+
+      const adminNote = document.getElementById("admin-note").value.trim();
+
+      fetch(toBase("api/ideas/admin"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Token": ADMIN_TOKEN
+        },
+        body: JSON.stringify({
+          id: currentIdeaId,
+          action: "reject",
+          adminNote: adminNote
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          closeModal();
+          loadIdeas();
+        } else {
+          alert("操作失败：" + data.message);
+        }
+      })
+      .catch(error => {
+        alert("操作失败：" + error.message);
+      });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatTime(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleString('zh-CN');
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', loadIdeas);
+
+    // Close modal on outside click
+    window.onclick = function(event) {
+      const modal = document.getElementById("review-modal");
+      if (event.target === modal) {
+        closeModal();
+      }
+    }
+  </script>
+</BaseLayout>

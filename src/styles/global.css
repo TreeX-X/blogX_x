@@ -762,6 +762,229 @@ main {
   }
 }
 
+/* Message Feature Styles */
+.fun-messages-container,
+.idea-box-container {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.fun-messages-container h3,
+.idea-box-container h3 {
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+}
+
+/* Floating Messages */
+.floating-messages-area {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  background: color-mix(in srgb, var(--bg) 95%, var(--line));
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+}
+
+.floating-message {
+  position: absolute;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  color: var(--text);
+  opacity: 0.9;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.message-bubble {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-width: 300px;
+  display: inline-block;
+}
+
+@keyframes float-left {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes float-right {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Message Forms */
+.message-form,
+.idea-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.form-row input {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+
+.form-row input:focus {
+  outline: none;
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+.form-row input.content-input {
+  flex: 2;
+}
+
+.form-row button {
+  padding: 0.6rem 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.form-row button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  transform: translateY(-1px);
+}
+
+.form-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status-text {
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+/* Idea Box Styles */
+.idea-group {
+  margin-bottom: 1.5rem;
+}
+
+.idea-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.idea-group-title .status-icon {
+  font-size: 1.2rem;
+}
+
+.idea-group-title.implemented {
+  color: #16a34a;
+}
+
+.idea-group-title.pending {
+  color: #f59e0b;
+}
+
+.idea-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.idea-item {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 0.95rem;
+}
+
+.idea-item.implemented {
+  border-left: 4px solid #16a34a;
+}
+
+.idea-item.pending {
+  border-left: 4px solid #f59e0b;
+}
+
+.idea-content {
+  display: block;
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.idea-note {
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--text) 60%, transparent);
+  font-style: italic;
+}
+
+.idea-meta {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--text) 50%, transparent);
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+  .fun-messages-container,
+  .idea-box-container {
+    padding: 1rem;
+  }
+
+  .floating-messages-area {
+    height: 150px;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .form-row input {
+    min-width: 100%;
+  }
+
+  .form-row button {
+    width: 100%;
+  }
+}
+
 @media (max-width: 900px) {
   .home-layout {
     grid-template-columns: 1fr;
