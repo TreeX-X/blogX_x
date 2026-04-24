@@ -787,10 +787,14 @@ main {
   background: color-mix(in srgb, var(--bg) 95%, var(--line));
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+  --message-track-step: 44px;
+  --message-track-top: 14px;
 }
 
 .floating-message {
   position: absolute;
+  left: 0;
+  top: calc(var(--message-track-top) + var(--message-lane, 0) * var(--message-track-step));
   white-space: nowrap;
   font-size: 0.9rem;
   color: var(--text);
@@ -798,6 +802,7 @@ main {
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
   pointer-events: none;
   z-index: 1;
+  will-change: transform;
 }
 
 .message-bubble {
@@ -806,25 +811,27 @@ main {
   border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  max-width: 300px;
+  max-width: min(300px, calc(100vw - 4rem));
   display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @keyframes float-left {
   from {
-    transform: translateX(100%);
+    transform: translateX(var(--message-from, 0px));
   }
   to {
-    transform: translateX(-100%);
+    transform: translateX(var(--message-to, 0px));
   }
 }
 
 @keyframes float-right {
   from {
-    transform: translateX(-100%);
+    transform: translateX(var(--message-from, 0px));
   }
   to {
-    transform: translateX(100%);
+    transform: translateX(var(--message-to, 0px));
   }
 }
 
@@ -970,6 +977,8 @@ main {
 
   .floating-messages-area {
     height: 150px;
+    --message-track-step: 40px;
+    --message-track-top: 10px;
   }
 
   .form-row {
