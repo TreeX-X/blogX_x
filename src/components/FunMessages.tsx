@@ -49,16 +49,15 @@ function FloatingMessage({ message, lane, topPx, animationName, durationMs, from
 export default function FunMessages({ apiUrl }: { apiUrl: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [floatingMessages, setFloatingMessages] = useState<FloatingQueueItem[]>([]);
-  const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const lastSubmitRef = useRef<number>(0);
-  const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const messagesRef = useRef<Message[]>([]);
   const floatingMessagesRef = useRef<FloatingQueueItem[]>([]);
-  const pendingMessagesRef = useRef<Message[]>([]);
+  const rotationIndexRef = useRef(0);
   const trackCountRef = useRef(4);
   const areaRef = useRef<HTMLDivElement | null>(null);
 
@@ -98,18 +97,38 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
     [getTrackTop],
   );
 
-  const flushPendingMessages = useCallback(() => {
-    const queue = pendingMessagesRef.current;
-    if (queue.length === 0) {
+  const getNextMessage = useCallback((excludedIds: Set<string>) => {
+    const source = messagesRef.current;
+    if (source.length === 0) {
+      return null;
+    }
+
+    for (let attempts = 0; attempts < source.length; attempts += 1) {
+      const index = rotationIndexRef.current % source.length;
+      rotationIndexRef.current = (rotationIndexRef.current + 1) % source.length;
+      const candidate = source[index];
+      if (!excludedIds.has(candidate.id)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }, []);
+
+  const fillAvailableTracks = useCallback((baseItems?: FloatingQueueItem[]) => {
+    const source = messagesRef.current;
+    const currentItems = baseItems ?? floatingMessagesRef.current;
+
+    if (source.length === 0) {
       return;
     }
 
-    const currentItems = floatingMessagesRef.current;
     const reservedLanes = new Set(currentItems.map((item) => item.lane));
-    const additions: FloatingQueueItem[] = [];
-    const remainingQueue = [...queue];
+    const reservedMessageIds = new Set(currentItems.map((item) => item.message.id));
+    const nextItems = [...currentItems];
+    let addedCount = 0;
 
-    while (remainingQueue.length > 0) {
+    while (nextItems.length < Math.min(trackCountRef.current, source.length)) {
       let freeLane: number | null = null;
       for (let lane = 0; lane < trackCountRef.current; lane += 1) {
         if (!reservedLanes.has(lane)) {
@@ -122,26 +141,22 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
         break;
       }
 
-      const nextMessage = remainingQueue.shift();
+      const nextMessage = getNextMessage(reservedMessageIds);
       if (!nextMessage) {
         break;
       }
 
       reservedLanes.add(freeLane);
-      additions.push(buildFloatingItem(nextMessage, freeLane));
+      reservedMessageIds.add(nextMessage.id);
+      nextItems.push(buildFloatingItem(nextMessage, freeLane));
+      addedCount += 1;
     }
 
-    if (additions.length === 0) {
-      return;
+    if (addedCount > 0) {
+      floatingMessagesRef.current = nextItems;
+      setFloatingMessages(nextItems);
     }
-
-    const nextItems = [...currentItems, ...additions];
-    floatingMessagesRef.current = nextItems;
-    setFloatingMessages(nextItems);
-
-    pendingMessagesRef.current = remainingQueue;
-    setPendingMessages(remainingQueue);
-  }, [buildFloatingItem]);
+  }, [buildFloatingItem, getNextMessage]);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -149,7 +164,9 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
       const data = await response.json();
 
       if (Array.isArray(data.messages)) {
-        setMessages(data.messages);
+        const nextMessages = [...data.messages];
+        setMessages(nextMessages);
+        messagesRef.current = nextMessages;
       }
 
       if (typeof data.pendingCount === 'number') {
@@ -189,22 +206,18 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
 
   useEffect(() => {
     if (messages.length === 0) {
+      messagesRef.current = [];
+      rotationIndexRef.current = 0;
       return;
     }
 
-    const unseenMessages = messages.filter((message) => !seenMessageIdsRef.current.has(message.id));
-    if (unseenMessages.length === 0) {
-      return;
-    }
-
-    unseenMessages.forEach((message) => seenMessageIdsRef.current.add(message.id));
-    pendingMessagesRef.current = [...pendingMessagesRef.current, ...unseenMessages];
-    setPendingMessages(pendingMessagesRef.current);
+    messagesRef.current = messages;
+    fillAvailableTracks();
   }, [messages]);
 
   useEffect(() => {
-    flushPendingMessages();
-  }, [floatingMessages, pendingMessages, flushPendingMessages]);
+    fillAvailableTracks();
+  }, [floatingMessages, fillAvailableTracks]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,10 +272,10 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
       const nextItems = floatingMessagesRef.current.filter((item) => item.id !== id);
       floatingMessagesRef.current = nextItems;
       setFloatingMessages(nextItems);
-      flushPendingMessages();
+      fillAvailableTracks(nextItems);
       fetchMessages();
     },
-    [fetchMessages, flushPendingMessages],
+    [fetchMessages, fillAvailableTracks],
   );
 
   return (
@@ -283,7 +296,7 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
             onComplete={() => removeFloatingMessage(fm.id)}
           />
         ))}
-        {floatingMessages.length === 0 && pendingMessages.length === 0 && (
+        {floatingMessages.length === 0 && messages.length === 0 && (
           <p className="meta" style={{ textAlign: 'center', padding: '2rem' }}>
             暂无留言，快来提交第一条吧！
           </p>
@@ -300,9 +313,9 @@ export default function FunMessages({ apiUrl }: { apiUrl: string }) {
           还有 {pendingCount} 条留言正在审核
         </p>
       )}
-      {pendingMessages.length > 0 && (
+      {messages.length > 0 && floatingMessages.length === 0 && (
         <p className="meta" style={{ textAlign: 'right', marginTop: '0.25rem' }}>
-          还有 {pendingMessages.length} 条留言正在排队展示
+          留言正在循环展示中
         </p>
       )}
 
