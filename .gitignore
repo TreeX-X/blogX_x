@@ -52,3 +52,4 @@ Thumbs.db
 # repo-local docs / instructions
 AGENTS.md
 CLAUDE.md
+.mcp.json
