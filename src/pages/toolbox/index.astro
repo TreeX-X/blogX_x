@@ -1,6 +1,6 @@
 ﻿---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { groupToolboxItems, toolboxItems } from "../../lib/toolbox";
+import { getToolboxIconUrl, groupToolboxItems, toolboxItems } from "../../lib/toolbox";
 
 const groupedToolboxItems = groupToolboxItems(toolboxItems);
 const toolboxCategories = Array.from(groupedToolboxItems.keys()).sort((a, b) =>
@@ -83,7 +83,7 @@ const toBase = (path = "") => {
 								<a class="card toolbox-card" href={item.url}>
 									<div class="toolbox-card-head">
 										<span class="toolbox-icon" aria-hidden="true">
-											{item.icon ? <img src={toBase(item.icon)} alt={item.name} width="40" height="40" loading="lazy" decoding="async" /> : <span class="toolbox-icon-fallback"></span>}
+											{getToolboxIconUrl(item) ? <><img src={getToolboxIconUrl(item)} alt={item.name} width="40" height="40" loading="lazy" decoding="async" onerror="this.hidden=true;this.nextElementSibling.hidden=false;" /><span class="toolbox-icon-fallback" hidden></span></> : <span class="toolbox-icon-fallback"></span>}
 										</span>
 										<div>
 											<h4 class="toolbox-name">{item.name}</h4>
@@ -168,7 +168,7 @@ const toBase = (path = "") => {
 					html += '<a class="card toolbox-card" href="' + toAbsolute(form.dataset.base, item.url) + '">';
 					html += '<div class="toolbox-card-head">';
 					html += '<span class="toolbox-icon" aria-hidden="true">';
-					html += item.icon ? '<img src="' + escapeHtml(toAbsolute(form.dataset.base, item.icon)) + '" alt="' + escapeHtml(item.title || item.name || '') + '" width="40" height="40" loading="lazy" decoding="async" />' : '<span class="toolbox-icon-fallback"></span>';
+					html += item.icon ? '<img src="' + escapeHtml(toAbsolute(form.dataset.base, item.icon)) + '" alt="' + escapeHtml(item.title || item.name || '') + '" width="40" height="40" loading="lazy" decoding="async" onerror="this.hidden=true;this.nextElementSibling.hidden=false;" /><span class="toolbox-icon-fallback" hidden></span>' : '<span class="toolbox-icon-fallback"></span>';
 					html += '</span>';
 					html += '<div><h3 class="toolbox-name" style="margin: 0;">' + escapeHtml(item.title || "") + '</h3>';
 					html += '<p class="meta" style="margin: 0;">' + escapeHtml(item.collection || "") + '</p></div></div>';

@@ -198,8 +198,8 @@ ${context}
     };
 
     const messageContent = data?.choices?.[0]?.message?.content ||
-                           data?.choices?.[0]?.message?.reasoning_content ||
-                           "AI 未能生成回复。";
+      data?.choices?.[0]?.message?.reasoning_content ||
+      "AI 未能生成回复。";
 
     return messageContent;
   } catch (error) {
