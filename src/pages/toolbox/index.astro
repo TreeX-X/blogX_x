@@ -1,0 +1,245 @@
+﻿---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { groupToolboxItems, toolboxItems } from "../../lib/toolbox";
+
+const groupedToolboxItems = groupToolboxItems(toolboxItems);
+const toolboxCategories = Array.from(groupedToolboxItems.keys()).sort((a, b) =>
+	a.localeCompare(b, "zh-CN")
+);
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+	const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+	const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+	return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+---
+
+<BaseLayout title="BlogX_x | 工具箱" description="BlogX_x 工具箱，按分类展示静态工具资源。">
+	<section>
+		<p class="meta">RESOURCE NAVIGATION</p>
+		<h1 class="section-title" style="font-size: clamp(2rem, 1.6rem + 2vw, 3rem); margin-bottom: 0.5rem;">
+			工具箱
+		</h1>
+		<p class="meta" style="max-width: 62ch;">
+			这里集中维护常用工具与资源入口，按照分类展示静态卡片，并支持复用站内 AI 搜索能力做快速检索。
+		</p>
+	</section>
+
+	<section class="section">
+		<h2 class="section-title">AI 搜索</h2>
+		<form
+			id="toolboxSearchForm"
+			class="ai-search-form"
+			data-api={toBase("api/ai-search")}
+			data-base={toBase()}
+			data-scope="toolbox"
+		>
+			<div class="ai-search-container">
+				<input
+					id="toolboxSearchInput"
+					name="q"
+					type="search"
+					placeholder="搜索工具名称、分类或简介"
+					autocomplete="off"
+				/>
+				<button type="submit" id="toolboxSearchButton">搜索</button>
+			</div>
+			<div id="toolboxTypingIndicator" class="ai-typing-indicator" style="display: none;">
+				<span class="typing-dots">
+					<span></span>
+					<span></span>
+					<span></span>
+				</span>
+				<span class="typing-text">AI 正在思考...</span>
+			</div>
+		</form>
+		<div id="toolboxChatContext" class="ai-chat-context" style="display: none;">
+			<div class="chat-header">
+				<h3>AI 对话</h3>
+				<button id="toolboxClearChat" class="clear-chat-btn">清除对话</button>
+			</div>
+			<div id="toolboxChatMessages" class="chat-messages"></div>
+		</div>
+		<div id="toolboxSearchStatus" class="meta" style="margin: 0.55rem 0 0.9rem;"></div>
+		<div id="toolboxSearchResults" class="search-results" aria-live="polite"></div>
+	</section>
+
+	<section class="section">
+		<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;">
+			<h2 class="section-title">分类浏览</h2>
+			<p class="meta" style="margin: 0;">共 {toolboxItems.length} 个工具</p>
+		</div>
+
+		{toolboxCategories.length > 0 ? (
+			<div class="stagger" style="display: grid; gap: 1rem;">
+				{toolboxCategories.map((category) => (
+					<section class="toolbox-group">
+						<h3 class="section-title" style="font-size: 1.18rem; margin-bottom: 0.7rem;">
+							{category}
+						</h3>
+						<div class="toolbox-grid">
+							{groupedToolboxItems.get(category)?.map((item) => (
+								<a class="card toolbox-card" href={item.url}>
+									<div class="toolbox-card-head">
+										<span class="toolbox-icon" aria-hidden="true">
+											{item.icon ? <img src={toBase(item.icon)} alt={item.name} width="40" height="40" loading="lazy" decoding="async" /> : <span class="toolbox-icon-fallback"></span>}
+										</span>
+										<div>
+											<h4 class="toolbox-name">{item.name}</h4>
+											<p class="meta" style="margin: 0;">{item.url}</p>
+										</div>
+									</div>
+									<p style="margin: 0.8rem 0 0;">{item.summary}</p>
+								</a>
+							))}
+						</div>
+					</section>
+				))}
+			</div>
+		) : (
+			<div class="card">
+				<h3 style="margin: 0 0 0.4rem;">工具条目尚未配置</h3>
+				<p class="meta" style="margin: 0;">
+					当前工具箱采用独立静态文件维护，后续可直接在工具数据文件中补充分类与条目。
+				</p>
+			</div>
+		)}
+	</section>
+
+	<script is:inline>
+		(function() {
+			var form = document.getElementById("toolboxSearchForm");
+			var input = document.getElementById("toolboxSearchInput");
+			var status = document.getElementById("toolboxSearchStatus");
+			var results = document.getElementById("toolboxSearchResults");
+			var typingIndicator = document.getElementById("toolboxTypingIndicator");
+			var chatContext = document.getElementById("toolboxChatContext");
+			var chatMessages = document.getElementById("toolboxChatMessages");
+			var clearChatBtn = document.getElementById("toolboxClearChat");
+			var chatHistory = [];
+
+			function escapeHtml(value) {
+				return value
+					.replace(/&/g, "&amp;")
+					.replace(/</g, "&lt;")
+					.replace(/>/g, "&gt;")
+					.replace(/"/g, "&quot;")
+					.replace(/'/g, "&#039;");
+			}
+
+			function toAbsolute(base, url) {
+				if (!url) return "#";
+				if (url.indexOf("/") !== 0) return url;
+				var normalizedBase = base;
+				if (base.charAt(base.length - 1) === "/") {
+					normalizedBase = base.substring(0, base.length - 1);
+				}
+				return normalizedBase + url;
+			}
+
+			function formatTime(date) {
+				var hours = date.getHours();
+				var minutes = date.getMinutes();
+				return (hours < 10 ? "0" : "") + hours + ":" + (minutes < 10 ? "0" : "") + minutes;
+			}
+
+			function addChatMessage(content, isUser) {
+				var messageDiv = document.createElement("div");
+				messageDiv.className = "chat-message " + (isUser ? "user" : "ai");
+				var time = formatTime(new Date());
+				messageDiv.innerHTML = '<p class="message-content">' + escapeHtml(content) + '</p><span class="message-time">' + time + '</span>';
+				chatMessages.appendChild(messageDiv);
+				chatMessages.scrollTop = chatMessages.scrollHeight;
+				if (!isUser) {
+					chatHistory.push({ content: content, role: "ai", timestamp: time });
+				}
+			}
+
+			function showResults(items) {
+				if (!items || items.length === 0) {
+					status.textContent = "没有找到相关内容。";
+					return;
+				}
+
+				var html = "";
+				for (var i = 0; i < items.length; i++) {
+					var item = items[i];
+					html += '<a class="card toolbox-card" href="' + toAbsolute(form.dataset.base, item.url) + '">';
+					html += '<div class="toolbox-card-head">';
+					html += '<span class="toolbox-icon" aria-hidden="true">';
+					html += item.icon ? '<img src="' + escapeHtml(toAbsolute(form.dataset.base, item.icon)) + '" alt="' + escapeHtml(item.title || item.name || '') + '" width="40" height="40" loading="lazy" decoding="async" />' : '<span class="toolbox-icon-fallback"></span>';
+					html += '</span>';
+					html += '<div><h3 class="toolbox-name" style="margin: 0;">' + escapeHtml(item.title || "") + '</h3>';
+					html += '<p class="meta" style="margin: 0;">' + escapeHtml(item.collection || "") + '</p></div></div>';
+					html += '<p style="margin: 0.8rem 0 0;">' + escapeHtml(item.content || "") + '</p>';
+					html += '</a>';
+				}
+				results.innerHTML = html;
+			}
+
+			if (form && input && status && results && typingIndicator && chatContext && chatMessages) {
+				form.addEventListener("submit", function(event) {
+					event.preventDefault();
+					event.stopPropagation();
+
+					var query = input.value.trim();
+					if (!query) {
+						status.textContent = "请输入搜索内容。";
+						results.innerHTML = "";
+						return;
+					}
+
+					var api = form.dataset.api;
+					var scope = form.dataset.scope || "toolbox";
+
+					typingIndicator.style.display = "flex";
+					chatContext.style.display = "block";
+					status.textContent = "正在搜索...";
+					results.innerHTML = "";
+
+					chatMessages.innerHTML = "";
+					chatHistory = [];
+
+					addChatMessage(query, true);
+
+					fetch(api, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({ q: query, limit: 6, scope: scope }),
+					})
+					.then(function(response) {
+						return response.json();
+					})
+					.then(function(payload) {
+						typingIndicator.style.display = "none";
+						status.textContent = "";
+						if (payload.aiResponse) {
+							addChatMessage(payload.aiResponse);
+						}
+						if (payload.results) {
+							showResults(payload.results);
+						}
+					})
+					.catch(function(error) {
+						typingIndicator.style.display = "none";
+						status.textContent = "搜索失败：" + (error && error.message ? error.message : "未知错误");
+					});
+				});
+
+				if (clearChatBtn) {
+					clearChatBtn.addEventListener("click", function() {
+						chatMessages.innerHTML = "";
+						chatHistory = [];
+						chatContext.style.display = "none";
+						status.textContent = "";
+						input.value = "";
+						results.innerHTML = "";
+					});
+				}
+			}
+		})();
+	</script>
+</BaseLayout>

@@ -50,6 +50,7 @@ const toBase = (path = "") => {
 					class="ai-search-form"
 					data-api={toBase("api/ai-search")}
 					data-base={toBase()}
+					data-scope="site"
 				>
 					<div class="ai-search-container">
 						<input
@@ -227,6 +228,7 @@ const toBase = (path = "") => {
 
 					var api = form.dataset.api;
 					var baseVal = form.dataset.base || "/";
+					var scope = form.dataset.scope || "site";
 
 					typingIndicator.style.display = "flex";
 					chatContext.style.display = "block";
@@ -243,7 +245,7 @@ const toBase = (path = "") => {
 						headers: {
 							"Content-Type": "application/json",
 						},
-						body: JSON.stringify({ q: query, limit: 6 }),
+							body: JSON.stringify({ q: query, limit: 6, scope: scope }),
 					})
 					.then(function(response) {
 						return response.json();

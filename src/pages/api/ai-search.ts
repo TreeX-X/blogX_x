@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import * as lancedb from "@lancedb/lancedb";
 import dotenv from "dotenv";
+import { searchToolboxItems } from "../../lib/toolbox";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ const ALLOW_LOCAL_FALLBACK = env("SEARCH_ALLOW_LOCAL_FALLBACK")
   : !IS_VERCEL;
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX = Number.parseInt(env("AI_SEARCH_RATE_LIMIT") || "5", 10);
+type SearchScope = "site" | "toolbox";
 
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
@@ -139,6 +141,14 @@ async function searchLanceDB(query: string, limit: number) {
   }));
 }
 
+async function searchByScope(scope: SearchScope, query: string, limit: number) {
+  if (scope === "toolbox") {
+    return searchToolboxItems(query, limit);
+  }
+
+  return searchLanceDB(query, limit);
+}
+
 async function callGLMAPI(query: string, context: string): Promise<string> {
   const GLM_API_KEY = env("GLM_API_KEY");
   const GLM_MODEL = env("GLM_MODEL") || "glm-4.5-air";
@@ -245,6 +255,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     const body = await request.json().catch(() => ({} as Record<string, unknown>));
     const query = typeof body.q === "string" ? body.q.trim() : "";
     const limit = typeof body.limit === "number" ? body.limit : 6;
+    const scope = body.scope === "toolbox" ? "toolbox" : "site";
 
     if (!query) {
       return new Response(JSON.stringify({ error: "请输入搜索内容" }), {
@@ -253,13 +264,14 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
       });
     }
 
-    const searchResults = await searchLanceDB(query, limit);
+    const searchResults = await searchByScope(scope, query, limit);
     const context = formatContext(searchResults);
     const aiResponse = await callGLMAPI(query, context);
 
     return new Response(
       JSON.stringify({
         query,
+        scope,
         aiResponse,
         results: searchResults,
         count: searchResults.length,
@@ -321,6 +333,7 @@ export const GET: APIRoute = async ({ request, clientAddress }) => {
 
   const query = url.searchParams.get("q")?.trim() || "";
   const limit = Number.parseInt(url.searchParams.get("limit") || "6", 10);
+  const scope = url.searchParams.get("scope") === "toolbox" ? "toolbox" : "site";
 
   if (!query) {
     return new Response(JSON.stringify({ error: "请输入搜索内容" }), {
@@ -330,13 +343,14 @@ export const GET: APIRoute = async ({ request, clientAddress }) => {
   }
 
   try {
-    const searchResults = await searchLanceDB(query, limit);
+    const searchResults = await searchByScope(scope, query, limit);
     const context = formatContext(searchResults);
     const aiResponse = await callGLMAPI(query, context);
 
     return new Response(
       JSON.stringify({
         query,
+        scope,
         aiResponse,
         results: searchResults,
         count: searchResults.length,

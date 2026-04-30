@@ -272,6 +272,53 @@ main {
   gap: 0.8rem;
 }
 
+.toolbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.toolbox-card {
+  min-height: 100%;
+}
+
+.toolbox-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.toolbox-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg-soft) 72%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.toolbox-icon-label {
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text);
+}
+
+.toolbox-icon-fallback {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 38%, transparent);
+}
+
+.toolbox-name {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
 /* AI Search Styles */
 .ai-search-form {
   display: flex;

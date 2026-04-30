@@ -25,6 +25,9 @@ WorlFlow：
 - local：coderX <==>evaluatorX 迭代优化
 - unit：coderX
 
+初步部署开发问题记载：
+1. 调用plannerX 没有严格按照skill中格式 生成文档
+
 # copilot - wiki
 
 [GitHub Copilot 文档 - GitHub 文档](https://docs.github.com/zh/copilot)
