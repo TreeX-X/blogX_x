@@ -1,14 +1,29 @@
 ---
 tags:
   - note
-date: '2026-04-22'
+date: '2026-04-30'
 title: vscode AI
 description: >-
-  xWorkFlow copilot wiki claude node codex Skill Andrej karpathy skill: Harness
-  Design X x 参考： 面对全
+  xWorkFlow Agnets： 1. plannerX
+  ：通过整理模糊的自然对话，记录实际需要的需求和验收标准，并提出方案和意见，最终按照预设的框架，输出hybird文档，并记录工程相关的
 source: 'obsidian:AI使用技巧/vscode-AI.md'
 ---
-## xWorkFlow
+# xWorkFlow
+
+Agnets：
+
+1. **plannerX**：通过整理模糊的自然对话，记录实际需要的需求和验收标准，并提出方案和意见，最终按照预设的框架，输出hybird文档，并记录工程相关的文件和记忆
+2. **coderX**：根据hybird文档的需求和文件记忆，或者审核提出的意见和方案，通过子智能体协同生成对应的代码；
+  默认调用skill：guidelines
+3. **evaluatorX**：根据hybird文档和coderX 提交生成代码 分析，给出修改意见和方案
+4. **abstracterX**：根据生成的代码和文档，按照预设的文档，进行总结输出
+  默认调用MCP：Sequential Thinking
+5. **orchestratorX**: 作为主智能体，使用"runSubAgents"功能，按照内部定义的工作流调度子智能体
+
+WorlFlow：
+- whole：plannerX -> coderX -> evaluatorX -> abstracterX
+- local：coderX <==>evaluatorX 迭代优化
+- unit：coderX
 
 # copilot - wiki
 

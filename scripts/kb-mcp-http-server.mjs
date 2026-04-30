@@ -185,7 +185,7 @@ class PersistentMcpClient {
       return null;
     }
 
-    const id = String(++this.requestId);
+    const id = String(message.id);
     const messageWithId = { ...message, id };
 
     return new Promise((resolve, reject) => {
@@ -212,6 +212,14 @@ class PersistentMcpClient {
 }
 
 const mcpClient = new PersistentMcpClient();
+
+function writeJson(res, statusCode, payload, extraHeaders = {}) {
+  res.writeHead(statusCode, {
+    "Content-Type": "application/json; charset=utf-8",
+    ...extraHeaders,
+  });
+  res.end(payload == null ? "" : JSON.stringify(payload));
+}
 
 function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -254,10 +262,31 @@ async function handleRpc(payload) {
 
 const server = http.createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "content-type, accept");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("X-MCP-Transport", "http-jsonrpc");
 
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("ok");
+    return;
+  }
+
+  if (req.method === "GET" && req.url === "/mcp") {
+    writeJson(res, 200, {
+      name: "blogx-kb-mcp-http",
+      version: "0.0.1",
+      endpoint: "/mcp",
+      transport: "http-jsonrpc",
+      methods: ["POST"],
+      health: "/health",
+    });
+    return;
+  }
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
     return;
   }
 
@@ -269,6 +298,18 @@ const server = http.createServer(async (req, res) => {
 
   try {
     const payload = await parseJsonBody(req);
+    if (payload == null) {
+      writeJson(res, 400, {
+        jsonrpc: "2.0",
+        error: {
+          code: -32600,
+          message: "Request body is required",
+        },
+        id: null,
+      });
+      return;
+    }
+
     const response = await handleRpc(payload);
     if (
       response == null ||
@@ -278,20 +319,16 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
-    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify(response));
+    writeJson(res, 200, response);
   } catch (error) {
-    res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        error: {
-          code: -32603,
-          message: error instanceof Error ? error.message : String(error),
-        },
-        id: null,
-      })
-    );
+    writeJson(res, 500, {
+      jsonrpc: "2.0",
+      error: {
+        code: -32603,
+        message: error instanceof Error ? error.message : String(error),
+      },
+      id: null,
+    });
   }
 });
 
