@@ -37,22 +37,45 @@ const toBase = (path = "") => {
     <p class="meta">已同步 {entries.length} 条，按时间倒序展示。</p>
   </section>
 
+  {/*-- 移动端横向分类标签条 --*/}
+  <nav class="kb-tags" aria-label="知识库分类导航">
+    {groupNames.map((groupName) => (
+      <a class="kb-tag-item" href={`#kb-cat-${groupName}`}>{groupName} ({groupedEntries[groupName].length})</a>
+    ))}
+  </nav>
+
   <section class="section">
-    <div class="stagger" style="display: grid; gap: 1.2rem;">
-      {groupNames.map((groupName) => (
-        <section class="kg-group">
-          <h2 class="section-title" style="font-size: 1.2rem; margin-bottom: 0.7rem;">{groupName}</h2>
-          <div style="display: grid; gap: 0.9rem;">
-            {groupedEntries[groupName].map((entry) => (
-              <a class="card" href={toBase(`knowledge-base/${getEntryPath(entry)}`)}>
-                <p class="meta" style="margin: 0 0 0.35rem;">{formatDate(getContentDate(entry))}</p>
-                <h3 style="margin: 0 0 0.4rem; font-size: 1.05rem;">{getContentTitle(entry)}</h3>
-                <p style="margin: 0;">{getContentSummary(entry, 120)}</p>
-              </a>
-            ))}
-          </div>
-        </section>
-      ))}
+    <div class="kb-layout">
+      {/*-- 主内容区 --*/}
+      <div class="stagger" style="display: grid; gap: 1.2rem;">
+        {groupNames.map((groupName) => (
+          <section class="kg-group" id={`kb-cat-${groupName}`}>
+            <h2 class="section-title" style="font-size: 1.2rem; margin-bottom: 0.7rem;">{groupName}</h2>
+            <div style="display: grid; gap: 0.9rem;">
+              {groupedEntries[groupName].map((entry) => (
+                <a class="card" href={toBase(`knowledge-base/${getEntryPath(entry)}`)}>
+                  <p class="meta" style="margin: 0 0 0.35rem;">{formatDate(getContentDate(entry))}</p>
+                  <h3 style="margin: 0 0 0.4rem; font-size: 1.05rem;">{getContentTitle(entry)}</h3>
+                  <p style="margin: 0;">{getContentSummary(entry, 120)}</p>
+                </a>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {/*-- 右侧分类导航侧栏 --*/}
+      <aside class="kb-sidebar" aria-label="知识库分类导航">
+        <h3 class="kb-sidebar-title">分类目录</h3>
+        <nav class="kb-sidebar-list">
+          {groupNames.map((groupName) => (
+            <a class="kb-sidebar-link" href={`#kb-cat-${groupName}`}>
+              <span>{groupName}</span>
+              <span class="kb-sidebar-count">{groupedEntries[groupName].length}</span>
+            </a>
+          ))}
+        </nav>
+      </aside>
     </div>
   </section>
 </BaseLayout>

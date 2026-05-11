@@ -21,6 +21,7 @@
 
 html {
   color-scheme: light dark;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -69,8 +70,10 @@ a {
   text-decoration: none;
 }
 
+/*-- 容器宽度：显式 max-width 防止 Tailwind CSS v4 container 工具类覆盖 --*/
 .container {
-  width: min(840px, calc(100% - 2rem));
+  width: calc(100% - 2rem);
+  max-width: 1200px;
   margin: 0 auto;
 }
 
@@ -488,14 +491,14 @@ main {
 }
 
 .prose-wrap {
-  max-width: 72ch;
+  max-width: 82ch;
   line-height: 1.85;
   font-size: 1rem;
 }
 
 .article-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 230px;
+  grid-template-columns: minmax(0, 1fr) 260px;
   gap: 1.15rem;
   align-items: start;
 }
@@ -638,6 +641,121 @@ main {
 .kb-prose p,
 .kb-prose li {
   white-space: pre-wrap;
+}
+
+/*-- 知识库列表页侧栏布局 --*/
+.kb-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 2rem;
+}
+
+.kb-sidebar {
+  position: sticky;
+  top: 84px;
+  align-self: start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
+.kb-sidebar-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.kb-sidebar-list {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.kb-sidebar-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.kb-sidebar-link:hover,
+.kb-sidebar-link:focus-visible {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.kb-sidebar-count {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/*-- 移动端横向分类标签条 --*/
+.kb-tags {
+  display: none;
+}
+
+/*-- Markdown 内容显示优化 --*/
+
+/*-- 代码块左侧边线 --*/
+.prose-wrap pre {
+  border-left: 3px solid var(--line);
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose-wrap pre {
+    background: color-mix(in srgb, var(--bg-soft) 85%, transparent);
+  }
+}
+
+/*-- 表格移动端可水平滚动 --*/
+@media (max-width: 700px) {
+  .prose-wrap table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/*-- 引用块左侧边线增强 --*/
+.prose-wrap blockquote {
+  border-left: 3px solid color-mix(in srgb, var(--text) 45%, var(--line));
+}
+
+/*-- 正文链接下划线 --*/
+.prose-wrap a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/*-- 图片响应式 --*/
+.prose-wrap img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/*-- 分割线 --*/
+.prose-wrap hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 2em 0;
+}
+
+/*-- 嵌套列表缩进 --*/
+.prose-wrap ul ul,
+.prose-wrap ol ol,
+.prose-wrap ul ol,
+.prose-wrap ol ul {
+  margin-left: 1.5em;
 }
 
 @keyframes riseIn {
@@ -816,6 +934,51 @@ main {
 
   .nav-links[data-open="true"] {
     display: flex;
+  }
+
+  /*-- 移动端：知识库侧栏隐藏，显示横向标签条 --*/
+  .kb-layout {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .kb-sidebar {
+    display: none;
+  }
+
+  .kb-tags {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .kb-tags::-webkit-scrollbar {
+    display: none;
+  }
+
+  .kb-tag-item {
+    flex-shrink: 0;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.82rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--bg) 94%, transparent);
+    white-space: nowrap;
+  }
+}
+
+/*-- 平板断点：701px - 1024px --*/
+@media (min-width: 701px) and (max-width: 1024px) {
+  .kb-layout {
+    grid-template-columns: minmax(0, 1fr) 200px;
+  }
+
+  .kb-tags {
+    display: none;
   }
 }
 

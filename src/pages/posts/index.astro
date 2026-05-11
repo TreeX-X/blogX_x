@@ -18,7 +18,7 @@ const toBase = (path = "") => {
   </section>
 
   <section class="section">
-    <div class="stagger" style="display: grid; gap: 0.9rem;">
+    <div class="stagger" style="display: grid; gap: 0.9rem; max-width: 780px;">
       {posts.map((post) => (
         <a class="card" href={toBase(`posts/${getEntrySlug(post)}`)}>
           <h2 style="margin: 0 0 0.35rem; font-size: 1.2rem;">{post.data.title}</h2>
