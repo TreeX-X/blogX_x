@@ -638,9 +638,12 @@ main {
   font-family: "JetBrains Mono", "Fira Code", monospace;
 }
 
+/*-- Obsidian 导入兼容：移除 pre-wrap 避免多余空白，恢复默认 normal --*/
 .kb-prose p,
 .kb-prose li {
-  white-space: pre-wrap;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /*-- 知识库列表页侧栏布局 --*/
@@ -716,12 +719,31 @@ main {
   }
 }
 
-/*-- 表格移动端可水平滚动 --*/
+/*-- 移动端 Markdown 内容适配 --*/
 @media (max-width: 700px) {
+  /*-- 表格可水平滚动 --*/
   .prose-wrap table {
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /*-- 代码块不溢出 --*/
+  .prose-wrap pre {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /*-- 引用块缩进适当减小 --*/
+  .prose-wrap blockquote {
+    padding-left: 0.6rem;
+  }
+
+  /*-- kbd 在小屏下字体微调 --*/
+  .prose-wrap kbd {
+    font-size: 0.78em;
+    padding: 0.08rem 0.35rem;
   }
 }
 
@@ -730,10 +752,29 @@ main {
   border-left: 3px solid color-mix(in srgb, var(--text) 45%, var(--line));
 }
 
-/*-- 正文链接下划线 --*/
+/*-- 行内链接：下划线、颜色与 hover 优化 --*/
 .prose-wrap a {
   text-decoration: underline;
   text-underline-offset: 2px;
+  color: color-mix(in srgb, var(--text) 80%, #2563eb);
+  transition: color 180ms ease, text-decoration-color 180ms ease;
+}
+
+.prose-wrap a:hover,
+.prose-wrap a:focus-visible {
+  color: color-mix(in srgb, var(--text) 60%, #1d4ed8);
+  text-decoration-style: wavy;
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose-wrap a {
+    color: color-mix(in srgb, var(--text) 80%, #60a5fa);
+  }
+
+  .prose-wrap a:hover,
+  .prose-wrap a:focus-visible {
+    color: color-mix(in srgb, var(--text) 60%, #93c5fd);
+  }
 }
 
 /*-- 图片响应式 --*/
@@ -756,6 +797,128 @@ main {
 .prose-wrap ul ol,
 .prose-wrap ol ul {
   margin-left: 1.5em;
+}
+
+/*-- h1 正文标题样式 --*/
+.prose-wrap :where(h1) {
+  font-size: clamp(1.6rem, 1.4rem + 0.9vw, 2.1rem);
+  margin-top: 0;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 0.4rem;
+}
+
+/*-- 粗体 / 斜体 强调样式 --*/
+.prose-wrap strong {
+  font-weight: 700;
+  color: color-mix(in srgb, var(--text) 96%, var(--text-muted));
+}
+
+.prose-wrap em {
+  font-style: italic;
+  color: color-mix(in srgb, var(--text) 88%, var(--text-muted));
+}
+
+/*-- 嵌套引用块视觉层级 --*/
+.prose-wrap blockquote blockquote {
+  border-left-color: color-mix(in srgb, var(--text) 35%, var(--line));
+  background: color-mix(in srgb, var(--bg-soft) 48%, transparent);
+}
+
+.prose-wrap blockquote blockquote blockquote {
+  border-left-color: color-mix(in srgb, var(--text) 50%, var(--line));
+  background: color-mix(in srgb, var(--bg-soft) 36%, transparent);
+}
+
+/*-- 键盘快捷键 kbd 样式 --*/
+.prose-wrap kbd {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.82em;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  line-height: 1.5;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg-soft) 80%, transparent);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+/*-- 定义列表 dl/dt/dd --*/
+.prose-wrap dl {
+  margin: 0.9rem 0;
+}
+
+.prose-wrap dt {
+  font-weight: 600;
+  margin-top: 0.6rem;
+}
+
+.prose-wrap dd {
+  margin-left: 1.5rem;
+  margin-bottom: 0.4rem;
+  color: color-mix(in srgb, var(--text) 90%, var(--text-muted));
+}
+
+/*-- 有序列表序号样式 --*/
+.prose-wrap ol {
+  list-style-type: decimal;
+}
+
+.prose-wrap ol li::marker {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--text) 60%, var(--text-muted));
+}
+
+/*-- 段落间距与首段无多余上边距 --*/
+.prose-wrap > :first-child {
+  margin-top: 0;
+}
+
+/*-- 任务列表 checkbox 样式 --*/
+.prose-wrap ul li:has(input[type="checkbox"]) {
+  list-style: none;
+  margin-left: -1.35rem;
+  padding-left: 0;
+}
+
+.prose-wrap input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1em;
+  height: 1em;
+  border: 1.5px solid var(--line);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  vertical-align: middle;
+  margin-right: 0.4rem;
+  position: relative;
+  cursor: default;
+}
+
+.prose-wrap input[type="checkbox"]:checked {
+  background: color-mix(in srgb, var(--text) 70%, transparent);
+  border-color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.prose-wrap input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 0.22em;
+  top: 0.05em;
+  width: 0.35em;
+  height: 0.6em;
+  border: solid var(--bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/*-- Obsidian 残留语法降级显示 --*/
+.prose-wrap a[href^="["] {
+  color: var(--text-muted);
+  text-decoration-style: dotted;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 @keyframes riseIn {
