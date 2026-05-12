@@ -1,7 +1,9 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { render } from "astro:content";
-import { getPublishedPosts, formatDate, getEntrySlug } from "../../lib/content";
+import { getPublishedPosts, formatDate, getEntrySlug, getContentTitle, getContentSummary, getContentDate } from "../../lib/content";
+import { getArticleBySlug, estimateReadingTime, extractDomain } from "../../lib/article-db";
+import ArticleReader from "../../components/ArticleReader";
 
 export const prerender = true;
 
@@ -17,46 +19,129 @@ const params = Astro.params;
 const posts = await getPublishedPosts();
 const post = posts.find((p) => getEntrySlug(p) === params.slug);
 if (!post) throw new Error(`Post not found: ${params.slug}`);
-const { Content, headings } = await render(post);
+
+/*-- 从 LanceDB 获取抓取的文章数据 --*/
+const articleData = await getArticleBySlug(params.slug);
+const title = getContentTitle(post);
+const summary = getContentSummary(post);
+const pubDate = getContentDate(post);
+const domain = post.data.sourceUrl ? extractDomain(post.data.sourceUrl) : "";
+const hasArticleContent = articleData && articleData.fetchStatus === "success";
+
+/*-- 如果有 LanceDB 内容，直接用 ArticleReader 渲染，否则降级为 Markdown 渲染 --*/
+const { Content, headings } = hasArticleContent ? { Content: null, headings: [] } : await render(post);
 const toc = (headings ?? []).filter((item) => item.depth >= 2 && item.depth <= 4);
+
+/*-- 找到上一篇/下一篇 --*/
+const currentIndex = posts.findIndex((p) => getEntrySlug(p) === params.slug);
+const prevPost = currentIndex < posts.length - 1 ? posts[currentIndex + 1] : null;
+const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
 ---
 
 <BaseLayout
-  title={`${post.data.title} | BlogX_x`}
-  description={post.data.description}
+  title={`${title} | BlogX_x`}
+  description={summary}
 >
-  <div class="article-layout">
-    <article class="prose-wrap">
-      <header class="post-head">
-        <p class="meta">{formatDate(post.data.date)}</p>
-        <h1
-          style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;"
-        >
-          {post.data.title}
-        </h1>
-        <p class="meta" style="margin-bottom: 0.85rem;">{post.data.description}</p>
-        {post.data.tags?.length ? (
-          <div class="tag-list" aria-label="文章标签">
-            {post.data.tags.map((tag) => (
-              <span class="tag">#{tag}</span>
-            ))}
-          </div>
-        ) : null}
-      </header>
-      <Content />
-    </article>
+  {hasArticleContent ? (
+    /*-- 外链文章：使用 ArticleReader 渲染 LanceDB 内容 --*/
+    <div class="article-layout">
+      <article class="article-reader-wrap">
+        <header class="post-head">
+          <p class="meta">{formatDate(pubDate)} 收录</p>
+          <h1 style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;">
+            {title}
+          </h1>
+          {post.data.tags?.length ? (
+            <div class="tag-list" aria-label="文章标签">
+              {post.data.tags.map((tag: string) => (
+                <span class="tag">#{tag}</span>
+              ))}
+            </div>
+          ) : null}
+        </header>
 
-    {toc.length > 0 ? (
-      <aside class="toc-panel" aria-label="文章目录">
-        <p class="toc-title">快速跳转</p>
-        <nav class="toc-list">
-          {toc.map((item) => (
-            <a class={`toc-item depth-${item.depth}`} href={`#${item.slug}`}>
-              {item.text}
-            </a>
-          ))}
-        </nav>
-      </aside>
-    ) : null}
-  </div>
+        <ArticleReader
+          client:load
+          article={{
+            slug: params.slug,
+            sourceUrl: post.data.sourceUrl,
+            originalContent: articleData.originalContent,
+            translatedContent: articleData.translatedContent,
+            originalLang: articleData.originalLang,
+            title: articleData.title,
+            description: articleData.description,
+            author: articleData.author,
+            coverImage: articleData.coverImage,
+            wordCount: articleData.wordCount,
+            fetchStatus: articleData.fetchStatus,
+          }}
+        />
+      </article>
+
+      {toc.length > 0 ? (
+        <aside class="toc-panel" aria-label="文章目录">
+          <p class="toc-title">快速跳转</p>
+          <nav class="toc-list">
+            {toc.map((item: any) => (
+              <a class={`toc-item depth-${item.depth}`} href={`#${item.slug}`}>
+                {item.text}
+              </a>
+            ))}
+          </nav>
+        </aside>
+      ) : null}
+    </div>
+  ) : (
+    /*-- 降级：无 LanceDB 数据时用原始 Markdown 渲染 --*/
+    <div class="article-layout">
+      <article class="prose-wrap">
+        <header class="post-head">
+          <p class="meta">{formatDate(pubDate)}</p>
+          <h1 style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;">
+            {title}
+          </h1>
+          {summary && (
+            <p class="meta" style="margin-bottom: 0.85rem;">{summary}</p>
+          )}
+          {post.data.tags?.length ? (
+            <div class="tag-list" aria-label="文章标签">
+              {post.data.tags.map((tag: string) => (
+                <span class="tag">#{tag}</span>
+              ))}
+            </div>
+          ) : null}
+        </header>
+        <Content />
+      </article>
+
+      {toc.length > 0 ? (
+        <aside class="toc-panel" aria-label="文章目录">
+          <p class="toc-title">快速跳转</p>
+          <nav class="toc-list">
+            {toc.map((item: any) => (
+              <a class={`toc-item depth-${item.depth}`} href={`#${item.slug}`}>
+                {item.text}
+              </a>
+            ))}
+          </nav>
+        </aside>
+      ) : null}
+    </div>
+  )}
+
+  {/*-- 上一篇/下一篇导航 --*/}
+  <nav class="post-nav" aria-label="文章导航">
+    <div class="post-nav-inner">
+      {prevPost ? (
+        <a class="post-nav-link post-nav-prev" href={`${import.meta.env.BASE_URL}posts/${getEntrySlug(prevPost)}`}>
+          ← {getContentTitle(prevPost)}
+        </a>
+      ) : <span />}
+      {nextPost ? (
+        <a class="post-nav-link post-nav-next" href={`${import.meta.env.BASE_URL}posts/${getEntrySlug(nextPost)}`}>
+          {getContentTitle(nextPost)} →
+        </a>
+      ) : <span />}
+    </div>
+  </nav>
 </BaseLayout>

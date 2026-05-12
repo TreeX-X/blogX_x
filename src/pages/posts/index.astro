@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getPublishedPosts, formatDate, getEntrySlug } from "../../lib/content";
+import { getPublishedPosts, formatDate, getEntrySlug, getContentTitle, getContentDate } from "../../lib/content";
+import { getArticleBySlug, extractDomain } from "../../lib/article-db";
 
 const posts = await getPublishedPosts();
 const base = import.meta.env.BASE_URL;
@@ -9,28 +10,60 @@ const toBase = (path = "") => {
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
   return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
 };
+
+/*-- 预加载文章的 LanceDB 数据（封面图、来源等） --*/
+const postsWithMeta = await Promise.all(
+  posts.map(async (post) => {
+    const slug = getEntrySlug(post);
+    const article = await getArticleBySlug(slug);
+    return { post, slug, article };
+  })
+);
 ---
 
-<BaseLayout title="BlogX_x | 文章列表" description="BlogX_x 的全部技术文章列表。">
+<BaseLayout title="BlogX_x | 文章收藏" description="BlogX_x 收藏的优秀技术文章。">
   <section>
-    <h1 class="section-title">文章</h1>
-    <p class="meta">按时间倒序展示，共 {posts.length} 篇。</p>
+    <h1 class="section-title">文章收藏</h1>
+    <p class="meta">精选外链好文，构建时自动抓取并翻译。共 {posts.length} 篇。</p>
   </section>
 
   <section class="section">
-    <div class="stagger" style="display: grid; gap: 0.9rem; max-width: 780px;">
-      {posts.map((post) => (
-        <a class="card" href={toBase(`posts/${getEntrySlug(post)}`)}>
-          <h2 style="margin: 0 0 0.35rem; font-size: 1.2rem;">{post.data.title}</h2>
-          <p class="meta" style="margin: 0 0 0.4rem;">{formatDate(post.data.date)}</p>
-          <p style="margin: 0;">{post.data.description}</p>
-          {post.data.tags?.length ? (
-            <div class="tag-list" aria-label="文章标签">
-              {post.data.tags.map((tag) => (
-                <span class="tag">#{tag}</span>
-              ))}
+    <div class="stagger" style="display: grid; gap: 0.9rem;">
+      {postsWithMeta.map(({ post, slug, article }) => (
+        <a class="card article-card" href={toBase(`posts/${slug}`)}>
+          {article?.coverImage ? (
+            <div class="article-card-cover">
+              <img src={article.coverImage} alt="" loading="lazy" />
             </div>
           ) : null}
+          <div class="article-card-body">
+            <h2 style="margin: 0 0 0.35rem; font-size: 1.2rem;">
+              {getContentTitle(post)}
+            </h2>
+            <div class="article-card-meta">
+              {article?.author && <span>✍️ {article.author}</span>}
+              {post.data.sourceUrl && (
+                <span>🌐 {extractDomain(post.data.sourceUrl)}</span>
+              )}
+              <span class="meta">{formatDate(getContentDate(post))}</span>
+            </div>
+            {article?.description || post.data.description ? (
+              <p style="margin: 0.3rem 0 0;">{article?.description || post.data.description}</p>
+            ) : null}
+            <div class="article-card-bottom">
+              {post.data.tags?.length ? (
+                <div class="tag-list" aria-label="文章标签">
+                  {post.data.tags.map((tag: string) => (
+                    <span class="tag">#{tag}</span>
+                  ))}
+                </div>
+              ) : null}
+              <div class="article-card-lang">
+                <span class="lang-badge lang-en">EN</span>
+                {article?.translatedContent && <span class="lang-badge lang-zh">中</span>}
+              </div>
+            </div>
+          </div>
         </a>
       ))}
     </div>

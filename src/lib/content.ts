@@ -2,7 +2,7 @@ import { getCollection } from 'astro:content';
 
 export async function getPublishedPosts() {
   const posts = await getCollection('posts', ({ data }) => !data.isDraft);
-  return posts.sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+  return posts.sort((a, b) => getContentDate(b).getTime() - getContentDate(a).getTime());
 }
 
 export async function getKnowledgeBaseEntries() {
@@ -31,7 +31,7 @@ function tryParseDateFromId(id: string) {
 export function getContentDate(entry: { data: { date?: Date }; id: string }) {
   const dataDate = entry.data?.date;
   if (dataDate instanceof Date && !Number.isNaN(dataDate.getTime())) return dataDate;
-  return tryParseDateFromId(entry.id) || new Date(0);
+  return tryParseDateFromId(entry.id) || new Date();
 }
 
 export function getContentTitle(entry: { data: { title?: string }; slug?: string; id: string }) {

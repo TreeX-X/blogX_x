@@ -32,6 +32,10 @@ pnpm-debug.log*
 !.vscode/extensions.json
 !.vscode/mcp.json
 
+
+./docs
+./memories
+
 # codex / assistant local state
 .codex/
 .claude/

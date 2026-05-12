@@ -249,6 +249,25 @@ async function main() {
     // 表不存在，使用全量覆写
   }
 
+  /*-- Phase 3.5: 确保 articles 表存在 --*/
+  try {
+    const existingTables = await db.tableNames();
+    if (!existingTables.includes("articles")) {
+      await db.createTable("articles", [{
+        slug: "__placeholder__", sourceUrl: "", originalContent: "", translatedContent: "",
+        contentHash: "", fetchedAt: "", translatedAt: "", originalLang: "en",
+        title: "", description: "", author: "", coverImage: "", wordCount: 0, fetchStatus: "pending",
+      }]);
+      const articlesTable = await db.openTable("articles");
+      await articlesTable.delete('slug = "__placeholder__"');
+      console.log("✅ articles 表已创建");
+    } else {
+      console.log("⏭️ articles 表已存在，跳过");
+    }
+  } catch (error) {
+    console.warn(`⚠️ articles 表初始化失败: ${error.message}`);
+  }
+
   // Phase 3a: 全量覆写（首次运行或表不存在）
   if (!table) {
     console.log(`🚀 首次运行，全量向量化 ${fileEntries.length} 篇内容...`);
