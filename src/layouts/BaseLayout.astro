@@ -28,6 +28,7 @@ const toBase = (path = "") => {
     <title>{title}</title>
   </head>
   <body>
+    <canvas id="starfield" class="starfield-canvas" aria-hidden="true"></canvas>
     <div id="cursorGlow" class="cursor-glow" aria-hidden="true"></div>
     <header class="site-header">
       <div class="container inner">
@@ -60,6 +61,48 @@ const toBase = (path = "") => {
     </footer>
 
     <script>
+      /*-- 星空粒子绘制 --*/
+      (function () {
+        const canvas = document.getElementById("starfield");
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        let stars = [];
+
+        function resize() {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+          generate();
+        }
+
+        function generate() {
+          const count = Math.min(120, Math.floor((canvas.width * canvas.height) / 12000));
+          stars = [];
+          for (let i = 0; i < count; i++) {
+            stars.push({
+              x: Math.random() * canvas.width,
+              y: Math.random() * canvas.height,
+              r: Math.random() * 1.4 + 0.3,
+              a: Math.random() * 0.5 + 0.15,
+            });
+          }
+          draw();
+        }
+
+        function draw() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          for (const s of stars) {
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(232, 228, 240, ${s.a})`;
+            ctx.fill();
+          }
+        }
+
+        window.addEventListener("resize", resize);
+        resize();
+      })();
+
+      /*-- 导航菜单 & 光标光晕 --*/
       const button = document.getElementById("menuToggle");
       const nav = document.getElementById("siteNav");
       const glow = document.getElementById("cursorGlow");

@@ -71,10 +71,11 @@ const ideasAdminApi = toBase("api/ideas/admin");
     }
 
     .admin-auth {
-      border: 1px solid var(--line);
+      border: 1px solid rgba(167, 139, 250, 0.12);
       border-radius: 12px;
       padding: 1.5rem;
-      background: var(--bg);
+      background: rgba(15, 12, 24, 0.5);
+      backdrop-filter: blur(12px);
       margin-bottom: 2rem;
     }
 
@@ -87,25 +88,38 @@ const ideasAdminApi = toBase("api/ideas/admin");
     .admin-login-form input {
       flex: 1;
       padding: 0.8rem;
-      border: 1px solid var(--line);
+      border: 1px solid rgba(167, 139, 250, 0.12);
       border-radius: 8px;
-      background: var(--bg);
+      background: rgba(15, 12, 24, 0.5);
       color: var(--text);
+    }
+
+    .admin-login-form input:focus {
+      outline: none;
+      border-color: rgba(167, 139, 250, 0.4);
+      box-shadow: 0 0 12px rgba(167, 139, 250, 0.1);
     }
 
     .admin-login-form button {
       padding: 0.8rem 1rem;
-      border: none;
+      border: 1px solid rgba(167, 139, 250, 0.3);
       border-radius: 8px;
-      background: var(--text);
-      color: var(--bg);
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.2), rgba(96, 165, 250, 0.15));
+      color: #a78bfa;
       cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .admin-login-form button:hover {
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.3), rgba(96, 165, 250, 0.25));
+      box-shadow: 0 0 16px rgba(167, 139, 250, 0.12);
     }
 
     .logout-btn {
       background: transparent !important;
-      color: var(--text) !important;
-      border: 1px solid var(--line) !important;
+      color: var(--text-muted) !important;
+      border: 1px solid rgba(167, 139, 250, 0.12) !important;
     }
 
     .admin-header {
@@ -121,28 +135,29 @@ const ideasAdminApi = toBase("api/ideas/admin");
 
     .idea-card {
       padding: 1.5rem;
-      border: 1px solid var(--line);
+      border: 1px solid rgba(167, 139, 250, 0.12);
       border-radius: 8px;
-      background: var(--bg);
+      background: rgba(15, 12, 24, 0.5);
+      backdrop-filter: blur(12px);
       cursor: pointer;
       transition: all 0.2s;
     }
 
     .idea-card:hover {
-      border-color: var(--text);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border-color: rgba(167, 139, 250, 0.3);
+      box-shadow: 0 0 20px rgba(167, 139, 250, 0.08), 0 4px 16px rgba(0, 0, 0, 0.4);
     }
 
     .idea-card.pending {
-      border-left: 4px solid #f59e0b;
+      border-left: 4px solid #fbbf24;
     }
 
     .idea-card.approved {
-      border-left: 4px solid #16a34a;
+      border-left: 4px solid #34d399;
     }
 
     .idea-card.rejected {
-      border-left: 4px solid #dc2626;
+      border-left: 4px solid #f87171;
       opacity: 0.7;
     }
 
@@ -162,19 +177,19 @@ const ideasAdminApi = toBase("api/ideas/admin");
       font-size: 0.85rem;
       padding: 0.2rem 0.6rem;
       border-radius: 12px;
-      background: color-mix(in srgb, var(--text) 10%, transparent);
+      background: rgba(167, 139, 250, 0.08);
     }
 
     .idea-status.pending {
-      color: #f59e0b;
+      color: #fbbf24;
     }
 
     .idea-status.approved {
-      color: #16a34a;
+      color: #34d399;
     }
 
     .idea-status.rejected {
-      color: #dc2626;
+      color: #f87171;
     }
 
     .idea-content {
@@ -184,7 +199,7 @@ const ideasAdminApi = toBase("api/ideas/admin");
 
     .idea-meta {
       font-size: 0.85rem;
-      color: color-mix(in srgb, var(--text) 50%, transparent);
+      color: var(--text-muted);
     }
 
     .modal {
@@ -193,7 +208,8 @@ const ideasAdminApi = toBase("api/ideas/admin");
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(7, 5, 13, 0.8);
+      backdrop-filter: blur(8px);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -201,8 +217,9 @@ const ideasAdminApi = toBase("api/ideas/admin");
     }
 
     .modal-content {
-      background: var(--bg);
-      border: 1px solid var(--line);
+      background: rgba(15, 12, 24, 0.85);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(167, 139, 250, 0.15);
       border-radius: 12px;
       max-width: 500px;
       width: 90%;
@@ -215,7 +232,7 @@ const ideasAdminApi = toBase("api/ideas/admin");
       justify-content: space-between;
       align-items: center;
       padding: 1.5rem;
-      border-bottom: 1px solid var(--line);
+      border-bottom: 1px solid rgba(167, 139, 250, 0.1);
     }
 
     .modal-header h3 {
@@ -227,7 +244,12 @@ const ideasAdminApi = toBase("api/ideas/admin");
       border: none;
       font-size: 1.5rem;
       cursor: pointer;
-      color: color-mix(in srgb, var(--text) 60%, transparent);
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+
+    .close-btn:hover {
+      color: #a78bfa;
     }
 
     .modal-body {
@@ -252,21 +274,40 @@ const ideasAdminApi = toBase("api/ideas/admin");
       cursor: pointer;
       transition: all 0.2s;
       min-width: 120px;
+      font-weight: 600;
     }
 
     .btn-approve {
-      background: #16a34a;
-      color: white;
+      background: rgba(52, 211, 153, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    .btn-approve:hover {
+      background: rgba(52, 211, 153, 0.25);
+      box-shadow: 0 0 12px rgba(52, 211, 153, 0.15);
     }
 
     .btn-pending {
-      background: #f59e0b;
-      color: white;
+      background: rgba(251, 191, 36, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+
+    .btn-pending:hover {
+      background: rgba(251, 191, 36, 0.25);
+      box-shadow: 0 0 12px rgba(251, 191, 36, 0.15);
     }
 
     .btn-reject {
-      background: #dc2626;
-      color: white;
+      background: rgba(248, 113, 113, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(248, 113, 113, 0.3);
+    }
+
+    .btn-reject:hover {
+      background: rgba(248, 113, 113, 0.25);
+      box-shadow: 0 0 12px rgba(248, 113, 113, 0.15);
     }
 
     .admin-note {
@@ -276,10 +317,15 @@ const ideasAdminApi = toBase("api/ideas/admin");
     .admin-note input {
       width: 100%;
       padding: 0.6rem;
-      border: 1px solid var(--line);
+      border: 1px solid rgba(167, 139, 250, 0.12);
       border-radius: 6px;
-      background: var(--bg);
+      background: rgba(15, 12, 24, 0.5);
       color: var(--text);
+    }
+
+    .admin-note input:focus {
+      outline: none;
+      border-color: rgba(167, 139, 250, 0.4);
     }
 
     @media (max-width: 600px) {
@@ -355,7 +401,7 @@ const ideasAdminApi = toBase("api/ideas/admin");
       } catch (error) {
         console.error("Load ideas error:", error);
         document.getElementById("ideas-list").innerHTML =
-          '<p class="meta" style="color: #dc2626;">加载失败，请重新登录或检查服务端配置</p>';
+          '<p class="meta" style="color: #f87171;">加载失败，请重新登录或检查服务端配置</p>';
       }
     }
 

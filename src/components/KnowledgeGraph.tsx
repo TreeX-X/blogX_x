@@ -26,12 +26,12 @@ type Props = {
 };
 
 const NODE_COLORS: Record<string, string> = {
-  posts: "#111111",
-  "knowledge-base": "#6b7280",
+  posts: "#a78bfa",
+  "knowledge-base": "#60a5fa",
 };
 
 function getNodeColor(collection: string) {
-  return NODE_COLORS[collection] || "#9ca3af";
+  return NODE_COLORS[collection] || "#a78bfa";
 }
 
 function toAppUrl(rawUrl: string) {
@@ -156,7 +156,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         enableNodeDrag={false}
         cooldownTicks={120}
         linkWidth={(link) => Math.max(0.8, Math.min(2.2, Number((link as Link).similarity || 0) * 4))}
-        linkColor={() => "rgba(82,82,82,0.55)"}
+        linkColor={() => "rgba(167,139,250,0.2)"}
         nodeRelSize={5}
         nodeLabel={(node) => `${(node as Node).title} (${(node as Node).collection})`}
         nodeCanvasObject={(node, ctx, scale) => {
@@ -171,7 +171,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
           ctx.fill();
           if (scale > 2.1) return;
           ctx.font = `${fontSize}px IBM Plex Sans, sans-serif`;
-          ctx.fillStyle = "rgba(10,10,10,0.85)";
+          ctx.fillStyle = "rgba(232,228,240,0.7)";
           ctx.textAlign = "left";
           ctx.textBaseline = "middle";
           ctx.fillText(label.slice(0, 16), x + 8, y);
