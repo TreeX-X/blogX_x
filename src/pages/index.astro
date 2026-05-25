@@ -28,76 +28,103 @@ const toBase = (path = "") => {
 	title="BlogX_x | 首页"
 	description="BlogX_x 是一个暗黑科技感的个人数字花园。"
 >
-	<section>
-		<p class="meta">PERSONAL DIGITAL GARDEN</p>
-		<h1
-			class="section-title"
-			style="font-size: clamp(2rem, 1.6rem + 2vw, 3rem); margin-bottom: 0.5rem;"
-		>
-			树码空间
-		</h1>
-		<p class="meta">
-			这里沉淀长篇技术文章与 Obsidian 本地知识库。没有多余装饰，只有清晰结构、可靠信息和持续迭代。
+	{/* ===== Hero ===== */}
+	<section class="hero">
+		<div class="hero-badge">
+			<span class="hero-badge-dot"></span>
+			PERSONAL DIGITAL GARDEN
+		</div>
+		<h1 class="hero-title">树码空间</h1>
+		<p class="hero-subtitle">
+			沉淀长篇技术文章与本地知识库，以 AI 驱动搜索与知识图谱。<br />
+			没有多余装饰，只有清晰结构与持续迭代。
 		</p>
+
+		<div class="hero-search">
+			<form
+				id="siteSearchForm"
+				class="ai-search-form"
+				data-api={toBase("api/ai-search")}
+				data-base={toBase()}
+				data-scope="site"
+			>
+				<div class="hero-search-container">
+					<input
+						id="siteSearchInput"
+						name="q"
+						type="search"
+						placeholder="Ask anything — 搜索文章、知识库、概念..."
+						autocomplete="off"
+					/>
+					<button type="submit" class="hero-search-btn" id="searchButton">
+						搜索
+					</button>
+				</div>
+				<div id="aiTypingIndicator" class="ai-typing-indicator" style="display: none;">
+					<span class="typing-dots">
+						<span></span>
+						<span></span>
+						<span></span>
+					</span>
+					<span class="typing-text">AI 正在思考...</span>
+				</div>
+			</form>
+			<p class="hero-search-hint">支持自然语言提问，AI 自动检索并生成回答</p>
+		</div>
+
+		<div id="aiChatContext" class="ai-chat-context" style="display: none; max-width: 600px; margin: 1rem auto 0;">
+			<div class="chat-header">
+				<h3>AI 对话</h3>
+				<button id="clearChat" class="clear-chat-btn">清除对话</button>
+			</div>
+			<div id="chatMessages" class="chat-messages"></div>
+		</div>
+		<div id="searchStatus" class="meta" style="text-align: center; margin: 0.55rem 0 0.9rem;"></div>
+		<div id="searchResults" class="search-results" style="max-width: 600px; margin: 0 auto;" aria-live="polite"></div>
 	</section>
 
+	{/* ===== Features ===== */}
+	<div class="features stagger">
+		<div class="feature-card">
+			<div class="feature-icon">
+				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+			</div>
+			<h3 class="feature-title">AI 智能搜索</h3>
+			<p class="feature-desc">基于向量检索与大语言模型，用自然语言提问即可获得精准回答与相关文章。</p>
+		</div>
+		<div class="feature-card">
+			<div class="feature-icon">
+				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+			</div>
+			<h3 class="feature-title">知识图谱</h3>
+			<p class="feature-desc">基于向量相似度自动构建关系网络，可视化探索知识之间的隐含联系。</p>
+		</div>
+		<div class="feature-card">
+			<div class="feature-icon">
+				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+			</div>
+			<h3 class="feature-title">数字花园</h3>
+			<p class="feature-desc">Obsidian 知识库双向同步，文章与笔记相互链接，持续生长的知识网络。</p>
+		</div>
+	</div>
+
+	{/* ===== Content Sections ===== */}
 	<div class="home-layout section">
 		<div class="home-main">
 			<section>
-				<h2 class="section-title">AI 搜索</h2>
-				<form
-					id="siteSearchForm"
-					class="ai-search-form"
-					data-api={toBase("api/ai-search")}
-					data-base={toBase()}
-					data-scope="site"
-				>
-					<div class="ai-search-container">
-						<input
-							id="siteSearchInput"
-							name="q"
-							type="search"
-							placeholder="输入问题或关键词，例如：如何使用 Astro？"
-							autocomplete="off"
-						/>
-						<button type="submit" id="searchButton">搜索</button>
-					</div>
-					<div id="aiTypingIndicator" class="ai-typing-indicator" style="display: none;">
-						<span class="typing-dots">
-							<span></span>
-							<span></span>
-							<span></span>
-						</span>
-						<span class="typing-text">AI 正在思考...</span>
-					</div>
-				</form>
-				<div id="aiChatContext" class="ai-chat-context" style="display: none;">
-					<div class="chat-header">
-						<h3>AI 对话</h3>
-						<button id="clearChat" class="clear-chat-btn">清除对话</button>
-					</div>
-					<div id="chatMessages" class="chat-messages"></div>
-				</div>
-				<div id="searchStatus" class="meta" style="margin: 0.55rem 0 0.9rem;"></div>
-				<div id="searchResults" class="search-results" aria-live="polite"></div>
-			</section>
-
-			<section class="section">
-				<div
-					style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
-				>
+				<div class="section-header">
 					<h2 class="section-title">最新文章</h2>
-					<a class="meta" href={toBase("posts")}>查看全部 →</a>
+					<a class="section-link" href={toBase("posts")}>查看全部 &rarr;</a>
 				</div>
-				<div class="stagger" style="display: grid; gap: 0.8rem;">
+				<div class="stagger" style="display: grid; gap: 0.85rem;">
 					{
 						posts.map((post) => (
 							<a class="card" href={toBase(`posts/${getEntrySlug(post)}`)}>
-								<h3 style="margin: 0 0 0.35rem;">{post.data.title}</h3>
+								<h3>{post.data.title}</h3>
 								<p class="meta" style="margin: 0 0 0.4rem;">
 									{formatDate(post.data.date)}
 								</p>
-								<p style="margin: 0;">{post.data.description}</p>
+								<p>{post.data.description}</p>
 								{post.data.tags?.length ? (
 									<div class="tag-list" aria-label="文章标签">
 										{post.data.tags.map((tag) => (
@@ -112,21 +139,19 @@ const toBase = (path = "") => {
 			</section>
 
 			<section class="section">
-				<div
-					style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;"
-				>
+				<div class="section-header">
 					<h2 class="section-title">最近知识库</h2>
-					<a class="meta" href={toBase("knowledge-base")}>查看全部 →</a>
+					<a class="section-link" href={toBase("knowledge-base")}>查看全部 &rarr;</a>
 				</div>
-				<div class="stagger" style="display: grid; gap: 0.8rem;">
+				<div class="stagger" style="display: grid; gap: 0.85rem;">
 					{
 						knowledgeEntries.map((entry) => (
 							<a class="card" href={toBase(`knowledge-base/${getEntryPath(entry)}`)}>
-								<p class="meta" style="margin: 0 0 0.35rem;">
+								<p class="meta" style="margin: 0 0 0.3rem;">
 									{formatDate(getContentDate(entry))}
 								</p>
-								<h3 style="margin: 0 0 0.35rem;">{getContentTitle(entry)}</h3>
-								<p style="margin: 0;">{getContentSummary(entry, 88)}</p>
+								<h3>{getContentTitle(entry)}</h3>
+								<p>{getContentSummary(entry, 88)}</p>
 							</a>
 						))
 					}

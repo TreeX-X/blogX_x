@@ -57,11 +57,37 @@ const toBase = (path = "") => {
     </main>
 
     <footer class="site-footer">
-      <div class="container">© {currentYear} BlogX_x's Digital Garden.</div>
+      <div class="container">
+        <div class="footer-inner">
+          <div>
+            <div class="footer-brand">BlogX_x</div>
+            <p class="footer-desc">
+              个人数字花园 — 沉淀技术文章、知识库与工具集，持续迭代。
+            </p>
+          </div>
+          <div class="footer-links">
+            <div class="footer-col">
+              <h4>内容</h4>
+              <a href={toBase("posts")}>文章</a>
+              <a href={toBase("knowledge-base")}>知识库</a>
+              <a href={toBase("toolbox")}>工具箱</a>
+            </div>
+            <div class="footer-col">
+              <h4>关于</h4>
+              <a href={toBase("about")}>关于我</a>
+              <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">GitHub</a>
+            </div>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>&copy; {currentYear} BlogX_x's Digital Garden.</span>
+          <span>Powered by Astro &amp; Claude</span>
+        </div>
+      </div>
     </footer>
 
     <script>
-      /*-- 星空粒子绘制 --*/
+      /*-- Starfield canvas --*/
       (function () {
         const canvas = document.getElementById("starfield");
         if (!canvas) return;
@@ -75,34 +101,40 @@ const toBase = (path = "") => {
         }
 
         function generate() {
-          const count = Math.min(120, Math.floor((canvas.width * canvas.height) / 12000));
+          const count = Math.min(150, Math.floor((canvas.width * canvas.height) / 10000));
           stars = [];
           for (let i = 0; i < count; i++) {
             stars.push({
               x: Math.random() * canvas.width,
               y: Math.random() * canvas.height,
-              r: Math.random() * 1.4 + 0.3,
-              a: Math.random() * 0.5 + 0.15,
+              r: Math.random() * 1.2 + 0.2,
+              a: Math.random() * 0.4 + 0.1,
+              speed: Math.random() * 0.0003 + 0.0001,
+              phase: Math.random() * Math.PI * 2,
             });
           }
           draw();
         }
 
-        function draw() {
+        function draw(time) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           for (const s of stars) {
+            const twinkle = 0.5 + 0.5 * Math.sin(time * s.speed + s.phase);
+            const alpha = s.a * (0.6 + 0.4 * twinkle);
             ctx.beginPath();
             ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(232, 228, 240, ${s.a})`;
+            ctx.fillStyle = `rgba(232, 228, 240, ${alpha})`;
             ctx.fill();
           }
+          requestAnimationFrame(draw);
         }
 
         window.addEventListener("resize", resize);
         resize();
+        requestAnimationFrame(draw);
       })();
 
-      /*-- 导航菜单 & 光标光晕 --*/
+      /*-- Nav menu & cursor glow --*/
       const button = document.getElementById("menuToggle");
       const nav = document.getElementById("siteNav");
       const glow = document.getElementById("cursorGlow");
