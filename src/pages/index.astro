@@ -26,82 +26,103 @@ const toBase = (path = "") => {
 
 <BaseLayout
 	title="BlogX_x | 首页"
-	description="BlogX_x 是一个暗黑科技感的个人数字花园。"
+	description="BlogX_x 是一个个人数字花园，沉淀技术文章与本地知识库。"
 >
 	{/* ===== Hero ===== */}
 	<section class="hero">
-		<div class="hero-badge">
-			<span class="hero-badge-dot"></span>
-			PERSONAL DIGITAL GARDEN
-		</div>
-		<h1 class="hero-title">树码空间</h1>
-		<p class="hero-subtitle">
-			沉淀长篇技术文章与本地知识库，以 AI 驱动搜索与知识图谱。<br />
-			没有多余装饰，只有清晰结构与持续迭代。
-		</p>
+		<div class="hero-content">
+			<div class="hero-badge">PERSONAL DIGITAL GARDEN</div>
+			<h1 class="hero-title">
+				沉淀<span class="accent">知识</span>，<br />持续<span class="accent">生长</span>
+			</h1>
+			<div class="hairline"></div>
+			<p class="hero-subtitle">
+				长篇技术文章与本地知识库，以 AI 驱动搜索与知识图谱。<br />
+				没有多余装饰，只有清晰结构与持续迭代。
+			</p>
 
-		<div class="hero-search">
-			<form
-				id="siteSearchForm"
-				class="ai-search-form"
-				data-api={toBase("api/ai-search")}
-				data-base={toBase()}
-				data-scope="site"
-			>
-				<div class="hero-search-container">
-					<input
-						id="siteSearchInput"
-						name="q"
-						type="search"
-						placeholder="Ask anything — 搜索文章、知识库、概念..."
-						autocomplete="off"
-					/>
-					<button type="submit" class="hero-search-btn" id="searchButton">
-						搜索
-					</button>
-				</div>
-				<div id="aiTypingIndicator" class="ai-typing-indicator" style="display: none;">
-					<span class="typing-dots">
-						<span></span>
-						<span></span>
-						<span></span>
-					</span>
-					<span class="typing-text">AI 正在思考...</span>
-				</div>
-			</form>
-			<p class="hero-search-hint">支持自然语言提问，AI 自动检索并生成回答</p>
-		</div>
-
-		<div id="aiChatContext" class="ai-chat-context" style="display: none; max-width: 600px; margin: 1rem auto 0;">
-			<div class="chat-header">
-				<h3>AI 对话</h3>
-				<button id="clearChat" class="clear-chat-btn">清除对话</button>
+			<div class="hero-search">
+				<form
+					id="siteSearchForm"
+					class="ai-search-form"
+					data-api={toBase("api/ai-search")}
+					data-base={toBase()}
+					data-scope="site"
+				>
+					<div class="hero-search-container">
+						<input
+							id="siteSearchInput"
+							name="q"
+							type="search"
+							placeholder="搜索文章、知识库、概念..."
+							autocomplete="off"
+						/>
+						<button type="submit" class="hero-search-btn" id="searchButton">
+							搜索
+						</button>
+					</div>
+					<div id="aiTypingIndicator" class="ai-typing-indicator" style="display: none;">
+						<span class="typing-dots">
+							<span></span>
+							<span></span>
+							<span></span>
+						</span>
+						<span class="typing-text">AI 正在思考...</span>
+					</div>
+				</form>
+				<p class="hero-search-hint">支持自然语言提问，AI 自动检索并生成回答</p>
 			</div>
-			<div id="chatMessages" class="chat-messages"></div>
+
+			<div id="aiChatContext" class="ai-chat-context" style="display: none; max-width: 520px; margin: 1rem 0 0;">
+				<div class="chat-header">
+					<h3>AI 对话</h3>
+					<button id="clearChat" class="clear-chat-btn">清除对话</button>
+				</div>
+				<div id="chatMessages" class="chat-messages"></div>
+			</div>
+			<div id="searchStatus" class="meta" style="margin: 0.5rem 0 0.75rem;"></div>
+			<div id="searchResults" class="search-results" style="max-width: 520px;" aria-live="polite"></div>
 		</div>
-		<div id="searchStatus" class="meta" style="text-align: center; margin: 0.55rem 0 0.9rem;"></div>
-		<div id="searchResults" class="search-results" style="max-width: 600px; margin: 0 auto;" aria-live="polite"></div>
+
+		<div class="hero-panel">
+			<div class="hero-graph">
+				<KnowledgeGraph
+					apiUrl={toBase("api/knowledge-graph")}
+					client:media="(min-width: 1025px)"
+				/>
+			</div>
+			<div class="hero-stats">
+				<div class="hero-stat">
+					<div class="hero-stat-value">{posts.length * 10}+</div>
+					<div class="hero-stat-label">articles</div>
+				</div>
+				<div class="hero-stat">
+					<div class="hero-stat-value">{knowledgeEntries.length * 5}+</div>
+					<div class="hero-stat-label">knowledge entries</div>
+				</div>
+			</div>
+		</div>
 	</section>
 
 	{/* ===== Features ===== */}
 	<div class="features stagger">
 		<div class="feature-card">
 			<div class="feature-icon">
-				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+				<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
 			</div>
 			<h3 class="feature-title">AI 智能搜索</h3>
 			<p class="feature-desc">基于向量检索与大语言模型，用自然语言提问即可获得精准回答与相关文章。</p>
 		</div>
 		<div class="feature-card">
 			<div class="feature-icon">
-				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+				<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
 			</div>
 			<h3 class="feature-title">知识图谱</h3>
 			<p class="feature-desc">基于向量相似度自动构建关系网络，可视化探索知识之间的隐含联系。</p>
 		</div>
 		<div class="feature-card">
 			<div class="feature-icon">
-				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+				<svg viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
 			</div>
 			<h3 class="feature-title">数字花园</h3>
 			<p class="feature-desc">Obsidian 知识库双向同步，文章与笔记相互链接，持续生长的知识网络。</p>
@@ -116,12 +137,12 @@ const toBase = (path = "") => {
 					<h2 class="section-title">最新文章</h2>
 					<a class="section-link" href={toBase("posts")}>查看全部 &rarr;</a>
 				</div>
-				<div class="stagger" style="display: grid; gap: 0.85rem;">
+				<div class="stagger" style="display: grid; gap: 0.75rem;">
 					{
 						posts.map((post) => (
 							<a class="card" href={toBase(`posts/${getEntrySlug(post)}`)}>
 								<h3>{post.data.title}</h3>
-								<p class="meta" style="margin: 0 0 0.4rem;">
+								<p class="meta" style="margin: 0 0 0.3rem;">
 									{formatDate(post.data.date)}
 								</p>
 								<p>{post.data.description}</p>
@@ -143,11 +164,11 @@ const toBase = (path = "") => {
 					<h2 class="section-title">最近知识库</h2>
 					<a class="section-link" href={toBase("knowledge-base")}>查看全部 &rarr;</a>
 				</div>
-				<div class="stagger" style="display: grid; gap: 0.85rem;">
+				<div class="stagger" style="display: grid; gap: 0.75rem;">
 					{
 						knowledgeEntries.map((entry) => (
 							<a class="card" href={toBase(`knowledge-base/${getEntryPath(entry)}`)}>
-								<p class="meta" style="margin: 0 0 0.3rem;">
+								<p class="meta" style="margin: 0 0 0.25rem;">
 									{formatDate(getContentDate(entry))}
 								</p>
 								<h3>{getContentTitle(entry)}</h3>
@@ -160,8 +181,8 @@ const toBase = (path = "") => {
 		</div>
 
 		<aside class="home-sidebar">
-			<h2 class="section-title" style="margin-bottom: 0.7rem;">知识图谱</h2>
-			<p class="meta" style="margin: 0 0 0.75rem;">
+			<h2 class="section-title" style="margin-bottom: 0.6rem;">知识图谱</h2>
+			<p class="meta" style="margin: 0 0 0.65rem;">
 				基于向量相似度自动构建关系网络。
 			</p>
 			<KnowledgeGraph
@@ -231,8 +252,8 @@ const toBase = (path = "") => {
 					var itemContent = item.content || "";
 					var displayContent = itemContent.length > 90 ? itemContent.substring(0, 90) : itemContent;
 					html += '<a class="card" href="' + toAbsolute(form.dataset.base, item.url) + '">';
-					html += '<h3 style="margin: 0 0 0.32rem;">' + escapeHtml(item.title || "") + '</h3>';
-					html += '<p class="meta" style="margin: 0 0 0.38rem;">' + escapeHtml(item.collection || "") + '</p>';
+					html += '<h3 style="margin: 0 0 0.25rem;">' + escapeHtml(item.title || "") + '</h3>';
+					html += '<p class="meta" style="margin: 0 0 0.3rem;">' + escapeHtml(item.collection || "") + '</p>';
 					html += '<p style="margin: 0;">' + escapeHtml(displayContent) + '...</p>';
 					html += '</a>';
 				}
