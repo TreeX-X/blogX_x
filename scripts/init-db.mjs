@@ -244,15 +244,40 @@ async function main() {
     const existingTables = await db.tableNames();
     if (existingTables.includes(TABLE_NAME)) {
       table = await db.openTable(TABLE_NAME);
+      /*-- 验证表是否可读 --*/
+      await table.query().limit(1).toArray();
     }
-  } catch {
-    // 表不存在，使用全量覆写
+  } catch (error) {
+    console.warn(`⚠️ ${TABLE_NAME} 表损坏，将重新创建: ${error.message}`);
+    try {
+      await db.dropTable(TABLE_NAME);
+    } catch { /* 忽略删除错误 */ }
+    table = null;
   }
 
   /*-- Phase 3.5: 确保 articles 表存在 --*/
   try {
     const existingTables = await db.tableNames();
-    if (!existingTables.includes("articles")) {
+    if (existingTables.includes("articles")) {
+      try {
+        const articlesTable = await db.openTable("articles");
+        await articlesTable.query().limit(1).toArray();
+        console.log("⏭️ articles 表已存在，跳过");
+      } catch (error) {
+        console.warn(`⚠️ articles 表损坏，正在重建: ${error.message}`);
+        try {
+          await db.dropTable("articles");
+        } catch { /* 忽略删除错误 */ }
+        await db.createTable("articles", [{
+          slug: "__placeholder__", sourceUrl: "", originalContent: "", translatedContent: "",
+          contentHash: "", fetchedAt: "", translatedAt: "", originalLang: "en",
+          title: "", description: "", author: "", coverImage: "", wordCount: 0, fetchStatus: "pending",
+        }]);
+        const articlesTable = await db.openTable("articles");
+        await articlesTable.delete('slug = "__placeholder__"');
+        console.log("✅ articles 表已重建");
+      }
+    } else {
       await db.createTable("articles", [{
         slug: "__placeholder__", sourceUrl: "", originalContent: "", translatedContent: "",
         contentHash: "", fetchedAt: "", translatedAt: "", originalLang: "en",
@@ -261,8 +286,6 @@ async function main() {
       const articlesTable = await db.openTable("articles");
       await articlesTable.delete('slug = "__placeholder__"');
       console.log("✅ articles 表已创建");
-    } else {
-      console.log("⏭️ articles 表已存在，跳过");
     }
   } catch (error) {
     console.warn(`⚠️ articles 表初始化失败: ${error.message}`);

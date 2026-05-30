@@ -71,7 +71,17 @@ async function getDb() {
 async function ensureTable(db) {
   const tableNames = await db.tableNames();
   if (tableNames.includes(ARTICLES_TABLE)) {
-    return db.openTable(ARTICLES_TABLE);
+    try {
+      const table = await db.openTable(ARTICLES_TABLE);
+      /*-- 验证表是否可读 --*/
+      await table.query().limit(1).toArray();
+      return table;
+    } catch (error) {
+      console.warn(`⚠️ articles 表损坏，正在重建: ${error.message}`);
+      try {
+        await db.dropTable(ARTICLES_TABLE);
+      } catch { /* 忽略删除错误 */ }
+    }
   }
   const table = await db.createTable(ARTICLES_TABLE, [{
     slug: "__placeholder__", sourceUrl: "", originalContent: "", translatedContent: "",
