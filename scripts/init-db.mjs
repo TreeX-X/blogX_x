@@ -240,19 +240,37 @@ async function main() {
 
   // Phase 3: 检查已有表
   let table = null;
+  let schemaMismatch = false;
   try {
     const existingTables = await db.tableNames();
     if (existingTables.includes(TABLE_NAME)) {
       table = await db.openTable(TABLE_NAME);
-      /*-- 验证表是否可读 --*/
-      await table.query().limit(1).toArray();
+      /*-- 验证表是否可读，并检查 schema --*/
+      const testRows = await table.query().limit(1).toArray();
+      if (testRows.length > 0) {
+        const existingFields = Object.keys(testRows[0]);
+        const requiredFields = ["id", "collection", "slug", "title", "content", "contentHash", "url", "vector"];
+        const missingFields = requiredFields.filter(f => !existingFields.includes(f));
+        if (missingFields.length > 0) {
+          console.warn(`⚠️ ${TABLE_NAME} 表 schema 不匹配，缺少字段: ${missingFields.join(", ")}`);
+          schemaMismatch = true;
+        }
+      }
     }
   } catch (error) {
     console.warn(`⚠️ ${TABLE_NAME} 表损坏，将重新创建: ${error.message}`);
+    schemaMismatch = true;
+  }
+
+  /*-- 如果 schema 不匹配，删除云表并重建 --*/
+  if (schemaMismatch && table) {
     try {
+      console.log(`🔄 删除 schema 不匹配的 ${TABLE_NAME} 表...`);
       await db.dropTable(TABLE_NAME);
-    } catch { /* 忽略删除错误 */ }
-    table = null;
+      table = null;
+    } catch (error) {
+      console.warn(`⚠️ 删除 ${TABLE_NAME} 表失败: ${error.message}`);
+    }
   }
 
   /*-- Phase 3.5: 确保 articles 表存在 --*/
@@ -295,8 +313,10 @@ async function main() {
   if (!table) {
     console.log(`🚀 首次运行，全量向量化 ${fileEntries.length} 篇内容...`);
     const rows = await embedAllEntries(fileEntries);
-    await db.createTable(TABLE_NAME, rows, { mode: "overwrite" });
-    console.log(`✅ 完成，已写入 ${rows.length} 条数据（全量覆写）。`);
+    /*-- 移除 contentHash 字段以确保 schema 兼容 --*/
+    const cleanRows = rows.map(({ contentHash, ...rest }) => rest);
+    await db.createTable(TABLE_NAME, cleanRows, { mode: "overwrite" });
+    console.log(`✅ 完成，已写入 ${cleanRows.length} 条数据（全量覆写）。`);
     return;
   }
 
@@ -339,10 +359,12 @@ async function main() {
   // Phase 5: 通过 mergeInsert 做增量写入
   if (rows.length > 0) {
     console.log(`📝 增量写入 ${rows.length} 条数据...`);
+    /*-- 移除 contentHash 字段以确保 schema 兼容 --*/
+    const cleanRows = rows.map(({ contentHash, ...rest }) => rest);
     await table.mergeInsert("id")
       .whenMatchedUpdateAll()
       .whenNotMatchedInsertAll()
-      .execute(rows);
+      .execute(cleanRows);
   }
 
   // Phase 6: 删除已移除的行

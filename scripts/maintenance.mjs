@@ -54,11 +54,26 @@ async function checkTableHealth(db, tableName) {
     const table = await db.openTable(tableName);
     const rows = await table.query().limit(1).toArray();
     
+    /*-- 检查 schema 是否匹配 --*/
+    const expectedFields = ["id", "collection", "slug", "title", "content", "url", "vector"];
+    const actualFields = rows.length > 0 ? Object.keys(rows[0]) : [];
+    const missingFields = expectedFields.filter(f => !actualFields.includes(f));
+    
+    if (missingFields.length > 0) {
+      return { 
+        exists: true, 
+        healthy: false, 
+        error: `Schema 不匹配，缺少字段: ${missingFields.join(", ")}`,
+        schema: actualFields,
+        missingFields
+      };
+    }
+    
     return { 
       exists: true, 
       healthy: true, 
       rowCount: rows.length,
-      schema: rows.length > 0 ? Object.keys(rows[0]) : []
+      schema: actualFields
     };
   } catch (error) {
     return { exists: true, healthy: false, error: error.message };
@@ -107,7 +122,11 @@ async function status() {
         console.log(`   Schema: ${blogIndexStatus.schema.join(", ")}`);
       }
     } else if (blogIndexStatus.exists) {
-      log(colors.red, "❌", `${BLOG_INDEX_TABLE}: 损坏 - ${blogIndexStatus.error}`);
+      log(colors.red, "❌", `${BLOG_INDEX_TABLE}: ${blogIndexStatus.error}`);
+      if (blogIndexStatus.missingFields) {
+        console.log(`   缺少字段: ${blogIndexStatus.missingFields.join(", ")}`);
+        console.log(`   运行 'npm run maintenance:fix' 修复`);
+      }
     } else {
       log(colors.yellow, "⚠️", `${BLOG_INDEX_TABLE}: 不存在`);
     }
@@ -116,7 +135,7 @@ async function status() {
     if (articlesStatus.healthy) {
       log(colors.green, "✅", `${ARTICLES_TABLE}: 健康 (${articlesStatus.rowCount} 条记录)`);
     } else if (articlesStatus.exists) {
-      log(colors.red, "❌", `${ARTICLES_TABLE}: 损坏 - ${articlesStatus.error}`);
+      log(colors.red, "❌", `${ARTICLES_TABLE}: ${articlesStatus.error}`);
     } else {
       log(colors.yellow, "⚠️", `${ARTICLES_TABLE}: 不存在`);
     }
