@@ -22,7 +22,8 @@
     "maintenance": "node scripts/maintenance.mjs",
     "maintenance:status": "node scripts/maintenance.mjs status",
     "maintenance:fix": "node scripts/maintenance.mjs fix",
-    "maintenance:verify": "node scripts/maintenance.mjs verify"
+    "maintenance:verify": "node scripts/maintenance.mjs verify",
+    "test:kg": "node scripts/test-knowledge-graph.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.0",
