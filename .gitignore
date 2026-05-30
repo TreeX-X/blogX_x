@@ -39,6 +39,7 @@ pnpm-debug.log*
 # codex / assistant local state
 .codex/
 .claude/
+.opencode/
 
 # Claude Code memory files (contains project-specific information and secrets)
 /memory/
@@ -56,4 +57,5 @@ Thumbs.db
 # repo-local docs / instructions
 AGENTS.md
 CLAUDE.md
+opencode.json
 .mcp.json
