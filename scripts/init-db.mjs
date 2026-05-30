@@ -4,19 +4,23 @@ import crypto from "node:crypto";
 import matter from "gray-matter";
 import * as lancedb from "@lancedb/lancedb";
 import dotenv from "dotenv";
+import { Logger } from "./lib/logger.mjs";
 
 dotenv.config();
 
-// 硅基流动推荐使用的强大中文向量模型，维度默认 1024
+const log = new Logger("init-db");
+
+/*===== 配置常量 =====*/
 const SF_MODEL = "BAAI/bge-m3";
 const TABLE_NAME = process.env.LANCEDB_TABLE || "blog_index";
 const CONTENT_DIRS = ["src/content/posts", "src/content/knowledge-base", "src/content/wiki"];
-// 注意：bge-m3 模型的输出维度是 1024，默认值已修改
 const EMBEDDING_DIM = Number.parseInt(process.env.EMBEDDING_DIM || "1024", 10);
 const LOCAL_DB_PATH = process.env.LANCEDB_LOCAL_PATH || ".lancedb";
 const CLOUD_REQUIRED = process.env.LANCEDB_CLOUD_REQUIRED === "true";
 const EMBED_BATCH_SIZE = 20;
 const MAX_CONCURRENT_BATCHES = 3;
+
+/*===== 工具函数 =====*/
 
 function computeContentHash(text) {
   return crypto.createHash("md5").update(text, "utf8").digest("hex");
@@ -49,7 +53,8 @@ function stripMarkdown(text) {
     .trim();
 }
 
-// 采用硅基流动 (SiliconFlow) 的批量 API 生成向量
+/*===== 向量生成 =====*/
+
 async function getEmbeddings(texts) {
   const sfToken = process.env.SF_TOKEN;
   if (!sfToken) {
@@ -75,7 +80,6 @@ async function getEmbeddings(texts) {
   }
 
   const data = await response.json();
-  // 按 index 排序确保与输入顺序一致
   const sorted = data.data.sort((a, b) => a.index - b.index);
   return sorted.map((item) => item.embedding);
 }
@@ -120,7 +124,7 @@ async function embedAllEntries(entries) {
       try {
         vectors = await getEmbeddings(texts);
       } catch (error) {
-        console.warn(`⚠️ 批量向量化失败，降级本地向量 (batch ${currentBatchIdx + 1}): ${error.message}`);
+        log.warn(`批量向量化失败，降级本地向量 (batch ${currentBatchIdx + 1}): ${error.message}`);
         vectors = texts.map((t) => fallbackEmbedding(t));
       }
 
@@ -148,6 +152,8 @@ async function embedAllEntries(entries) {
 
   return results.filter(Boolean);
 }
+
+/*===== 文件解析 =====*/
 
 function parseFileEntries(files) {
   const entries = [];
@@ -180,6 +186,8 @@ function parseFileEntries(files) {
   return entries;
 }
 
+/*===== LanceDB 操作 =====*/
+
 async function getExistingHashes(table) {
   try {
     const rows = await table.query().select(["id", "contentHash"]).toArray();
@@ -189,7 +197,7 @@ async function getExistingHashes(table) {
     }
     return map;
   } catch (error) {
-    console.warn(`⚠️ 无法读取已有哈希: ${error.message}`);
+    log.warn(`无法读取已有哈希: ${error.message}`);
     return new Map();
   }
 }
@@ -202,17 +210,19 @@ async function connectToDatabase() {
 
   if (LANCEDB_URI && LANCEDB_API_KEY) {
     try {
-      console.log("☁️ 连接 LanceDB Cloud...");
+      log.database("连接 LanceDB Cloud...");
       db = await lancedb.connect(LANCEDB_URI, { apiKey: LANCEDB_API_KEY });
       isCloud = true;
+      log.success("LanceDB Cloud 连接成功");
     } catch (error) {
-      console.warn(`⚠️ LanceDB Cloud 连接失败: ${error.message}`);
+      log.warn(`LanceDB Cloud 连接失败: ${error.message}`);
     }
   }
 
   if (!db && !CLOUD_REQUIRED) {
-    console.log("📂 使用本地 LanceDB...");
+    log.database("使用本地 LanceDB...");
     db = await lancedb.connect(localDbUri);
+    log.success("本地 LanceDB 连接成功");
   }
 
   if (!db) {
@@ -222,105 +232,96 @@ async function connectToDatabase() {
   return { db, isCloud };
 }
 
+async function ensureTable(db, tableName, schema) {
+  const tableNames = await db.tableNames();
+  if (tableNames.includes(tableName)) {
+    try {
+      const table = await db.openTable(tableName);
+      await table.query().limit(1).toArray();
+      return table;
+    } catch (error) {
+      log.warn(`${tableName} 表损坏，正在重建: ${error.message}`);
+      try { await db.dropTable(tableName); } catch { /* ignore */ }
+    }
+  }
+  const table = await db.createTable(tableName, schema);
+  await table.delete('slug = "__placeholder__"');
+  log.success(`${tableName} 表已创建`);
+  return table;
+}
+
+/*===== 主流程 =====*/
+
 async function main() {
+  log.start("知识图谱索引构建");
+  
+  /*-- 1. 扫描文件 --*/
   const absoluteDirs = CONTENT_DIRS.map((d) => path.join(process.cwd(), d));
   const files = absoluteDirs.flatMap((dir) => getMarkdownFiles(dir));
 
   if (files.length === 0) {
-    console.log("未找到 Markdown 文件，已跳过。");
+    log.info("未找到 Markdown 文件，已跳过");
     return;
   }
 
-  // Phase 1: 解析文件，计算哈希（不做向量化）
   const fileEntries = parseFileEntries(files);
-  console.log(`🔍 扫描到 ${fileEntries.length} 篇内容`);
+  log.info(`扫描到 ${fileEntries.length} 篇内容`);
 
-  // Phase 2: 连接数据库
+  /*-- 2. 连接数据库 --*/
   const { db, isCloud } = await connectToDatabase();
 
-  // Phase 3: 检查已有表
+  /*-- 3. 检查已有表 --*/
   let table = null;
   let schemaMismatch = false;
+  
   try {
     const existingTables = await db.tableNames();
     if (existingTables.includes(TABLE_NAME)) {
       table = await db.openTable(TABLE_NAME);
-      /*-- 验证表是否可读，并检查 schema --*/
       const testRows = await table.query().limit(1).toArray();
       if (testRows.length > 0) {
         const existingFields = Object.keys(testRows[0]);
-        const requiredFields = ["id", "collection", "slug", "title", "content", "contentHash", "url", "vector"];
+        const requiredFields = ["id", "collection", "slug", "title", "content", "url", "vector"];
         const missingFields = requiredFields.filter(f => !existingFields.includes(f));
         if (missingFields.length > 0) {
-          console.warn(`⚠️ ${TABLE_NAME} 表 schema 不匹配，缺少字段: ${missingFields.join(", ")}`);
+          log.warn(`${TABLE_NAME} 表 schema 不匹配，缺少字段: ${missingFields.join(", ")}`);
           schemaMismatch = true;
         }
       }
     }
   } catch (error) {
-    console.warn(`⚠️ ${TABLE_NAME} 表损坏，将重新创建: ${error.message}`);
+    log.warn(`${TABLE_NAME} 表损坏，将重新创建: ${error.message}`);
     schemaMismatch = true;
   }
 
-  /*-- 如果 schema 不匹配，删除云表并重建 --*/
   if (schemaMismatch && table) {
     try {
-      console.log(`🔄 删除 schema 不匹配的 ${TABLE_NAME} 表...`);
+      log.reset(`删除 schema 不匹配的 ${TABLE_NAME} 表...`);
       await db.dropTable(TABLE_NAME);
       table = null;
     } catch (error) {
-      console.warn(`⚠️ 删除 ${TABLE_NAME} 表失败: ${error.message}`);
+      log.error(`删除 ${TABLE_NAME} 表失败: ${error.message}`);
     }
   }
 
-  /*-- Phase 3.5: 确保 articles 表存在 --*/
-  try {
-    const existingTables = await db.tableNames();
-    if (existingTables.includes("articles")) {
-      try {
-        const articlesTable = await db.openTable("articles");
-        await articlesTable.query().limit(1).toArray();
-        console.log("⏭️ articles 表已存在，跳过");
-      } catch (error) {
-        console.warn(`⚠️ articles 表损坏，正在重建: ${error.message}`);
-        try {
-          await db.dropTable("articles");
-        } catch { /* 忽略删除错误 */ }
-        await db.createTable("articles", [{
-          slug: "__placeholder__", sourceUrl: "", originalContent: "", translatedContent: "",
-          contentHash: "", fetchedAt: "", translatedAt: "", originalLang: "en",
-          title: "", description: "", author: "", coverImage: "", wordCount: 0, fetchStatus: "pending",
-        }]);
-        const articlesTable = await db.openTable("articles");
-        await articlesTable.delete('slug = "__placeholder__"');
-        console.log("✅ articles 表已重建");
-      }
-    } else {
-      await db.createTable("articles", [{
-        slug: "__placeholder__", sourceUrl: "", originalContent: "", translatedContent: "",
-        contentHash: "", fetchedAt: "", translatedAt: "", originalLang: "en",
-        title: "", description: "", author: "", coverImage: "", wordCount: 0, fetchStatus: "pending",
-      }]);
-      const articlesTable = await db.openTable("articles");
-      await articlesTable.delete('slug = "__placeholder__"');
-      console.log("✅ articles 表已创建");
-    }
-  } catch (error) {
-    console.warn(`⚠️ articles 表初始化失败: ${error.message}`);
-  }
+  /*-- 4. 确保 articles 表存在 --*/
+  await ensureTable(db, "articles", [{
+    slug: "__placeholder__", sourceUrl: "", originalContent: "", translatedContent: "",
+    contentHash: "", fetchedAt: "", translatedAt: "", originalLang: "en",
+    title: "", description: "", author: "", coverImage: "", wordCount: 0, fetchStatus: "pending",
+  }]);
 
-  // Phase 3a: 全量覆写（首次运行或表不存在）
+  /*-- 5. 全量覆写（首次运行或表不存在）--*/
   if (!table) {
-    console.log(`🚀 首次运行，全量向量化 ${fileEntries.length} 篇内容...`);
+    log.start(`首次运行，全量向量化 ${fileEntries.length} 篇内容...`);
     const rows = await embedAllEntries(fileEntries);
-    /*-- 移除 contentHash 字段以确保 schema 兼容 --*/
     const cleanRows = rows.map(({ contentHash, ...rest }) => rest);
     await db.createTable(TABLE_NAME, cleanRows, { mode: "overwrite" });
-    console.log(`✅ 完成，已写入 ${cleanRows.length} 条数据（全量覆写）。`);
+    log.success(`完成，已写入 ${cleanRows.length} 条数据（全量覆写）`);
     return;
   }
 
-  // Phase 3b: 增量更新
+  /*-- 6. 增量更新 --*/
   const existingHashes = await getExistingHashes(table);
   const currentIds = new Set(fileEntries.map((e) => e.relativePath));
 
@@ -341,25 +342,29 @@ async function main() {
 
   const deletedIds = [...existingHashes.keys()].filter((id) => !currentIds.has(id));
 
-  console.log(`📊 增量分析: +${added.length} 新增, ~${modified.length} 修改, =${unchanged.length} 未变, -${deletedIds.length} 删除`);
+  log.stats({
+    "新增": added.length,
+    "修改": modified.length,
+    "未变": unchanged.length,
+    "删除": deletedIds.length
+  });
 
   const toEmbed = [...added, ...modified];
   if (toEmbed.length === 0 && deletedIds.length === 0) {
-    console.log("✅ 无变化，跳过。");
+    log.success("无变化，跳过");
     return;
   }
 
-  // Phase 4: 仅对变化的条目做向量化
+  /*-- 7. 向量化变化内容 --*/
   if (toEmbed.length > 0) {
-    console.log(`🚀 向量化 ${toEmbed.length} 篇变化内容...`);
+    log.process(`向量化 ${toEmbed.length} 篇变化内容...`);
   }
 
   const rows = await embedAllEntries(toEmbed);
 
-  // Phase 5: 通过 mergeInsert 做增量写入
+  /*-- 8. 增量写入 --*/
   if (rows.length > 0) {
-    console.log(`📝 增量写入 ${rows.length} 条数据...`);
-    /*-- 移除 contentHash 字段以确保 schema 兼容 --*/
+    log.save(`增量写入 ${rows.length} 条数据...`);
     const cleanRows = rows.map(({ contentHash, ...rest }) => rest);
     await table.mergeInsert("id")
       .whenMatchedUpdateAll()
@@ -367,22 +372,28 @@ async function main() {
       .execute(cleanRows);
   }
 
-  // Phase 6: 删除已移除的行
+  /*-- 9. 删除已移除的行 --*/
   if (deletedIds.length > 0) {
-    console.log(`🗑️ 删除 ${deletedIds.length} 条已移除数据...`);
+    log.delete(`删除 ${deletedIds.length} 条已移除数据...`);
     for (const id of deletedIds) {
       const escaped = id.replace(/'/g, "''");
       await table.delete(`id = '${escaped}'`);
     }
   }
 
-  // Phase 7: 优化表
-  await table.optimize();
+  /*-- 10. 优化表（仅本地数据库）--*/
+  if (!isCloud) {
+    await table.optimize();
+  }
 
-  console.log(`✅ 完成: upsert ${rows.length}, delete ${deletedIds.length}`);
+  log.summary({
+    "写入": rows.length,
+    "删除": deletedIds.length,
+    "总记录": fileEntries.length
+  });
 }
 
 main().catch((error) => {
-  console.error("初始化失败:", error);
+  log.error(`初始化失败: ${error.message}`);
   process.exitCode = 1;
 });

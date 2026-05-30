@@ -5,8 +5,9 @@
  *
  * 用法：
  *   node scripts/fetch-articles.mjs              # 仅抓取
- *   node scripts/fetch-articles.mjs --translate   # 抓取 + 翻译
+ *   node scripts/fetch-articles.mjs --translate   # 抓取 + 翻译（仅新文章）
  *   node scripts/fetch-articles.mjs --force       # 强制重新抓取所有
+ *   node scripts/fetch-articles.mjs --translate --force  # 强制重新抓取并翻译
  */
 
 import fs from "node:fs";
@@ -17,19 +18,21 @@ import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import * as lancedb from "@lancedb/lancedb";
 import dotenv from "dotenv";
+import { Logger } from "./lib/logger.mjs";
 
 dotenv.config();
+
+const log = new Logger("fetch-articles");
 
 /*===== 配置常量 =====*/
 const POSTS_DIR = "src/content/posts";
 const ARTICLES_TABLE = "articles";
 const LOCAL_DB_PATH = process.env.LANCEDB_LOCAL_PATH || ".lancedb";
-const FETCH_TIMEOUT = 15_000; /*-- 15 秒超时 --*/
-const TRANSLATE_BATCH_SIZE = 3000; /*-- 每段翻译最大字符数 --*/
+const FETCH_TIMEOUT = 15_000;
+const TRANSLATE_BATCH_SIZE = 3000;
 const MAX_RETRIES = 2;
-const TRANSLATE_TIMEOUT = 60_000; /*-- 翻译请求 60 秒超时 --*/
-const USER_AGENT =
-  "Mozilla/5.0 (compatible; BlogX_x/1.0; +https://blogx-x.vercel.app)";
+const TRANSLATE_TIMEOUT = 60_000;
+const USER_AGENT = "Mozilla/5.0 (compatible; BlogX_x/1.0; +https://blogx-x.vercel.app)";
 
 /*===== 命令行参数解析 =====*/
 const args = process.argv.slice(2);
@@ -37,7 +40,15 @@ const shouldTranslate = args.includes("--translate");
 const forceRefetch = args.includes("--force");
 
 /*===== 统计计数器 =====*/
-const stats = { total: 0, fetched: 0, skipped: 0, failed: 0, translated: 0, translateFailed: 0 };
+const stats = { 
+  total: 0, 
+  fetched: 0, 
+  skipped: 0, 
+  failed: 0, 
+  translated: 0, 
+  translateSkipped: 0,
+  translateFailed: 0 
+};
 
 /*===== 工具函数 =====*/
 
@@ -46,7 +57,6 @@ function computeHash(url, content) {
 }
 
 function countWords(text) {
-  /*-- 移除 HTML 标签后统计词数（英文按空格，中文按字符） --*/
   const plain = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const cjk = (plain.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
   const latin = plain.replace(/[\u4e00-\u9fff\u3400-\u4dbf]/g, " ").split(/\s+/).filter(Boolean).length;
@@ -73,14 +83,11 @@ async function ensureTable(db) {
   if (tableNames.includes(ARTICLES_TABLE)) {
     try {
       const table = await db.openTable(ARTICLES_TABLE);
-      /*-- 验证表是否可读 --*/
       await table.query().limit(1).toArray();
       return table;
     } catch (error) {
-      console.warn(`⚠️ articles 表损坏，正在重建: ${error.message}`);
-      try {
-        await db.dropTable(ARTICLES_TABLE);
-      } catch { /* 忽略删除错误 */ }
+      log.warn(`articles 表损坏，正在重建: ${error.message}`);
+      try { await db.dropTable(ARTICLES_TABLE); } catch { /* ignore */ }
     }
   }
   const table = await db.createTable(ARTICLES_TABLE, [{
@@ -127,7 +134,6 @@ async function fetchArticle(url) {
       content: parsed.content || "",
       textContent: parsed.textContent || "",
       excerpt: parsed.excerpt || "",
-      /*-- 尝试从原始 HTML 提取 og:image 和 author --*/
       coverImage: document.querySelector('meta[property="og:image"]')?.getAttribute("content") || "",
       author: document.querySelector('meta[name="author"]')?.getAttribute("content") || parsed.byline || "",
     };
@@ -153,22 +159,21 @@ const TRANSLATE_SYSTEM_PROMPT = `你是一位专业的技术文章翻译者。�
 async function translateText(text) {
   const apiKey = process.env.GLM_API_KEY;
   if (!apiKey) {
-    console.warn("⚠️ GLM_API_KEY 未配置，跳过翻译");
+    log.warn("GLM_API_KEY 未配置，跳过翻译");
     return null;
   }
 
   const baseUrl = process.env.GLM_BASE_URL || "https://open.bigmodel.cn/api/paas/v4";
   const model = process.env.GLM_MODEL || "glm-4.5-air";
 
-  /*-- 长文分段翻译 --*/
   const segments = splitTextIntoSegments(text, TRANSLATE_BATCH_SIZE);
   const translatedSegments = [];
-  if (segments.length > 1) console.log(`     共 ${segments.length} 个段落待翻译...`);
+  if (segments.length > 1) log.process(`共 ${segments.length} 个段落待翻译...`);
 
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
     let translated = null;
-    if (segments.length > 1) console.log(`     📝 翻译段落 ${i + 1}/${segments.length} (${segment.length} 字符)...`);
+    if (segments.length > 1) log.process(`翻译段落 ${i + 1}/${segments.length} (${segment.length} 字符)...`);
 
     for (let retry = 0; retry <= MAX_RETRIES; retry++) {
       try {
@@ -204,10 +209,10 @@ async function translateText(text) {
         clearTimeout(_tmr);
         if (retry < MAX_RETRIES) {
           const wait = 1000 * Math.pow(2, retry);
-          console.warn(`  ⚠️ 翻译段落 ${i + 1} 失败 (${retry + 1}/${MAX_RETRIES}): ${err.message}，${wait}ms 后重试...`);
+          log.warn(`翻译段落 ${i + 1} 失败 (${retry + 1}/${MAX_RETRIES}): ${err.message}，${wait}ms 后重试...`);
           await new Promise((r) => setTimeout(r, wait));
         } else {
-          console.error(`  ❌ 翻译段落 ${i + 1} 最终失败: ${err.message}`);
+          log.error(`翻译段落 ${i + 1} 最终失败: ${err.message}`);
         }
       }
     }
@@ -218,9 +223,6 @@ async function translateText(text) {
   return translatedSegments.join("\n\n");
 }
 
-/**
- * 将长文本按段落边界切分为不超 maxLen 的段
- */
 function splitTextIntoSegments(text, maxLen) {
   if (text.length <= maxLen) return [text];
   const segments = [];
@@ -237,15 +239,37 @@ function splitTextIntoSegments(text, maxLen) {
   return segments;
 }
 
+/*===== 翻译判断逻辑 =====*/
+
+function shouldTranslateArticle(existing, newContent) {
+  // 1. 没有翻译记录 -> 需要翻译
+  if (!existing || !existing.translatedContent || existing.translatedContent === "") {
+    return { needed: true, reason: "无翻译记录" };
+  }
+  
+  // 2. 内容哈希变化 -> 需要重新翻译
+  if (existing.contentHash && existing.contentHash !== newContent.contentHash) {
+    return { needed: true, reason: "内容已更新" };
+  }
+  
+  // 3. 翻译时间早于抓取时间 -> 需要重新翻译
+  if (existing.translatedAt && existing.fetchedAt && 
+      new Date(existing.translatedAt) < new Date(existing.fetchedAt)) {
+    return { needed: true, reason: "翻译版本过旧" };
+  }
+  
+  return { needed: false, reason: "翻译已是最新" };
+}
+
 /*===== 主流程 =====*/
 
 async function main() {
-  console.log("📦 文章抓取脚本启动...");
-  console.log(`   模式: ${shouldTranslate ? "抓取 + 翻译" : "仅抓取"}${forceRefetch ? " (强制刷新)" : ""}`);
+  log.start("文章抓取脚本启动");
+  log.config(`模式: ${shouldTranslate ? "抓取 + 翻译" : "仅抓取"}${forceRefetch ? " (强制刷新)" : ""}`);
 
   /*-- 1. 扫描 posts 目录 --*/
   if (!fs.existsSync(POSTS_DIR)) {
-    console.log("⚠️ posts 目录不存在，跳过");
+    log.warn("posts 目录不存在，跳过");
     return;
   }
 
@@ -261,14 +285,15 @@ async function main() {
 
   stats.total = articles.length;
   if (articles.length === 0) {
-    console.log("ℹ️ 没有找到带 sourceUrl 的文章，跳过");
+    log.info("没有找到带 sourceUrl 的文章，跳过");
     return;
   }
-  console.log(`📋 发现 ${articles.length} 篇外链文章`);
+  log.info(`发现 ${articles.length} 篇外链文章`);
 
   /*-- 2. 连接 LanceDB --*/
   const db = await getDb();
   const table = await ensureTable(db);
+  log.database("数据库连接成功");
 
   /*-- 3. 逐篇处理 --*/
   for (const article of articles) {
@@ -278,17 +303,25 @@ async function main() {
 
     /*-- 检查是否需要重新抓取 --*/
     if (!forceRefetch && existing && existing.fetchStatus === "success" && existing.originalContent) {
-      console.log(`  ⏭️ ${slug} — 已有缓存，跳过抓取`);
-      stats.skipped++;
-      /*-- 如果需要翻译但尚未翻译，继续翻译 --*/
-      if (shouldTranslate && (!existing.translatedContent || existing.translatedContent === "")) {
-        await doTranslate(table, existing, slug);
+      // 检查是否需要翻译
+      if (shouldTranslate) {
+        const translateCheck = shouldTranslateArticle(existing, { contentHash: existing.contentHash });
+        if (translateCheck.needed) {
+          log.translate(`${slug} — ${translateCheck.reason}`);
+          await doTranslate(table, existing, slug);
+        } else {
+          log.skip(`${slug} — 已有缓存，翻译已是最新`);
+          stats.translateSkipped++;
+        }
+      } else {
+        log.skip(`${slug} — 已有缓存，跳过抓取`);
       }
+      stats.skipped++;
       continue;
     }
 
     /*-- 抓取 --*/
-    console.log(`  🔍 抓取 ${slug} — ${extractDomain(url)}`);
+    log.search(`${slug} — ${extractDomain(url)}`);
     try {
       const result = await fetchArticle(url);
       const contentHash = computeHash(url, result.textContent);
@@ -313,12 +346,19 @@ async function main() {
       };
 
       await upsertRecord(table, record);
-      console.log(`  ✅ ${slug} — 抓取成功 (${wordCount} 词)`);
+      log.success(`${slug} — 抓取成功 (${wordCount} 词)`);
       stats.fetched++;
 
       /*-- 翻译 --*/
       if (shouldTranslate) {
-        await doTranslate(table, record, slug);
+        const translateCheck = shouldTranslateArticle(existing, { contentHash });
+        if (translateCheck.needed) {
+          log.translate(`${slug} — ${translateCheck.reason}`);
+          await doTranslate(table, record, slug);
+        } else {
+          log.skip(`${slug} — 翻译已是最新，跳过`);
+          stats.translateSkipped++;
+        }
       }
     } catch (err) {
       const now = new Date().toISOString();
@@ -339,17 +379,23 @@ async function main() {
         fetchStatus: "failed",
       };
       await upsertRecord(table, failedRecord);
-      console.log(`  ❌ ${slug} — 抓取失败: ${err.message}`);
+      log.error(`${slug} — 抓取失败: ${err.message}`);
       stats.failed++;
     }
   }
 
   /*-- 4. 输出报告 --*/
-  console.log("\n📊 抓取报告:");
-  console.log(`   总计: ${stats.total} | 成功: ${stats.fetched} | 跳过: ${stats.skipped} | 失败: ${stats.failed}`);
-  if (shouldTranslate) {
-    console.log(`   翻译成功: ${stats.translated} | 翻译失败: ${stats.translateFailed}`);
-  }
+  log.summary({
+    "总计": stats.total,
+    "抓取成功": stats.fetched,
+    "跳过": stats.skipped,
+    "抓取失败": stats.failed,
+    ...(shouldTranslate ? {
+      "翻译成功": stats.translated,
+      "翻译跳过": stats.translateSkipped,
+      "翻译失败": stats.translateFailed,
+    } : {})
+  });
 }
 
 /**
@@ -357,25 +403,27 @@ async function main() {
  */
 async function doTranslate(table, record, slug) {
   if (!record.originalContent) {
-    console.log(`  ⚠️ ${slug} — 无原文内容，跳过翻译`);
+    log.warn(`${slug} — 无原文内容，跳过翻译`);
     return;
   }
-  console.log(`  🌐 翻译 ${slug}...`);
+  
+  log.translate(`${slug} — 开始翻译...`);
   const plainText = record.originalContent.replace(/<[^>]+>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   const translated = await translateText(plainText);
+  
   if (translated) {
     record.translatedContent = translated;
     record.translatedAt = new Date().toISOString();
     await upsertRecord(table, record);
-    console.log(`  ✅ ${slug} — 翻译完成`);
+    log.success(`${slug} — 翻译完成`);
     stats.translated++;
   } else {
-    console.log(`  ❌ ${slug} — 翻译失败`);
+    log.error(`${slug} — 翻译失败`);
     stats.translateFailed++;
   }
 }
 
 main().catch((err) => {
-  console.error("💥 脚本执行失败:", err);
+  log.error(`脚本执行失败: ${err.message}`);
   process.exit(1);
 });
