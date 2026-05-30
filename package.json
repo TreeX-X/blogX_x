@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "node scripts/fetch-articles.mjs && astro build",
+    "build": "node scripts/init-db.mjs && node scripts/fetch-articles.mjs --translate && astro build",
     "preview": "astro preview",
     "astro": "astro",
     "sync-kb": "node scripts/sync-obsidian-kb.mjs",

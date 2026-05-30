@@ -8,6 +8,22 @@ if [ "$status" -ne 0 ]; then
   exit $status
 fi
 
+echo "[pre-push] Fetching and translating articles..."
+npm run fetch-articles:translate
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "[pre-push] Article fetch/translate failed, push aborted."
+  exit $status
+fi
+
+echo "[pre-push] Building knowledge graph index..."
+npm run init-db
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "[pre-push] Knowledge graph index build failed, push aborted."
+  exit $status
+fi
+
 git update-index -q --refresh
 if ! git diff --quiet -- src/content/knowledge-base; then
   echo "[pre-push] Detected uncommitted knowledge-base changes after sync."
@@ -15,5 +31,5 @@ if ! git diff --quiet -- src/content/knowledge-base; then
   exit 1
 fi
 
-echo "[pre-push] Knowledge base is up to date."
+echo "[pre-push] All checks passed. Ready to push."
 exit 0
