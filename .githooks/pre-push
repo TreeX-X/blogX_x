@@ -1,5 +1,13 @@
 #!/bin/sh
 
+echo "[pre-push] Checking database health..."
+npm run maintenance:fix
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "[pre-push] Database fix failed, push aborted."
+  exit $status
+fi
+
 echo "[pre-push] Syncing Obsidian knowledge base..."
 npm run sync-kb
 status=$?

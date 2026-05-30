@@ -18,7 +18,11 @@
     "mcp:kb:http": "node scripts/kb-mcp-http-server.mjs",
     "fetch-articles": "node scripts/fetch-articles.mjs",
     "fetch-articles:translate": "node scripts/fetch-articles.mjs --translate",
-    "prepare": "node scripts/setup-git-hooks.mjs"
+    "prepare": "node scripts/setup-git-hooks.mjs",
+    "maintenance": "node scripts/maintenance.mjs",
+    "maintenance:status": "node scripts/maintenance.mjs status",
+    "maintenance:fix": "node scripts/maintenance.mjs fix",
+    "maintenance:verify": "node scripts/maintenance.mjs verify"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.0",
