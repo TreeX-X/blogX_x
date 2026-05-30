@@ -1,8 +1,10 @@
 ﻿/**
  * 中英文语言切换组件（纯展示层）
  * 在原文和翻译之间切换，记住用户偏好
+ * 优先级: URL ?lang 参数 > localStorage > 默认值
  */
 import { useState, useEffect, useCallback } from "react";
+import { getLangFromUrl } from "../lib/lang-param";
 
 interface LanguageToggleProps {
   hasOriginal: boolean;
@@ -58,8 +60,16 @@ export function useLanguage(defaultLang: "original" | "translated" = "translated
     return defaultLang;
   });
 
-  /*-- SSR hydrate 后同步 localStorage --*/
+  /*-- SSR hydrate 后同步: URL 参数优先，其次 localStorage --*/
   useEffect(() => {
+    /*-- 优先从 URL ?lang= 参数读取语言偏好 --*/
+    const urlLang = getLangFromUrl();
+    if (urlLang) {
+      setLang(urlLang);
+      try { localStorage.setItem(STORAGE_KEY, urlLang); } catch { /* ignore */ }
+      return;
+    }
+    /*-- 回退到 localStorage 中保存的偏好 --*/
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved === "original" || saved === "translated") setLang(saved);

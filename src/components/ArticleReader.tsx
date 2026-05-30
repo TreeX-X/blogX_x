@@ -5,6 +5,8 @@
 import { useState, useEffect, useMemo } from "react";
 import DOMPurify from "isomorphic-dompurify";
 import LanguageToggle, { useLanguage } from "./LanguageToggle";
+import ShareBar from "./ShareBar";
+import "../styles/share.css";
 
 interface ArticleRecord {
   slug: string;
@@ -112,6 +114,14 @@ export default function ArticleReader({ article }: ArticleReaderProps) {
       <div
         className={`article-content prose-wrap ${fadeClass}`}
         dangerouslySetInnerHTML={{ __html: currentContent }}
+      />
+
+      {/*-- 分享栏 --*/}
+      <ShareBar
+        title={article.title}
+        description={article.description}
+        slug={article.slug}
+        lang={lang}
       />
 
       {/*-- 底部来源回链 --*/}

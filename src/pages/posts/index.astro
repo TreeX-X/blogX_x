@@ -59,8 +59,15 @@ const postsWithMeta = await Promise.all(
                 </div>
               ) : null}
               <div class="article-card-lang">
-                <span class="lang-badge lang-en">EN</span>
-                {article?.translatedContent && <span class="lang-badge lang-zh">中</span>}
+                {article?.translatedContent ? (
+                  /*-- 双语文章：显示合并标识 --*/
+                  <span class="lang-badge lang-bilingual">EN/中</span>
+                ) : (
+                  <Fragment>
+                    <span class="lang-badge lang-available">EN</span>
+                    <span class="lang-badge lang-unavailable">中</span>
+                  </Fragment>
+                )}
               </div>
             </div>
           </div>

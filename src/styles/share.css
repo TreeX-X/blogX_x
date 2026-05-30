@@ -1,0 +1,147 @@
+/*-- 分享栏样式 --*/
+/*-- 与现有设计系统保持一致：glass morphism、sage green 强调色、圆角 --*/
+
+.share-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0;
+  margin-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+
+.share-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  margin-right: 0.2rem;
+}
+
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  backdrop-filter: blur(8px);
+}
+
+.share-btn:hover,
+.share-btn:focus-visible {
+  color: var(--accent);
+  border-color: rgba(107, 143, 113, 0.3);
+  background: rgba(107, 143, 113, 0.06);
+  transform: translateY(-1px);
+}
+
+/*-- 键盘焦点样式 --*/
+.share-btn:focus-visible {
+  outline: 2px solid rgba(107, 143, 113, 0.25);
+  outline-offset: 1px;
+}
+
+.share-btn svg {
+  flex-shrink: 0;
+}
+
+.share-btn-text {
+  white-space: nowrap;
+}
+
+/*-- 复制成功状态 --*/
+.share-btn-copy.copied {
+  color: var(--accent);
+  border-color: rgba(107, 143, 113, 0.3);
+  background: rgba(107, 143, 113, 0.08);
+}
+
+/*-- 社交媒体图标按钮（仅图标，无文字） --*/
+.share-btn-social {
+  padding: 0.4rem;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-socials {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.3rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/*-- 复制成功提示 --*/
+.share-toast {
+  font-size: 0.78rem;
+  color: var(--accent);
+  background: rgba(107, 143, 113, 0.08);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(107, 143, 113, 0.15);
+  white-space: nowrap;
+  transition: opacity 200ms ease-out;
+}
+
+/*-- 可见状态：入场动画 --*/
+.share-toast.visible {
+  opacity: 1;
+  animation: shareToastIn 200ms ease-out;
+}
+
+/*-- 隐藏状态：无交互、透明 --*/
+.share-toast.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes shareToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*-- 移动端适配 --*/
+@media (max-width: 768px) {
+  .share-bar {
+    gap: 0.4rem;
+    padding: 0.6rem 0;
+  }
+
+  .share-btn-text {
+    display: none;
+  }
+
+  .share-btn-copy {
+    padding: 0.4rem;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .share-socials {
+    margin-left: 0.2rem;
+    padding-left: 0.4rem;
+  }
+}

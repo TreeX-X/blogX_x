@@ -1379,6 +1379,25 @@ main {
   color: var(--text-muted);
 }
 
+/*-- 语言可用性标识: 可用、不可用、双语 --*/
+.lang-badge.lang-available {
+  color: var(--accent);
+  border-color: rgba(107, 143, 113, 0.25);
+  background: rgba(107, 143, 113, 0.06);
+}
+
+.lang-badge.lang-unavailable {
+  opacity: 0.35;
+  text-decoration: line-through;
+}
+
+.lang-badge.lang-bilingual {
+  color: var(--accent);
+  border-color: rgba(107, 143, 113, 0.3);
+  background: rgba(107, 143, 113, 0.08);
+  font-weight: 600;
+}
+
 .article-card:not(:has(.article-card-cover)) {
   grid-template-columns: 1fr;
 }

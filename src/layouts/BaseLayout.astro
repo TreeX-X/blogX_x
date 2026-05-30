@@ -27,6 +27,7 @@ const toBase = (path = "") => {
     <link rel="icon" type="image/png" href={toBase("logo/treeXLogo.png")} />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&display=swap" rel="stylesheet" />
     <title>{title}</title>
+    <slot name="head" />
   </head>
   <body>
     <header class="site-header">

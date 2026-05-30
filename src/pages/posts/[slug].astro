@@ -5,8 +5,6 @@ import { getPublishedPosts, formatDate, getEntrySlug, getContentTitle, getConten
 import { getArticleBySlug, estimateReadingTime, extractDomain } from "../../lib/article-db";
 import ArticleReader from "../../components/ArticleReader";
 
-export const prerender = true;
-
 export async function getStaticPaths() {
   const posts = await getPublishedPosts();
 
@@ -32,6 +30,16 @@ const hasArticleContent = articleData && articleData.fetchStatus === "success";
 const { Content, headings } = hasArticleContent ? { Content: null, headings: [] } : await render(post);
 const toc = (headings ?? []).filter((item) => item.depth >= 2 && item.depth <= 4);
 
+/*-- SSR 语言感知 OG 标签：从 URL 参数读取语言，服务端条件渲染 --*/
+const lang = Astro.url.searchParams.get("lang");
+const ogHasTranslation = hasArticleContent && Boolean(articleData.translatedContent);
+const isZh = lang === "zh" || (!lang && ogHasTranslation);
+const ogTitle = (isZh && ogHasTranslation && articleData.title) ? articleData.title : title;
+/*-- 翻译后的中文描述（来自 LanceDB 文章翻译管道） --*/
+const ogDescription = (isZh && ogHasTranslation && articleData.description)
+  ? articleData.description
+  : (summary || "");
+
 /*-- 找到上一篇/下一篇 --*/
 const currentIndex = posts.findIndex((p) => getEntrySlug(p) === params.slug);
 const prevPost = currentIndex < posts.length - 1 ? posts[currentIndex + 1] : null;
@@ -42,6 +50,26 @@ const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
   title={`${title} | BlogX_x`}
   description={summary}
 >
+  {/*-- SSR 语言感知 OG 标签：爬虫无需 JS 即可获取正确语言版本 --*/}
+  <Fragment slot="head">
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content={`${ogTitle} | BlogX_x`} />
+    <meta property="og:description" content={ogDescription} />
+    {ogHasTranslation && (
+      <Fragment>
+        <meta property="og:article:translated_title" content={`${articleData.title} | BlogX_x`} />
+      </Fragment>
+    )}
+    <script is:inline define:vars={{ ogTitle, ogHasTranslation, lang }}>
+      /*-- 客户端同步 document.title（OG 标签已由 SSR 正确渲染） --*/
+      (function() {
+        /*-- 仅中文模式需要更新 document.title（SSR 默认已是英文标题） --*/
+        if (lang === "zh" && ogHasTranslation) {
+          document.title = ogTitle + " | BlogX_x";
+        }
+      })();
+    </script>
+  </Fragment>
   {hasArticleContent ? (
     /*-- 外链文章：使用 ArticleReader 渲染 LanceDB 内容 --*/
     <div class="article-layout">
