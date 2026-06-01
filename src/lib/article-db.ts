@@ -42,16 +42,21 @@ async function getDb() {
   /*-- 优先尝试 LanceDB Cloud --*/
   if (LANCEDB_URI && LANCEDB_API_KEY) {
     try {
+      console.log('[article-db] 尝试连接 LanceDB Cloud...');
       dbInstance = await lancedb.connect(LANCEDB_URI, { apiKey: LANCEDB_API_KEY });
+      console.log('[article-db] LanceDB Cloud 连接成功');
       return dbInstance;
     } catch (error) {
-      console.warn(`[article-db] LanceDB Cloud 连接失败，降级到本地: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`[article-db] LanceDB Cloud 连接失败: ${error instanceof Error ? error.message : String(error)}`);
     }
+  } else {
+    console.warn('[article-db] LANCEDB_URI 或 LANCEDB_API_KEY 未设置');
   }
 
   /*-- 降级到本地 LanceDB --*/
   const localPath = process.env.LANCEDB_LOCAL_PATH || ".lancedb";
   const dbUri = path.join(process.cwd(), localPath);
+  console.log(`[article-db] 降级到本地 LanceDB: ${dbUri}`);
   dbInstance = await lancedb.connect(dbUri);
   return dbInstance;
 }
@@ -109,9 +114,13 @@ export async function getArticleBySlug(
   slug: string
 ): Promise<ArticleRecord | null> {
   try {
+    console.log(`[article-db] 查询文章: ${slug}`);
     const db = await getDb();
     const tableNames = await db.tableNames();
-    if (!tableNames.includes(ARTICLES_TABLE)) return null;
+    if (!tableNames.includes(ARTICLES_TABLE)) {
+      console.warn(`[article-db] 表 ${ARTICLES_TABLE} 不存在`);
+      return null;
+    }
     
     let table;
     try {
@@ -129,12 +138,15 @@ export async function getArticleBySlug(
     }
     
     const safeSlug = escapeSlug(slug);
+    console.log(`[article-db] 执行查询: slug = "${safeSlug}"`);
     const rows = await table
       .query()
       .where(`slug = "${safeSlug}"`)
       .limit(1)
       .toArray();
+    console.log(`[article-db] 查询结果: ${rows.length} 条记录`);
     if (rows.length === 0) return null;
+    console.log(`[article-db] 找到文章: ${rows[0].title}`);
     return rows[0] as unknown as ArticleRecord;
   } catch (error) {
     console.error(`[article-db] Error fetching article by slug "${slug}":`, error);

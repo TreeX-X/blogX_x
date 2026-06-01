@@ -73,7 +73,8 @@ export default function ArticleReader({ article }: ArticleReaderProps) {
     const raw = lang === "translated" && hasTranslation
       ? article.translatedContent
       : article.originalContent;
-    return sanitizeHtml(raw);
+    // 确保 raw 不是 undefined 或 null
+    return sanitizeHtml(raw || "");
   }, [lang, hasTranslation, article.originalContent, article.translatedContent]);
 
   /*-- 切换时淡入动画 --*/
