@@ -30,7 +30,7 @@
     "@astrojs/vercel": "^10.0.4",
     "@lancedb/lancedb": "^0.27.2",
     "@mozilla/readability": "^0.6.0",
-    "@tailwindcss/vite": "^4.2.2",
+    "@tailwindcss/vite": "4.2.4",
     "@vercel/kv": "^3.0.0",
     "astro": "^6.1.5",
     "dompurify": "^3.4.2",
@@ -41,7 +41,7 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-force-graph-2d": "^1.29.1",
-    "tailwindcss": "^4.2.2"
+    "tailwindcss": "4.2.4"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.8",
