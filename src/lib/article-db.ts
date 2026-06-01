@@ -32,9 +32,24 @@ let dbInstance: Awaited<ReturnType<typeof lancedb.connect>> | null = null;
 
 /**
  * 获取数据库连接（单例模式）
+ * 优先连接 LanceDB Cloud，失败时降级到本地 LanceDB
  */
 async function getDb() {
   if (dbInstance) return dbInstance;
+
+  const { LANCEDB_URI, LANCEDB_API_KEY } = process.env;
+
+  /*-- 优先尝试 LanceDB Cloud --*/
+  if (LANCEDB_URI && LANCEDB_API_KEY) {
+    try {
+      dbInstance = await lancedb.connect(LANCEDB_URI, { apiKey: LANCEDB_API_KEY });
+      return dbInstance;
+    } catch (error) {
+      console.warn(`[article-db] LanceDB Cloud 连接失败，降级到本地: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /*-- 降级到本地 LanceDB --*/
   const localPath = process.env.LANCEDB_LOCAL_PATH || ".lancedb";
   const dbUri = path.join(process.cwd(), localPath);
   dbInstance = await lancedb.connect(dbUri);

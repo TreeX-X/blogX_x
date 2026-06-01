@@ -32,12 +32,12 @@ const toc = (headings ?? []).filter((item) => item.depth >= 2 && item.depth <= 4
 
 /*-- SSR 语言感知 OG 标签：从 URL 参数读取语言，服务端条件渲染 --*/
 const lang = Astro.url.searchParams.get("lang");
-const ogHasTranslation = hasArticleData && Boolean(articleData.translatedContent);
+const ogHasTranslation = hasArticleData && Boolean(articleData!.translatedContent);
 const isZh = lang === "zh" || (!lang && ogHasTranslation);
-const ogTitle = (isZh && ogHasTranslation && articleData.title) ? articleData.title : title;
+const ogTitle = (isZh && ogHasTranslation && articleData!.title) ? articleData!.title : title;
 /*-- 翻译后的中文描述（来自 LanceDB 文章翻译管道） --*/
-const ogDescription = (isZh && ogHasTranslation && articleData.description)
-  ? articleData.description
+const ogDescription = (isZh && ogHasTranslation && articleData!.description)
+  ? articleData!.description
   : (summary || "");
 
 /*-- 找到上一篇/下一篇 --*/
@@ -57,7 +57,7 @@ const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
     <meta property="og:description" content={ogDescription} />
     {ogHasTranslation && (
       <Fragment>
-        <meta property="og:article:translated_title" content={`${articleData.title} | BlogX_x`} />
+        <meta property="og:article:translated_title" content={`${articleData!.title} | BlogX_x`} />
       </Fragment>
     )}
     <script is:inline define:vars={{ ogTitle, ogHasTranslation, lang }}>
@@ -93,15 +93,15 @@ const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
           article={{
             slug: params.slug,
             sourceUrl: post.data.sourceUrl,
-            originalContent: articleData.originalContent,
-            translatedContent: articleData.translatedContent,
-            originalLang: articleData.originalLang,
-            title: articleData.title,
-            description: articleData.description,
-            author: articleData.author,
-            coverImage: articleData.coverImage,
-            wordCount: articleData.wordCount,
-            fetchStatus: articleData.fetchStatus,
+            originalContent: articleData!.originalContent,
+            translatedContent: articleData!.translatedContent,
+            originalLang: articleData!.originalLang,
+            title: articleData!.title,
+            description: articleData!.description,
+            author: articleData!.author,
+            coverImage: articleData!.coverImage,
+            wordCount: articleData!.wordCount,
+            fetchStatus: articleData!.fetchStatus,
           }}
         />
       </article>

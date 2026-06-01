@@ -74,6 +74,22 @@ function extractDomain(url) {
 /*===== LanceDB 操作 =====*/
 
 async function getDb() {
+  const { LANCEDB_URI, LANCEDB_API_KEY } = process.env;
+
+  /*-- 优先尝试 LanceDB Cloud --*/
+  if (LANCEDB_URI && LANCEDB_API_KEY) {
+    try {
+      log.database("连接 LanceDB Cloud...");
+      const db = await lancedb.connect(LANCEDB_URI, { apiKey: LANCEDB_API_KEY });
+      log.success("LanceDB Cloud 连接成功");
+      return db;
+    } catch (error) {
+      log.warn(`LanceDB Cloud 连接失败，降级到本地: ${error.message}`);
+    }
+  }
+
+  /*-- 降级到本地 LanceDB --*/
+  log.database("使用本地 LanceDB...");
   const dbUri = path.join(process.cwd(), LOCAL_DB_PATH);
   return lancedb.connect(dbUri);
 }
