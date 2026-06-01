@@ -161,12 +161,12 @@ const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
   <nav class="post-nav" aria-label="文章导航">
     <div class="post-nav-inner">
       {prevPost ? (
-        <a class="post-nav-link post-nav-prev" href={`${import.meta.env.BASE_URL}posts/${getEntrySlug(prevPost)}`}>
+        <a class="post-nav-link post-nav-prev" href={`${import.meta.env.BASE_URL}/posts/${getEntrySlug(prevPost)}`}>
           ← {getContentTitle(prevPost)}
         </a>
       ) : <span />}
       {nextPost ? (
-        <a class="post-nav-link post-nav-next" href={`${import.meta.env.BASE_URL}posts/${getEntrySlug(nextPost)}`}>
+        <a class="post-nav-link post-nav-next" href={`${import.meta.env.BASE_URL}/posts/${getEntrySlug(nextPost)}`}>
           {getContentTitle(nextPost)} →
         </a>
       ) : <span />}
