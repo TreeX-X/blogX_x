@@ -176,9 +176,9 @@ async function translateText(text) {
     if (segments.length > 1) log.process(`翻译段落 ${i + 1}/${segments.length} (${segment.length} 字符)...`);
 
     for (let retry = 0; retry <= MAX_RETRIES; retry++) {
+      const _ctrl = new AbortController();
+      const _tmr = setTimeout(() => _ctrl.abort(), TRANSLATE_TIMEOUT);
       try {
-        const _ctrl = new AbortController();
-        const _tmr = setTimeout(() => _ctrl.abort(), TRANSLATE_TIMEOUT);
         const resp = await fetch(`${baseUrl}/chat/completions`, {
           method: "POST",
           headers: {
@@ -201,12 +201,10 @@ async function translateText(text) {
           throw new Error(`HTTP ${resp.status}: ${errText}`);
         }
 
-        clearTimeout(_tmr);
         const data = await resp.json();
         translated = data.choices?.[0]?.message?.content || "";
         break;
       } catch (err) {
-        clearTimeout(_tmr);
         if (retry < MAX_RETRIES) {
           const wait = 1000 * Math.pow(2, retry);
           log.warn(`翻译段落 ${i + 1} 失败 (${retry + 1}/${MAX_RETRIES}): ${err.message}，${wait}ms 后重试...`);
@@ -214,6 +212,8 @@ async function translateText(text) {
         } else {
           log.error(`翻译段落 ${i + 1} 最终失败: ${err.message}`);
         }
+      } finally {
+        clearTimeout(_tmr);
       }
     }
 
@@ -296,8 +296,10 @@ async function main() {
   log.database("数据库连接成功");
 
   /*-- 3. 逐篇处理 --*/
-  for (const article of articles) {
+  for (let idx = 0; idx < articles.length; idx++) {
+    const article = articles[idx];
     const { slug, data } = article;
+    log.process(`[${idx + 1}/${articles.length}] ${slug}`);
     const url = data.sourceUrl;
     const existing = await getExistingRecord(table, slug);
 

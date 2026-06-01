@@ -4,8 +4,11 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import matter from "gray-matter";
 import dotenv from "dotenv";
+import { Logger } from "./lib/logger.mjs";
 
 dotenv.config();
+
+const log = new Logger("sync-kb");
 
 const DEFAULT_OBSIDIAN_KB_PATH = "E:\\Tree Workspace\\obsidian\\树的知识库";
 const SOURCE_PATH = process.env.OBSIDIAN_KB_PATH || DEFAULT_OBSIDIAN_KB_PATH;
@@ -272,21 +275,27 @@ function stageKnowledgeBaseChanges() {
 }
 
 function main() {
+  log.start("Obsidian 知识库同步");
   const result = syncKnowledgeBase();
-  console.log(`[sync-kb] synced ${result.syncedCount} files -> ${TARGET_RELATIVE_PATH}`);
-  console.log(`[sync-kb] +${result.addedCount} added, ~${result.modifiedCount} modified, =${result.unchangedCount} unchanged, -${result.deletedCount} deleted`);
-  console.log(`[sync-kb] source: ${result.sourceAbs}`);
-  console.log("[sync-kb] to change source path, set OBSIDIAN_KB_PATH");
+  log.info(`同步 ${result.syncedCount} 个文件 -> ${TARGET_RELATIVE_PATH}`);
+  log.summary({
+    "新增": result.addedCount,
+    "修改": result.modifiedCount,
+    "未变": result.unchangedCount,
+    "删除": result.deletedCount,
+  });
+  log.info(`源路径: ${result.sourceAbs}`);
+  log.config("修改源路径请设置 OBSIDIAN_KB_PATH");
 
   if (SHOULD_STAGE) {
     stageKnowledgeBaseChanges();
-    console.log("[sync-kb] staged knowledge-base changes");
+    log.success("已暂存知识库变更");
   }
 }
 
 try {
   main();
 } catch (error) {
-  console.error(`[sync-kb] failed: ${error instanceof Error ? error.message : String(error)}`);
+  log.error(`同步失败: ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);
 }
