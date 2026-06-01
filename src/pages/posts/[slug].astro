@@ -24,15 +24,15 @@ const title = getContentTitle(post);
 const summary = getContentSummary(post);
 const pubDate = getContentDate(post);
 const domain = post.data.sourceUrl ? extractDomain(post.data.sourceUrl) : "";
-const hasArticleContent = articleData && articleData.fetchStatus === "success";
+const hasArticleData = Boolean(articleData);
 
-/*-- 如果有 LanceDB 内容，直接用 ArticleReader 渲染，否则降级为 Markdown 渲染 --*/
-const { Content, headings } = hasArticleContent ? { Content: null, headings: [] } : await render(post);
+/*-- 如果有 LanceDB 数据（无论成功与否），直接用 ArticleReader 渲染，否则降级为 Markdown 渲染 --*/
+const { Content, headings } = hasArticleData ? { Content: null, headings: [] } : await render(post);
 const toc = (headings ?? []).filter((item) => item.depth >= 2 && item.depth <= 4);
 
 /*-- SSR 语言感知 OG 标签：从 URL 参数读取语言，服务端条件渲染 --*/
 const lang = Astro.url.searchParams.get("lang");
-const ogHasTranslation = hasArticleContent && Boolean(articleData.translatedContent);
+const ogHasTranslation = hasArticleData && Boolean(articleData.translatedContent);
 const isZh = lang === "zh" || (!lang && ogHasTranslation);
 const ogTitle = (isZh && ogHasTranslation && articleData.title) ? articleData.title : title;
 /*-- 翻译后的中文描述（来自 LanceDB 文章翻译管道） --*/
@@ -70,7 +70,7 @@ const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
       })();
     </script>
   </Fragment>
-  {hasArticleContent ? (
+  {hasArticleData ? (
     /*-- 外链文章：使用 ArticleReader 渲染 LanceDB 内容 --*/
     <div class="article-layout">
       <article class="article-reader-wrap">

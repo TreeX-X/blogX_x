@@ -49,7 +49,13 @@ export async function initArticlesTable() {
   const db = await getDb();
   const tableNames = await db.tableNames();
   if (tableNames.includes(ARTICLES_TABLE)) {
-    return db.openTable(ARTICLES_TABLE);
+    try {
+      return await db.openTable(ARTICLES_TABLE);
+    } catch (error) {
+      console.error('[article-db] Error opening existing table, will recreate:', error);
+      // Table exists but is corrupted, drop and recreate
+      await db.dropTable(ARTICLES_TABLE);
+    }
   }
   /*-- 创建包含一条占位记录的表，然后删除占位记录 --*/
   const table = await db.createTable(ARTICLES_TABLE, [
@@ -91,7 +97,22 @@ export async function getArticleBySlug(
     const db = await getDb();
     const tableNames = await db.tableNames();
     if (!tableNames.includes(ARTICLES_TABLE)) return null;
-    const table = await db.openTable(ARTICLES_TABLE);
+    
+    let table;
+    try {
+      table = await db.openTable(ARTICLES_TABLE);
+    } catch (error) {
+      console.error('[article-db] Error opening table, will try to recreate:', error);
+      // Table exists but is corrupted, try to recreate
+      try {
+        await db.dropTable(ARTICLES_TABLE);
+        table = await initArticlesTable();
+      } catch (recreateError) {
+        console.error('[article-db] Failed to recreate table:', recreateError);
+        return null;
+      }
+    }
+    
     const safeSlug = escapeSlug(slug);
     const rows = await table
       .query()
@@ -100,7 +121,8 @@ export async function getArticleBySlug(
       .toArray();
     if (rows.length === 0) return null;
     return rows[0] as unknown as ArticleRecord;
-  } catch {
+  } catch (error) {
+    console.error(`[article-db] Error fetching article by slug "${slug}":`, error);
     return null;
   }
 }
@@ -113,10 +135,25 @@ export async function getAllArticles(): Promise<ArticleRecord[]> {
     const db = await getDb();
     const tableNames = await db.tableNames();
     if (!tableNames.includes(ARTICLES_TABLE)) return [];
-    const table = await db.openTable(ARTICLES_TABLE);
+    
+    let table;
+    try {
+      table = await db.openTable(ARTICLES_TABLE);
+    } catch (error) {
+      console.error('[article-db] Error opening table for getAllArticles, will try to recreate:', error);
+      try {
+        await db.dropTable(ARTICLES_TABLE);
+        table = await initArticlesTable();
+      } catch (recreateError) {
+        console.error('[article-db] Failed to recreate table:', recreateError);
+        return [];
+      }
+    }
+    
     const rows = await table.query().toArray();
     return rows as unknown as ArticleRecord[];
-  } catch {
+  } catch (error) {
+    console.error('[article-db] Error fetching all articles:', error);
     return [];
   }
 }
@@ -131,13 +168,28 @@ export async function getArticlesByStatus(
     const db = await getDb();
     const tableNames = await db.tableNames();
     if (!tableNames.includes(ARTICLES_TABLE)) return [];
-    const table = await db.openTable(ARTICLES_TABLE);
+    
+    let table;
+    try {
+      table = await db.openTable(ARTICLES_TABLE);
+    } catch (error) {
+      console.error('[article-db] Error opening table for getArticlesByStatus, will try to recreate:', error);
+      try {
+        await db.dropTable(ARTICLES_TABLE);
+        table = await initArticlesTable();
+      } catch (recreateError) {
+        console.error('[article-db] Failed to recreate table:', recreateError);
+        return [];
+      }
+    }
+    
     const rows = await table
       .query()
       .where(`fetchStatus = "${status}"`)
       .toArray();
     return rows as unknown as ArticleRecord[];
-  } catch {
+  } catch (error) {
+    console.error(`[article-db] Error fetching articles by status "${status}":`, error);
     return [];
   }
 }
@@ -153,13 +205,20 @@ export async function saveArticle(record: ArticleRecord): Promise<void> {
   if (!tableNames.includes(ARTICLES_TABLE)) {
     table = await initArticlesTable();
   } else {
-    table = await db.openTable(ARTICLES_TABLE);
+    try {
+      table = await db.openTable(ARTICLES_TABLE);
+    } catch (error) {
+      console.error('[article-db] Error opening table for saveArticle, will recreate:', error);
+      await db.dropTable(ARTICLES_TABLE);
+      table = await initArticlesTable();
+    }
   }
   /*-- 先尝试删除同 slug 的旧记录 --*/
   try {
     await table.delete(`slug = "${record.slug}"`);
-  } catch {
+  } catch (error) {
     /*-- 表可能为空，忽略 --*/
+    console.debug(`[article-db] Delete before save (may be empty table):`, error);
   }
   await table.add([record as unknown as Record<string, unknown>]);
 }

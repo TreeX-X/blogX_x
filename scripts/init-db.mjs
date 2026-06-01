@@ -61,27 +61,60 @@ async function getEmbeddings(texts) {
     throw new Error("SF_TOKEN is missing");
   }
 
-  const response = await fetch("https://api.siliconflow.cn/v1/embeddings", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${sfToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: SF_MODEL,
-      input: texts,
-      encoding_format: "float",
-    }),
-  });
+  const maxRetries = 3;
+  const timeoutMs = 30_000;
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`HTTP ${response.status}: ${errorText}`);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch("https://api.siliconflow.cn/v1/embeddings", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${sfToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: SF_MODEL,
+          input: texts,
+          encoding_format: "float",
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timer);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const sorted = data.data.sort((a, b) => a.index - b.index);
+      return sorted.map((item) => item.embedding);
+    } catch (error) {
+      clearTimeout(timer);
+
+      const isRetryable =
+        error.name === "AbortError" ||
+        error.code === "UND_ERR_CONNECT_TIMEOUT" ||
+        error.code === "ECONNRESET" ||
+        error.code === "ECONNREFUSED" ||
+        error.code === "ENOTFOUND" ||
+        error.cause?.code === "ECONNRESET" ||
+        error.cause?.code === "UND_ERR_CONNECT_TIMEOUT";
+
+      if (attempt < maxRetries && isRetryable) {
+        const delay = 1000 * Math.pow(2, attempt - 1);
+        log.warn(`API 调用失败 (attempt ${attempt}/${maxRetries}): ${error.message}，${delay}ms 后重试...`);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+
+      throw error;
+    }
   }
-
-  const data = await response.json();
-  const sorted = data.data.sort((a, b) => a.index - b.index);
-  return sorted.map((item) => item.embedding);
 }
 
 function fallbackEmbedding(text) {

@@ -87,6 +87,8 @@ export default function ArticleReader({ article }: ArticleReaderProps) {
 
   const domain = extractDomain(article.sourceUrl);
   const minutes = readingTime(article.wordCount);
+  const isFailed = article.fetchStatus === "failed";
+  const isEmpty = !currentContent || currentContent.trim() === "";
 
   return (
     <div className="article-reader">
@@ -111,10 +113,32 @@ export default function ArticleReader({ article }: ArticleReaderProps) {
       </div>
 
       {/*-- 文章内容 --*/}
-      <div
-        className={`article-content prose-wrap ${fadeClass}`}
-        dangerouslySetInnerHTML={{ __html: currentContent }}
-      />
+      {isFailed ? (
+        <div className={`article-content prose-wrap ${fadeClass}`}>
+          <div className="article-error">
+            <p>文章内容加载失败</p>
+            <p>无法从源站获取文章内容，请稍后再试或查看原文。</p>
+            <a href={article.sourceUrl} target="_blank" rel="noopener noreferrer">
+              查看原文
+            </a>
+          </div>
+        </div>
+      ) : isEmpty ? (
+        <div className={`article-content prose-wrap ${fadeClass}`}>
+          <div className="article-empty">
+            <p>暂无文章内容</p>
+            <p>文章内容可能尚未抓取或翻译，请查看原文。</p>
+            <a href={article.sourceUrl} target="_blank" rel="noopener noreferrer">
+              查看原文
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div
+          className={`article-content prose-wrap ${fadeClass}`}
+          dangerouslySetInnerHTML={{ __html: currentContent }}
+        />
+      )}
 
       {/*-- 分享栏 --*/}
       <ShareBar
