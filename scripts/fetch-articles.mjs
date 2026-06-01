@@ -91,6 +91,18 @@ function writeArticleMarkdown(filePath, data, body) {
   fs.writeFileSync(filePath, fileContent, "utf-8");
 }
 
+function hasMeaningfulBody(body) {
+  return typeof body === "string" && body.trim().length > 0;
+}
+
+function syncMarkdownFromRecord(filePath, data, record) {
+  if (!record) return false;
+  const preferredBody = record.translatedContent || stripHtmlToMarkdownFallback(record.originalContent);
+  if (!hasMeaningfulBody(preferredBody)) return false;
+  writeArticleMarkdown(filePath, data, preferredBody);
+  return true;
+}
+
 function extractDomain(url) {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
 }
@@ -339,12 +351,22 @@ async function main() {
   for (let idx = 0; idx < articles.length; idx++) {
     const article = articles[idx];
     const { slug, data } = article;
+    const markdownPath = path.join(POSTS_DIR, article.file);
     log.process(`[${idx + 1}/${articles.length}] ${slug}`);
     const url = data.sourceUrl;
     const existing = await getExistingRecord(table, slug);
 
     /*-- 检查是否需要重新抓取 --*/
     if (!forceRefetch && existing && existing.fetchStatus === "success" && existing.originalContent) {
+      /*-- 命中缓存时也要把正文补回 Markdown，避免本地文件仍为空 --*/
+      const rawMarkdown = fs.readFileSync(markdownPath, "utf-8");
+      const parsedMarkdown = matter(rawMarkdown);
+      if (!hasMeaningfulBody(parsedMarkdown.content)) {
+        if (syncMarkdownFromRecord(markdownPath, parsedMarkdown.data, existing)) {
+          log.save(`${slug} — 已从缓存回写正文到 Markdown`);
+        }
+      }
+
       // 检查是否需要翻译
       if (shouldTranslate) {
         const translateCheck = shouldTranslateArticle(existing, { contentHash: existing.contentHash });
@@ -389,9 +411,7 @@ async function main() {
 
       await upsertRecord(table, record);
       /*-- 将抓取正文回写到 Markdown，避免线上依赖远程 LanceDB 才能渲染文章 --*/
-      const markdownPath = path.join(POSTS_DIR, article.file);
-      const preferredBody = record.translatedContent || stripHtmlToMarkdownFallback(record.originalContent);
-      writeArticleMarkdown(markdownPath, data, preferredBody);
+  syncMarkdownFromRecord(markdownPath, data, record);
       log.success(`${slug} — 抓取成功 (${wordCount} 词)`);
       stats.fetched++;
 
