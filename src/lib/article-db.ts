@@ -81,9 +81,18 @@ async function getDb() {
     console.warn('[article-db] LANCEDB_URI 或 LANCEDB_API_KEY 未设置');
   }
 
-  /*-- 在 serverless 环境中不降级到本地 LanceDB（本地目录不存在会导致挂起） --*/
-  console.error('[article-db] 无可用数据库连接，返回 null');
-  return null;
+  /*-- 与抓取脚本保持一致：Cloud 失败时降级到本地 LanceDB，避免读写策略不一致 --*/
+  try {
+    const localDbPath = process.env.LANCEDB_LOCAL_PATH || ".lancedb";
+    const localDbUri = path.join(process.cwd(), localDbPath);
+    console.warn(`[article-db] 降级到本地 LanceDB: ${localDbUri}`);
+    dbInstance = await lib.connect(localDbUri);
+    return dbInstance;
+  } catch (error) {
+    console.error(`[article-db] 本地 LanceDB 连接失败: ${error instanceof Error ? error.message : String(error)}`);
+    console.error('[article-db] 无可用数据库连接，返回 null');
+    return null;
+  }
 }
 
 /**
