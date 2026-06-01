@@ -163,7 +163,7 @@ export async function getArticleBySlug(
       console.warn(`[article-db] 表 ${ARTICLES_TABLE} 不存在`);
       return null;
     }
-    
+
     let table;
     try {
       table = await db.openTable(ARTICLES_TABLE);
@@ -178,7 +178,7 @@ export async function getArticleBySlug(
         return null;
       }
     }
-    
+
     const safeSlug = escapeSlug(slug);
     console.log(`[article-db] 执行查询: slug = "${safeSlug}"`);
     const rows = await table
@@ -208,7 +208,7 @@ export async function getAllArticles(): Promise<ArticleRecord[]> {
     }
     const tableNames = await db.tableNames();
     if (!tableNames.includes(ARTICLES_TABLE)) return [];
-    
+
     let table;
     try {
       table = await db.openTable(ARTICLES_TABLE);
@@ -222,7 +222,7 @@ export async function getAllArticles(): Promise<ArticleRecord[]> {
         return [];
       }
     }
-    
+
     const rows = await table.query().toArray();
     return rows as unknown as ArticleRecord[];
   } catch (error) {
@@ -245,7 +245,7 @@ export async function getArticlesByStatus(
     }
     const tableNames = await db.tableNames();
     if (!tableNames.includes(ARTICLES_TABLE)) return [];
-    
+
     let table;
     try {
       table = await db.openTable(ARTICLES_TABLE);
@@ -259,7 +259,7 @@ export async function getArticlesByStatus(
         return [];
       }
     }
-    
+
     const rows = await table
       .query()
       .where(`fetchStatus = "${status}"`)
