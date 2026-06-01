@@ -40,6 +40,7 @@ pnpm-debug.log*
 .codex/
 .claude/
 .opencode/
+.hybrid/
 
 # Claude Code memory files (contains project-specific information and secrets)
 /memory/
