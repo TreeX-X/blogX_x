@@ -16,7 +16,10 @@ export async function getStaticPaths() {
 const params = Astro.params;
 const posts = await getPublishedPosts();
 const post = posts.find((p) => getEntrySlug(p) === params.slug);
-if (!post) throw new Error(`Post not found: ${params.slug}`);
+if (!post) {
+  console.error(`[slug] Post not found: ${params.slug}, redirecting to posts index`);
+  return Astro.redirect(`${import.meta.env.BASE_URL}/posts`);
+}
 
 /*-- 从 LanceDB 获取抓取的文章数据 --*/
 const articleData = await getArticleBySlug(params.slug);
@@ -26,9 +29,26 @@ const pubDate = getContentDate(post);
 const domain = post.data.sourceUrl ? extractDomain(post.data.sourceUrl) : "";
 const hasArticleData = Boolean(articleData);
 
-/*-- 如果有 LanceDB 数据（无论成功与否），直接用 ArticleReader 渲染，否则降级为 Markdown 渲染 --*/
-const { Content, headings } = hasArticleData ? { Content: null, headings: [] } : await render(post);
-const toc = (headings ?? []).filter((item) => item.depth >= 2 && item.depth <= 4);
+/*-- 如果有 LanceDB 数据，直接用 ArticleReader 渲染，否则降级为 Markdown 渲染 --*/
+let Content: any = null;
+let headings: any[] = [];
+if (!hasArticleData) {
+  /*-- 仅当 post 有实际 body 内容时才调用 render()，避免空内容导致崩溃 --*/
+  const hasBody = 'body' in post && typeof post.body === 'string' && post.body.trim().length > 0;
+  if (hasBody) {
+    try {
+      const rendered = await render(post);
+      Content = rendered.Content;
+      headings = rendered.headings ?? [];
+    } catch (error) {
+      /*-- render() 可能因内容为空或格式问题失败，降级为 null --*/
+      console.error(`[slug] render(post) 失败，将显示降级 UI: ${error}`);
+    }
+  } else {
+    console.warn(`[slug] post "${params.slug}" 无 body 内容，跳过 render()`);
+  }
+}
+const toc = headings.filter((item: any) => item.depth >= 2 && item.depth <= 4);
 
 /*-- SSR 语言感知 OG 标签：从 URL 参数读取语言，服务端条件渲染 --*/
 const lang = Astro.url.searchParams.get("lang");
@@ -139,7 +159,21 @@ const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
             </div>
           ) : null}
         </header>
-        <Content />
+        {Content ? (
+          <Content />
+        ) : (
+          /*-- 降级：Markdown 内容为空或渲染失败时的兜底 UI --*/
+          <div class="article-fallback">
+            <p>文章内容暂时无法加载。</p>
+            {post.data.sourceUrl && (
+              <p>
+                <a href={post.data.sourceUrl} target="_blank" rel="noopener noreferrer">
+                  查看原文
+                </a>
+              </p>
+            )}
+          </div>
+        )}
       </article>
 
       {toc.length > 0 ? (

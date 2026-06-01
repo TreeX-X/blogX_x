@@ -2,9 +2,25 @@
  * LanceDB 文章存储工具
  * 负责从 LanceDB 读取/写入抓取的文章原文和翻译
  */
-import * as lancedb from "@lancedb/lancedb";
 import crypto from "node:crypto";
 import path from "node:path";
+
+/*-- 动态导入 LanceDB，避免原生模块在不兼容环境（如 Vercel serverless）下崩溃整个页面 --*/
+let lancedb: typeof import("@lancedb/lancedb") | null = null;
+let lancedbLoadFailed = false;
+
+async function loadLancedb() {
+  if (lancedb) return lancedb;
+  if (lancedbLoadFailed) return null;
+  try {
+    lancedb = await import("@lancedb/lancedb");
+    return lancedb;
+  } catch (error) {
+    lancedbLoadFailed = true;
+    console.error(`[article-db] LanceDB 原生模块加载失败: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+}
 
 /*-- LanceDB articles 表的记录类型 --*/
 export interface ArticleRecord {
@@ -28,22 +44,34 @@ export interface ArticleRecord {
 const ARTICLES_TABLE = "articles";
 
 /*-- 数据库连接缓存 --*/
-let dbInstance: Awaited<ReturnType<typeof lancedb.connect>> | null = null;
+let dbInstance: any = null;
 
 /**
  * 获取数据库连接（单例模式）
- * 优先连接 LanceDB Cloud，失败时降级到本地 LanceDB
+ * 优先连接 LanceDB Cloud（5 秒超时），失败时返回 null（不降级到本地，避免 Vercel 上挂起）
  */
 async function getDb() {
   if (dbInstance) return dbInstance;
 
+  const lib = await loadLancedb();
+  if (!lib) {
+    console.error('[article-db] LanceDB 模块不可用，无法建立连接');
+    return null;
+  }
+
   const { LANCEDB_URI, LANCEDB_API_KEY } = process.env;
 
-  /*-- 优先尝试 LanceDB Cloud --*/
+  /*-- 优先尝试 LanceDB Cloud（带 5 秒超时） --*/
   if (LANCEDB_URI && LANCEDB_API_KEY) {
     try {
       console.log('[article-db] 尝试连接 LanceDB Cloud...');
-      dbInstance = await lancedb.connect(LANCEDB_URI, { apiKey: LANCEDB_API_KEY });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('LanceDB Cloud 连接超时 (5s)')), 5000)
+      );
+      dbInstance = await Promise.race([
+        lib.connect(LANCEDB_URI, { apiKey: LANCEDB_API_KEY }),
+        timeoutPromise,
+      ]);
       console.log('[article-db] LanceDB Cloud 连接成功');
       return dbInstance;
     } catch (error) {
@@ -53,12 +81,9 @@ async function getDb() {
     console.warn('[article-db] LANCEDB_URI 或 LANCEDB_API_KEY 未设置');
   }
 
-  /*-- 降级到本地 LanceDB --*/
-  const localPath = process.env.LANCEDB_LOCAL_PATH || ".lancedb";
-  const dbUri = path.join(process.cwd(), localPath);
-  console.log(`[article-db] 降级到本地 LanceDB: ${dbUri}`);
-  dbInstance = await lancedb.connect(dbUri);
-  return dbInstance;
+  /*-- 在 serverless 环境中不降级到本地 LanceDB（本地目录不存在会导致挂起） --*/
+  console.error('[article-db] 无可用数据库连接，返回 null');
+  return null;
 }
 
 /**
@@ -67,6 +92,10 @@ async function getDb() {
  */
 export async function initArticlesTable() {
   const db = await getDb();
+  if (!db) {
+    console.error('[article-db] initArticlesTable: 数据库不可用');
+    return null;
+  }
   const tableNames = await db.tableNames();
   if (tableNames.includes(ARTICLES_TABLE)) {
     try {
@@ -116,6 +145,10 @@ export async function getArticleBySlug(
   try {
     console.log(`[article-db] 查询文章: ${slug}`);
     const db = await getDb();
+    if (!db) {
+      console.error(`[article-db] 数据库不可用，无法查询文章: ${slug}`);
+      return null;
+    }
     const tableNames = await db.tableNames();
     if (!tableNames.includes(ARTICLES_TABLE)) {
       console.warn(`[article-db] 表 ${ARTICLES_TABLE} 不存在`);
@@ -160,6 +193,10 @@ export async function getArticleBySlug(
 export async function getAllArticles(): Promise<ArticleRecord[]> {
   try {
     const db = await getDb();
+    if (!db) {
+      console.error('[article-db] getAllArticles: 数据库不可用');
+      return [];
+    }
     const tableNames = await db.tableNames();
     if (!tableNames.includes(ARTICLES_TABLE)) return [];
     
@@ -193,6 +230,10 @@ export async function getArticlesByStatus(
 ): Promise<ArticleRecord[]> {
   try {
     const db = await getDb();
+    if (!db) {
+      console.error(`[article-db] getArticlesByStatus: 数据库不可用`);
+      return [];
+    }
     const tableNames = await db.tableNames();
     if (!tableNames.includes(ARTICLES_TABLE)) return [];
     
@@ -227,6 +268,9 @@ export async function getArticlesByStatus(
  */
 export async function saveArticle(record: ArticleRecord): Promise<void> {
   const db = await getDb();
+  if (!db) {
+    throw new Error('[article-db] saveArticle: 数据库不可用，无法保存文章');
+  }
   const tableNames = await db.tableNames();
   let table;
   if (!tableNames.includes(ARTICLES_TABLE)) {
