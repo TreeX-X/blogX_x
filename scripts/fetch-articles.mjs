@@ -40,14 +40,14 @@ const shouldTranslate = args.includes("--translate");
 const forceRefetch = args.includes("--force");
 
 /*===== 统计计数器 =====*/
-const stats = { 
-  total: 0, 
-  fetched: 0, 
-  skipped: 0, 
-  failed: 0, 
-  translated: 0, 
+const stats = {
+  total: 0,
+  fetched: 0,
+  skipped: 0,
+  failed: 0,
+  translated: 0,
   translateSkipped: 0,
-  translateFailed: 0 
+  translateFailed: 0
 };
 
 /*===== 工具函数 =====*/
@@ -65,6 +65,30 @@ function countWords(text) {
 
 function slugify(filename) {
   return filename.replace(/\.mdx?$/, "");
+}
+
+function stripHtmlToMarkdownFallback(html) {
+  return String(html || "")
+    .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (_, code) => `\n\n\`\`\`\n${code}\n\`\`\`\n\n`)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n\n")
+    .replace(/<li[^>]*>/gi, "- ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function writeArticleMarkdown(filePath, data, body) {
+  const normalizedBody = String(body || "").trim();
+  const fileContent = matter.stringify(`${normalizedBody}\n`, data);
+  fs.writeFileSync(filePath, fileContent, "utf-8");
 }
 
 function extractDomain(url) {
@@ -262,18 +286,18 @@ function shouldTranslateArticle(existing, newContent) {
   if (!existing || !existing.translatedContent || existing.translatedContent === "") {
     return { needed: true, reason: "无翻译记录" };
   }
-  
+
   // 2. 内容哈希变化 -> 需要重新翻译
   if (existing.contentHash && existing.contentHash !== newContent.contentHash) {
     return { needed: true, reason: "内容已更新" };
   }
-  
+
   // 3. 翻译时间早于抓取时间 -> 需要重新翻译
-  if (existing.translatedAt && existing.fetchedAt && 
-      new Date(existing.translatedAt) < new Date(existing.fetchedAt)) {
+  if (existing.translatedAt && existing.fetchedAt &&
+    new Date(existing.translatedAt) < new Date(existing.fetchedAt)) {
     return { needed: true, reason: "翻译版本过旧" };
   }
-  
+
   return { needed: false, reason: "翻译已是最新" };
 }
 
@@ -364,6 +388,10 @@ async function main() {
       };
 
       await upsertRecord(table, record);
+      /*-- 将抓取正文回写到 Markdown，避免线上依赖远程 LanceDB 才能渲染文章 --*/
+      const markdownPath = path.join(POSTS_DIR, article.file);
+      const preferredBody = record.translatedContent || stripHtmlToMarkdownFallback(record.originalContent);
+      writeArticleMarkdown(markdownPath, data, preferredBody);
       log.success(`${slug} — 抓取成功 (${wordCount} 词)`);
       stats.fetched++;
 
@@ -424,15 +452,22 @@ async function doTranslate(table, record, slug) {
     log.warn(`${slug} — 无原文内容，跳过翻译`);
     return;
   }
-  
+
   log.translate(`${slug} — 开始翻译...`);
   const plainText = record.originalContent.replace(/<[^>]+>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   const translated = await translateText(plainText);
-  
+
   if (translated) {
     record.translatedContent = translated;
     record.translatedAt = new Date().toISOString();
     await upsertRecord(table, record);
+    /*-- 翻译成功后优先把中文正文回写到 Markdown，作为稳定的部署兜底内容 --*/
+    const markdownPath = path.join(POSTS_DIR, `${slug}.md`);
+    if (fs.existsSync(markdownPath)) {
+      const raw = fs.readFileSync(markdownPath, "utf-8");
+      const parsed = matter(raw);
+      writeArticleMarkdown(markdownPath, parsed.data, translated);
+    }
     log.success(`${slug} — 翻译完成`);
     stats.translated++;
   } else {

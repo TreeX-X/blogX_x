@@ -33,16 +33,15 @@ const articleData = await getArticleBySlug(params.slug);
 const title = getContentTitle(post);
 const summary = getContentSummary(post);
 const pubDate = getContentDate(post);
-const domain = post.data.sourceUrl ? extractDomain(post.data.sourceUrl) : "";
 const hasArticleData = Boolean(articleData);
+const hasPostBody = 'body' in post && typeof post.body === 'string' && post.body.trim().length > 0;
 
 /*-- 如果有 LanceDB 数据，直接用 ArticleReader 渲染，否则降级为 Markdown 渲染 --*/
 let Content: any = null;
 let headings: any[] = [];
 if (!hasArticleData) {
   /*-- 仅当 post 有实际 body 内容时才调用 render()，避免空内容导致崩溃 --*/
-  const hasBody = 'body' in post && typeof post.body === 'string' && post.body.trim().length > 0;
-  if (hasBody) {
+  if (hasPostBody) {
     try {
       const rendered = await render(post);
       Content = rendered.Content;
@@ -171,7 +170,10 @@ const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
         ) : (
           /*-- 降级：Markdown 内容为空或渲染失败时的兜底 UI --*/
           <div class="article-fallback">
-            <p>文章内容暂时无法加载。</p>
+            <p>{hasPostBody ? "文章内容暂时无法加载。" : "当前部署环境未加载到远程文章正文。"}</p>
+            {!hasPostBody && (
+              <p>该文章目前只有摘要元数据，正文依赖抓取结果或远程数据库。建议在构建阶段先同步文章内容。</p>
+            )}
             {post.data.sourceUrl && (
               <p>
                 <a href={post.data.sourceUrl} target="_blank" rel="noopener noreferrer">
