@@ -14,334 +14,319 @@ originalAuthor: MiniMax Research
 originalLang: zh
 isDraft: false
 ---
-今天我们介绍 MiniMax Agent 的整体升级，我们将升级后的 Agent 起了个新名字：Mavis — MiniMax as a Jarvis，你的 AI 管家。
+Today, we're introducing a comprehensive upgrade to MiniMax Agent. We've given our upgraded Agent a new name: Mavis — MiniMax as a Jarvis, your AI assistant.
 
-这次进行了以下更新：
+The following updates have been made:
 
-上线 Agent Teams。
-MiniMax Agent 桌面端现在支持多个 Agent 并行工作，你可以创建不同角色的 Agent，让它们组成一个团队协作完成任务，适合那些又长又复杂、一个 Agent 搞不定的任务。
+Launch of Agent Teams.
+MiniMax Agent desktop now supports multiple Agents working in parallel. You can create Agents with different roles, have them form teams to collaborate on tasks, which is suitable for long and complex tasks that a single Agent cannot handle.
 
-TokenPlan 和 Agent Plan 合并。
-一份订阅，CLI、API、Agent 全打通，M2.7、音乐、视频、语音所有模型都包含在内。Credits 额度在 Agent 和 API 之间可以共享，用法更灵活。如果你之前同时订阅了两个 Plan，会额外赠送一个月会员
+TokenPlan and Agent Plan merged.
+One subscription now connects CLI, API, and Agent, including all models like M2.7, music, video, and voice. Credits can be shared between Agent and API, offering more flexibility. If you previously subscribed to both Plans, you'll receive an additional month of membership.
 
-MiniMax Agent Team 升级横幅
+MiniMax Agent Team Upgrade Banner
 
-此次，我们想跟大家分享我们做 Agent Teams 背后的思考：我们是怎么设计 Agent team 的？是为了解决什么问题？我们付出了什么成本？用户该什么时候该用 Agent Team、什么时候没必要用？
+This time, we'd like to share our thinking behind creating Agent Teams: How did we design Agent teams? What problems do they solve? What costs did we incur? When should users use Agent Teams, and when is it unnecessary?
 
-我们先回到当前单体Agent是怎么执行的。
+Let's first look at how current single Agents operate.
 
-“帮我整理一篇关于Agent Team 的长文，信息要基于2026年的最新数据，分别交付 Markdown 和 HTML 版本。”
+"Help me organize a long article about Agent Teams, with information based on the latest data from 2026, and deliver both Markdown and HTML versions."
 
-在过去，我们会把这句话交给一个强大的 AI 助手。它会立刻开始回答，把一大段文字推回聊天窗口。这种体验很顺，但当任务的交付质量的要求变高时，问题也会出现：资料谁来查？事实谁来核？文档谁来排？如果今天做完了，下次系统还会不会记得这次踩过的坑？
+In the past, we would give this instruction to a powerful AI assistant. It would immediately start responding, pushing a large block of text back into the chat window. This experience is smooth, but when the quality requirements for task delivery become higher, problems arise: Who researches the materials? Who verifies the facts? Who formats the document? If it's completed today, will the system remember the pitfalls encountered next time?
 
-1. 为什么要有Agent Team
+1. Why do we need Agent Teams
 
-虽然可以通过迭代Skill，让单体Agent在任务中出色交付，但一个Agent完成的结果交付必然意味着它即是裁判又是选手。这个矛盾就是我们建设Agent Team的出发点。
+Although we can iterate on Skills to enable a single Agent to deliver excellent results in tasks, the delivery of results by one Agent inevitably means it is both the referee and the player. This contradiction is the starting point for building Agent Teams.
 
-Agent Team 把一个原本压在单个Agent的复杂任务，改造成一个有前后台、有验收、有记忆的工作过程。用户仍然只发出一条消息，但背后的Agent Team系统会判断是否需要拆分，哪些角色可以并行，哪些结果必须验证，哪些经验应该沉淀。
+Agent Teams transform a complex task that was originally handled by a single Agent into a workflow with front-end and back-end processes, validation, and memory. The user still only sends one message, but the underlying Agent Team system determines whether splitting is needed, which roles can work in parallel, which results must be verified, and which experiences should be retained.
 
-继续我们的场景。
+Let's continue with our scenario.
 
-“帮我整理一篇关于Agent Team 的长文，信息要基于2026年的最新数据，分别交付 Markdown 和 HTML 版本。”
+"Help me organize a long article about Agent Teams, with information based on the latest data from 2026, and deliver both Markdown and HTML versions."
 
-单 Agent 可能能够顺利完成这个任务，像一个坐在用户旁边的同事。用户问“这段话怎么润色”，它可以马上改；“这个地方格式有问题”，他马上去确认。但这里暴露了几个问题：1、用户如果不指挥，Agent就会停住，需要用户不断的执行“确认”、“继续”等指令。
+A single Agent might be able to complete this task successfully, like a colleague sitting next to the user. When the user asks "How can I polish this paragraph?", it can immediately revise it; "There's a formatting issue here", it immediately goes to check. But this exposes several problems: 1. If the user doesn't give instructions, the Agent will stop, requiring the user to constantly execute commands like "confirm" and "continue".
 
-单 Agent 会在用户意想不到的时候停下来。
+Single Agents stop at unexpected times for the user.
 
-用户往往会遇到Agent要干7个事情，但是它完成3个改动后就停下来开始汇报了，说“我已经完成了123的修改，是否需要继续让我做剩下5个修改”。
+Users often encounter situations where the Agent needs to do 7 things, but after completing 3 revisions, it stops and reports, saying "I have completed revisions 1, 2, and 3, do you want me to continue with the remaining 5 revisions".
 
-这是因为模型普遍存在上下文焦虑，对于超长任务的训练本身需要投入大量的金钱、时间成本和算法优化。模型对于一个任务什么时候可以停止的判断是模糊的。
+This is because models generally suffer from context anxiety, and training for ultra-long tasks requires significant investment in money, time, and algorithm optimization. The model's judgment of when a task can be stopped is ambiguous.
 
-单 Agent 会越来越笨，特别在长任务方面退化明显。
+Single Agents become less capable over time, with significant degradation in long tasks.
 
-用户往往会有体感，随着Agent的执行，它从“一个聪明助手”变成“我在带一个很忙但容易分心的人”。用户不断追问：刚才那条要求还记得吗？你为什么又把研究任务写成产品营销了？
-只要其中一个环节走偏，后面的内容就会沿着偏差继续生成。
-更麻烦的是，单 Agent 很难天然形成“相互制衡”。它可能很真诚地自检，但它检查的仍然是自己刚刚构造出来的现场。
+Users often feel that as the Agent executes, it transforms from "a smart assistant" to "I'm leading someone who is busy but easily distracted". Users keep asking: Do you still remember that requirement from earlier? Why did you turn the research task into product marketing again?
 
-单Agent同时也无法快速响应长周期任务。
+As long as one step goes off track, the subsequent content continues to be generated along that deviation.
 
-特别是在IM场景（通过通讯软件控制Agent的场景）下，用户的耐心非常短。用户从IM发出一条消息，期待的是几秒内得到回应。哪怕任务很复杂，用户也希望对方先回复：“我知道了，我会怎么做，完成后回来找你。”不希望盯着一个对话框等十分钟、半小时甚至更久，只为了确认任务有没有开始。
-“我的Agent怎么不回我了”是我们收到的最大量的用户反馈。
+Even more troublesome is that it's difficult for single Agents to naturally form "checks and balances". It may sincerely self-inspect, but what it examines is still the scene it just constructed.
 
-Agent Team 则能提供不同的体验。主 Agent 先快速响应用户：收到任务，确认目标，说明会在后台拆分执行。把任务拆成多个章节包或多个版本，并行执行。
+Single agents also cannot quickly respond to long-cycle tasks.
 
-用户不必等待每个子步骤完成，可以在关键节点收到汇报：任务已开始、遇到阻塞、需要决策、已经完成。
+Especially in IM scenarios (scenarios where agents are controlled through communication software), users have very little patience. When a user sends a message from IM, they expect a response within seconds. Even for complex tasks, users hope to first receive a reply like: "I understand, here's what I'll do, and I'll come back to you when it's complete." They don't want to stare at a dialog box for ten minutes, half an hour, or even longer just to confirm if the task has started. "Why isn't my Agent replying to me?" is the most frequent user feedback we receive.
 
-也可以随时和主Agent聊天：“我刚刚还有一个新的想法，你顺便帮我去研究一下”， 主Agent可以随时响应：“好的，我现在再开启一组Agent研究，有新的进展随时汇报。同时和你交代一下，已经在执行的任务中已经完成了2/5，未完成的3个任务中有2个已经进入核查阶段，还有一个任务我会继续盯着。”
+Agent Teams, however, can provide a different experience. The main Agent first responds quickly to the user: acknowledging the task, confirming the objectives, and explaining that it will be split and executed in the background. The task is divided into multiple chapter packages or versions, executed in parallel.
 
-像极了一个能秒回用户微信消息的贴心好友。
+Users don't need to wait for each sub-step to complete; they can receive updates at key nodes: task started, encountered a blockage, requires a decision, completed.
 
-跳出某一个具体的任务，我们自然要接受
-用户需求的多样性和不同领域的角色的分工
+Users can also chat with the main Agent at any time: "I just had another idea, could you help me research it as well?" The main Agent can respond immediately: "Sure, I'll start another group of Agents to research this and report any new progress. At the same time, let me update you on the tasks already in progress: 2/5 are completed, among the remaining 3 tasks, 2 have entered the verification stage, and I will continue to monitor the third task."
 
-一个用户可能在同一天要求 Agent 写代码、查资料、做 PPT、整理会议纪要、读 PDF、处理表格、处理报销、规划项目、生成周报。每类任务的输入结构、工具权限、质量标准、风险等级和交付格式都不同。
+Just like a thoughtful friend who can reply to WeChat messages instantly.
 
-单 Agent 可以通过 Skill 暂时扮演不同角色，但角色扮演不等于角色分工。真正的分工从上下文方面至少包括四个维度：工具不同、上下文不同、记忆不同、Skill不同。从结果上看，输出协议不同、验收标准也不同。假设我们已经在上文中。构建出了Agent Team的系统，那么不同职责的Agent能更高频的接触到自己领域的任务，将踩到的坑形成记忆，将有价值的动作形成Skill。像一群和用户长期合作的同事，在各自的职能上越变越好。
+Moving beyond a specific task, we naturally need to accept the diversity of user needs and the division of roles across different domains.
 
-2. 当前行业中的 多Agent 合作实践
+A user might request an Agent to write code, research information, create PowerPoint presentations, organize meeting minutes, read PDFs, process spreadsheets, handle expense reports, plan projects, and generate weekly reports all in the same day. Each type of task has different input structures, tool permissions, quality standards, risk levels, and delivery formats.
 
-产品 / 引擎
+A single Agent can temporarily play different roles through Skills, but role-playing is not the same as role division. True division of labor includes at least four dimensions from a contextual perspective: different tools, different contexts, different memories, and different Skills. In terms of results, output protocols and acceptance criteria also differ. Assuming we have already built an Agent Team system as described above, Agents with different responsibilities can more frequently encounter tasks in their own domains, turn encountered obstacles into memories, and form valuable actions into Skills. Like a group of colleagues who have long-term collaboration with the user, they continuously improve in their respective functions.
 
-多 Agent 如何协作
+2. Current Multi-Agent Collaboration Practices in the Industry
 
-优势
+Product / Engine How Multiple Agents Collaborate Advantages Limitations
 
-局限性
+OpenAI Agents SDK: One Agent can hand off a task to another Agent for continued processing, or temporarily call another Agent to obtain professional results before completing the task itself. The system is responsible for saving the conversation process, checking if input and output are compliant, and recording the execution process.
 
-OpenAI Agents SDK
+Clear collaboration method, suitable for assigning tasks to different specialized Agents;
+Built-in security checks and process recording, facilitating productization;
+Suitable for customer service, business processes, and tool-calling scenarios.
 
-一个 Agent 可以把任务交给另一个 Agent 继续处理，也可以临时调用另一个 Agent 获取专业结果，然后自己继续完成任务。系统负责保存对话过程、检查输入输出是否合规，并记录执行过程。
+Multiple Agents typically work in sequence, with limited natural parallel capabilities;
+Agents run within the same framework, resulting in weaker isolation;
+More suitable for intra-product collaboration, not for large-scale independent task execution.
 
-协作方式清晰，适合把任务分给不同专业 Agent；
+LangGraph: Places multiple Agents into a clear process, with each Agent responsible for one step. A supervising Agent can determine who to hand off to next, or complex tasks can be broken down into multi-layered teams. The system saves intermediate states, making it easy to pause, resume, and manually intervene.
 
-内置安全检查和过程记录，便于产品化；
+Controllable processes, suitable for complex business operations;
+Can express branches, loops, and multi-layered tasks;
+Supports saving progress and resuming execution, suitable for long-process applications;
+Delivery results are traceable and troubleshootable, suitable for cost reduction;
 
-适合客服、业务流程、工具调用类场景。
-
-多个 Agent 通常按顺序接力，天然并行能力有限；
-
-Agent 运行在同一套框架内，隔离性较弱；
-
-更适合产品内协作，不适合大规模独立任务执行。
-
-LangGraph
-
-把多个 Agent 放进一个明确的流程中，每个 Agent 负责其中一步。可以由一个主管 Agent 判断下一步交给谁，也可以把复杂任务拆成多层团队。系统会保存中间状态，便于暂停、恢复和人工介入。
-
-流程可控，适合复杂业务；
-
-能表达分支、循环和多层任务；
-
-支持保存进度和恢复执行，适合长流程应用；
-
-交付结果可追溯和排查，适合降低成本；
-
-搭建和调试成本较高；
-
-多个 Agent 主要在同一系统内协作，独立运行能力较弱；
-
-复杂流程需要较强的工程设计。
+Higher setup and debugging costs;
+Multiple Agents mainly collaborate within the same system, with weaker independent operation capabilities;
+Complex processes require strong engineering design.
 
 OpenCode
 
-OpenCode 本身主要是单 Agent 产品，不主打多个 Agent 互相协作。它的核心价值在于让不同命令、技能、权限和会话走同一套执行路径，因此可以作为外部多 Agent 系统里的底层执行能力。
+OpenCode itself is primarily a single-agent product, not focused on multiple agents collaborating with each other. Its core value lies in allowing different commands, skills, permissions, and sessions to follow the same execution path, making it suitable as underlying execution capability in external multi-agent systems.
 
-命令体系统一，权限控制细，适合做可靠的编码 Agent；
+Unified command system with fine-grained permission control, suitable for reliable coding agents;
 
-人类操作和 Agent 操作可以复用同一套规则；适合作为更大系统里的执行引擎。
+Human and agent operations can reuse the same set of rules; suitable as an execution engine in larger systems.
 
-内部没有完整的多 Agent 团队机制；
+Lacks a complete multi-agent team mechanism internally;
 
-不负责多个 Agent 的分工、通信、验收和调度；
+Does not handle division of labor, communication, acceptance, and scheduling among multiple agents;
 
-如果要做团队协作，需要外部系统补齐。
+External systems are needed to supplement team collaboration capabilities.
 
 OMC / oh-my-claudecode — Team Pipeline
 
-多个 Agent 按阶段接力：先制定计划，再整理需求，再执行，再验证。如果验证不通过，就进入修复阶段，修复后重新执行或重新验证，直到完成或失败。
+Multiple agents接力 in stages: first planning, then requirement organization, then execution, then verification. If verification fails, it enters a repair phase, after which it re-executes or re-verifies until completion or failure.
 
-过程完整，覆盖计划、需求、执行、验证、修复；
+Complete process covering planning, requirements, execution, verification, and repair;
 
-验证失败后能继续修，不会停在半成品；
+Can continue repairing after verification failures, not stopping at half-finished products;
 
-适合复杂代码任务。
+Suitable for complex coding tasks.
 
-流程较重，简单任务使用成本高；
+The process is heavy, with high costs for simple tasks;
 
-依赖终端环境和多个后台窗口；
+Depends on terminal environments and multiple background windows;
 
-阶段固定，想要临时调整方案的成本较高。
+Stages are fixed, making it costly to temporarily adjust the plan.
 
-Claude Code — Teams 机制
+Claude Code — Teams Mechanism
 
-一个 Lead Agent 创建团队，给多个 Teammate 分配任务。每个 Teammate 有独立上下文、模型和权限，可以单独执行任务。Lead 负责派发任务、查看状态、发送消息、关闭成员，Teammate 完成后会回报状态。
+A Lead Agent creates a team and assigns tasks to multiple Teammates. Each Teammate has independent context, models, and permissions and can execute tasks separately. The Lead is responsible for dispatching tasks, checking status, sending messages, and closing members, while Teammates report back status upon completion.
 
-和 Claude Code 深度集成，使用体验连贯；
+Deeply integrated with Claude Code for a seamless user experience;
 
-成员之间上下文隔离，适合多人分工；
+Context isolation between members, suitable for division of labor among multiple people;
 
-支持任务管理、消息沟通、空闲通知和关闭确认，团队协作能力比较完整。
+Supports task management, messaging, idle notifications, and closure confirmation, providing relatively complete team collaboration capabilities.
 
-任务安排主要依赖 Lead Agent 自己判断，稳定性受模型影响；
+Task scheduling mainly relies on the Lead Agent's own judgment, with stability affected by the model;
 
-复杂依赖关系不够明确；
+Complex dependencies are not clearly defined;
 
-部分运行方式依赖终端窗口，跨会话长期运行能力有限。
+Some operational methods depend on terminal windows, with limited ability for long-running cross-session operations.
 
 OMC Ralph Loop / Ralph Mode
 
-Ralph 负责让任务持续推进。它通常配合并行执行和验证流程：先让多个执行单元推进任务，再反复检查结果；发现问题就继续修，直到通过或达到上限。
+Ralph is responsible for ensuring task progression. It typically works with parallel execution and verification processes: first, multiple execution units advance the task, then results are repeatedly checked; problems are continuously fixed until passing or reaching the limit.
 
-强调完成质量，适合需要反复打磨的任务；
+Emphasizes completion quality, suitable for tasks requiring repeated refinement;
 
-能把执行和验证连接起来，减少"做了一半就结束"的情况；
+Connects execution and verification, reducing situations where tasks "end halfway";
 
-适合复杂开发和修复类任务。
+Suitable for complex development and repair tasks.
 
-运行时间和成本可能较高；
+Running time and costs may be high;
 
-如果检查标准不清，可能反复修但效果有限；
+If inspection standards are unclear, there may be repeated repairs with limited effectiveness;
 
-必须设置迭代上限、成本上限和停止条件。
+Must set iteration limits, cost limits, and stop conditions.
 
 OMC Autopilot + Ralph
 
-Autopilot 把任务拆成完整链路：先分析需求和技术方案，再制定实施计划，然后执行，之后由 Ralph 持续补完和修复，最后进入构建、检查、测试和多角度验证。
+Autopilot breaks down tasks into a complete workflow: first analyzing requirements and technical solutions, then formulating implementation plans, followed by execution, after which Ralph continuously supplements and repairs, finally entering construction, inspection, testing, and multi-angle verification.
 
-覆盖从需求理解到最终验证的完整过程；
+Covers the complete process from requirement understanding to final verification;
 
-适合复杂任务自动推进；
+Suitable for automatic advancement of complex tasks;
 
-Ralph 能在执行后继续修复问题，提高交付质量。
+Ralph can continue to fix problems after execution, improving delivery quality.
 
-系统流程较长，适合复杂任务，不适合轻量修改；
+The system workflow is long, suitable for complex tasks but not for lightweight modifications;
 
-每个阶段都依赖前一阶段质量，前面理解错了会影响后续；
+Each stage depends on the quality of the previous stage; misunderstandings earlier will affect later stages;
 
-需要明确验收标准，否则后期验证效果会下降。
+Clear acceptance criteria are needed, otherwise verification effectiveness will decline in later stages.
 
-3. MiniMax Agent Team：在约束多Agent循环的基础上，给予每个Agent更高的自由度
+3. MiniMax Agent Team: Giving each agent higher freedom based on constrained multi-agent loops
 
-MiniMax的Agent Team是一个由某个主Agent牵头，把复杂任务拆成多个可并行的任务分配给一批Agent并发执行，自带对抗性的质量门禁的多Agent系统，是确定性的代码逻辑驱动的Agent循环。我们受到了Raplh-Loop和Harness思想的启发，意识到大模型的上下文是宝贵的，通过拆分任务和职责分类，让每个环节的Context隔离，提高整体的Agent产出质量。
+MiniMax's Agent Team is a multi-agent system led by a main agent that breaks down complex tasks into multiple parallel tasks assigned to a group of agents for concurrent execution, featuring built-in adversarial quality gates. It is a deterministic code logic-driven agent loop. Inspired by Ralph-Loop and Harness concepts, we recognized that the context of large language models is valuable. By splitting tasks and categorizing responsibilities, we isolate the context of each stage, improving the overall quality of agent output.
 
-Leader、Worker、Verifier 的基本协作流
+Basic Collaboration Flow of Leader, Worker, and Verifier
 
-为了让多 Agent 从概念变成可用产品，需要一个基本协作流。我们把它简化为三类角色：Leader、Worker、Verifier。
+To transform multi-Agent from concept to a usable product, a basic collaboration flow is needed. We simplify it into three roles: Leader, Worker, and Verifier.
 
-Leader 负责把用户目标转化为任务结构。
+The Leader is responsible for converting user goals into task structures.
 
-Worker 负责执行具体子任务。不同 Worker 可以拥有不同工具、上下文和输出要求。有的 Worker 做资料检索，有的做代码编辑。Worker 的价值在于专业化：角色越清楚，Worker 的输出越容易被复用、比较和检查。
+The Worker is responsible for executing specific subtasks. Different Workers can have different tools, contexts, and output requirements. Some Workers handle information retrieval, while others perform code editing. The value of Workers lies in specialization: the clearer the role, the easier the Worker's output can be reused, compared, and checked.
 
-Verifier 负责把"完成了"变成"可以交付"。它可以检查事实来源、覆盖清单、风险边界，也可以对 Worker 的结果提出修改意见。体现了Agent Team的设计逻辑：WorkerAgent 与 VerifierAgent 是对抗关系。双方都以运行结束为目标，但一方运行结束会引发另一方的运行开始。类似企业中的研发和质量部门，通过多轮对抗式迭代，交付高质量的结果，无需CEO（人类用户）事无巨细的介入。
+The Verifier is responsible for transforming "completed" into "deliverable". It can check factual sources, coverage checklists, risk boundaries, and can also suggest modifications to the Worker's results. This reflects the design logic of Agent Teams: the WorkerAgent and VerifierAgent have an adversarial relationship. Both aim for their own execution to end, but the end of one triggers the start of the other. This is similar to the R&D and quality assurance departments in a company, which deliver high-quality results through multiple rounds of adversarial iterations without requiring the CEO (human user) to be involved in every detail.
 
-相比只能创建任务、获取结果一次收发的Task工具，
-Agent Team是一个可随时互动的团队。
+Compared to Task tools that can only create tasks and receive results in a single exchange, the Agent Team is a team that can interact at any time.
 
-传统 Task 工具通常发生在模型工具调用层：主 Agent 调用一个 task、dispatch 或 spawn 类工具，传入一段 prompt，等待子 Agent 返回一段文本或摘要。这类机制适合短生命周期、低风险、局部探索型任务，例如让另一个模型快速搜索文件、归纳材料、检查一个思路或生成候选答案。虽然目前存在后台运行的SubAgent，但本质Agent之间的通讯还是一次输入输出，无法多轮对话，实时上报遇到的问题和矛盾。
+Traditional Task tools usually operate at the model tool invocation layer: the main Agent calls a task, dispatch, or spawn type tool, passes in a prompt, and waits for the sub-Agent to return text or a summary. This mechanism is suitable for short-lived, low-risk, locally exploratory tasks, such as having another model quickly search files, summarize materials, check an idea, or generate candidate answers. Although there are currently SubAgents running in the background, the communication between Agents is essentially still a single input-output, unable to support multi-round dialogues or real-time reporting of issues and conflicts.
 
-为了让Team稳定运行，我们选择了可靠的状态机去对每个Agent的运行周期进行管理，一个运行周期就是一个Session，这个状态机就是Team Engine。Team Engine会按照producing、verifying、done去管理每一个任务。当verifying未通过时，Team Engine会重新唤起producing节点继续修改。Leader在这个过程中会即会收到Team Engine的最新状态汇报，也可以主动确认具体的任务细节，甚至可以随时向正在运行的producing、verifying 的Agent发送补充 prompt。协作关系不再被限制为一次函数调用，而是变成主动推送、按需查询的多轮交互。
+To ensure the stable operation of the Team, we chose a reliable state machine to manage the execution cycle of each Agent. One execution cycle is a Session, and this state machine is the Team Engine. The Team Engine manages each task according to producing, verifying, and done phases. When verification fails, the Team Engine reactivates the producing node to continue modifications. During this process, the Leader receives status updates from the Team Engine and can actively confirm specific task details, or even send supplementary prompts to the currently running producing and verifying Agents. The collaborative relationship is no longer limited to a single function call but becomes a multi-round interaction with active push and on-demand queries.
 
-每一次Agent Team的运行都是有长期价值的。本次执行的经验也可以沉淀为记忆、Skill，让每个具体的Agent更主动地去了解如何与用户协作，高效完成任务，也支持所有的Agent更了解用户。
+Each run of the Agent Team has long-term value. The experience from this execution can be precipitated as memory and skills, enabling each specific Agent to better understand how to collaborate with users and complete tasks efficiently, while also helping all Agents better understand the user.
 
-Agent 间通讯设计：Agent 与人类同权
+Inter-Agent Communication Design: Agents with Equal Rights to Humans
 
-我们在设计和思考Agent应如何相互协作时最直接的思路就是去思考人和Agent是如何协作的。用户可以对Agent在前端交互上进行 prompt、spawn、abort、kill等操作，那么意味着Agent自己应也需要有能力对另一个Agent完成上述动作。我们将用户可以对Agent的操作抽象为接口，那么真实操作这些Agent的渠道就可以是用户、其他Agent或AgentTeam的引擎。
+When designing and considering how Agents should collaborate, the most direct approach is to think about how humans and Agents work together. Users can perform operations like prompt, spawn, abort, and kill on Agents through frontend interactions, which means Agents themselves should also have the ability to perform these actions on other Agents. We abstract the operations that users can perform on Agents into interfaces, so the channels that actually operate these Agents can be users, other Agents, or the Agent Team's engine.
 
-当然，这种设计必须保持边界：平权不意味着 Agent 获得无限权限，也不意味着人类退出责任链。恰恰相反，只有当 Agent 和人类共享同一个可审计协作面，权限、责任和风险才更容易被看见。
+Of course, this design must maintain boundaries: equal rights do not mean that Agents have unlimited permissions, nor does it mean that humans are removed from the responsibility chain. On the contrary, only when Agents and humans share the same auditable collaboration surface can permissions, responsibilities, and risks be more easily seen.
 
-3.1. 核心场景一：接入 IM，异步执行快速响应
+3.1. Core Scenario One: Integration with IM for Asynchronous Execution with Quick Response
 
-IM 的交互约束很特别。用户发消息时，预期是秒级反馈；但很多任务天然需要分钟级甚至小时级执行：研究资料、整理会议纪要、生成 PPT、跑代码测试。如果系统让用户一直等最终结果，体验会变成“Agent在聊天框里失踪了”。
+The interaction constraints of IM are quite special. When users send messages, they expect second-level feedback; however, many tasks naturally require minute-level or even hour-level execution: researching materials, organizing meeting minutes, generating PPTs, running code tests. If the system makes users wait for the final result, the experience becomes "the Agent has disappeared in the chat box".
 
-单 Agent 在这里容易陷入两难：要么为了快速回复，只给一个浅答案；要么为了完整完成任务，让用户长时间无反馈。更糟的是，IM 对话还会继续发生。用户可能中途追加要求、切换话题、问另一个问题。如果长任务和当前对话绑在同一个上下文里，系统既难以保持响应速度，也难以保证后台任务不被新消息污染。
+Single Agents here easily fall into a dilemma: either provide only a shallow answer for quick replies, or let users wait without feedback for a long time to complete the task. Worse yet, IM conversations continue to happen. Users may add requirements midway, switch topics, or ask another question. If long tasks are bound to the same context as the current conversation, the system finds it difficult to maintain response speed while ensuring background tasks are not contaminated by new messages.
 
-这和 Google A2A 官方协议中对 long-running tasks、状态更新、human-in-the-loop 的设计原则有呼应。Anthropic Managed Agents 官方博客提出“session 不等于模型 context window”，长任务需要可恢复的 session log 作为外部上下文对象。
+This echoes the design principles for long-running tasks, status updates, and human-in-the-loop in the official Google A2A protocol. The official blog of Anthropic Managed Agents proposes that "session does not equal model context window", and long tasks require a recoverable session log as an external context object.
 
-说明行业共识正在形成：IM 异步执行的底层逻辑：当任务跨越多轮消息、多个工具、多个 Agent，不能依赖某个模型当前上下文一直不丢。系统需要把任务状态、事件日志、文件产物、决策记录保存为可恢复对象。Agent 协作是带状态的长期任务。
+This shows that industry consensus is forming: the underlying logic of asynchronous execution in IM: when tasks span multiple rounds of messages, multiple tools, and multiple Agents, they cannot rely on the current context of a certain model never being lost. The system needs to save task status, event logs, file artifacts, and decision records as recoverable objects. Agent collaboration is a stateful long-term task.
 
-IM 异步执行场景
+IM asynchronous execution scenarios
 
-3.2. 核心场景二：Coding Harness
+3.2. Core Scenario Two: Coding Harness
 
-AgentTeam的项目很大程度上受到了Harness思想的启发和激励。Harness强调的事情是在基础的写代码基础上更进一步的思想：Agent不仅需要写代码，还需要跟进开发的全流程，把代码要有分支，执行要有沙箱，修改要有 diff，测试要能重跑，审查要有记录，失败要能回放，必要时还要能把任务拆给不同角色。让Agent运行的停止条件绑定到有确定性可观测的外部系统。
+The AgentTeam project was greatly inspired and motivated by Harness concepts. Harness emphasizes going beyond basic code writing: Agents not only need to write code but also follow the entire development process, with code branching, sandbox execution, diff for modifications, rerunnable tests, recorded reviews, replayable failures, and the ability to split tasks among different roles when necessary. It binds the stopping conditions for Agent execution to observable external systems.
 
-Coding 任务下 developer / tester / reviewer 分工
+Division of labor among developer / tester / reviewer in Coding tasks
 
-一个工程化 Coding Harness 至少包含四类角色。
+An industrial-grade Coding Harness includes at least four roles.
 
-Leader 是控制面，它首先判断任务是否值得启动 Team：改错别字、替换常量可能单 Agent 或脚本更便宜；跨文件理解、多方案并行比选，才更适合 Team。它还要决定拆解粒度：是否先读代码，是否并行探索方案，是否先写复现测试，失败后重试几次，什么时候升级给人类。
+The Leader is the control plane. It first determines whether the task is worth starting a Team for: fixing typos or replacing constants might be cheaper with a single Agent or script; cross-file understanding and multi-scheme parallel comparison are more suitable for Teams. It also decides on decomposition granularity: whether to read code first, explore solutions in parallel, write reproduction tests first, retry several times after failure, and when to escalate to humans.
 
-Developer 负责实现，它有一个明确工作目标：需求、相关文件、项目约束和禁止事项。它的输出也不只是自然语言说明，而包括 修改理由、潜在风险和验证建议。
+The Developer is responsible for implementation, with a clear work objective: requirements, related files, project constraints, and prohibitions. Its output is not just natural language explanations, but also includes modification rationale, potential risks, and verification suggestions.
 
-Tester 负责把“看起来能运行”变成“有外部证据”。它要找现有测试入口、压缩失败日志，并在必要时补充最小复现。关键是 tool-grounded：验证结果来自命令、测试或可执行检查。
+The Tester is responsible for transforming "looks runnable" into "has external evidence". It needs to find existing test entry points, compress failure logs, and supplement minimal reproduction when necessary. The key is tool-grounded: verification results come from commands, tests, or executable checks.
 
-Reviewer 不等同于 Tester。测试回答“是否通过已知验证”，Review 更关心“是否应该这样改”。它要检查抽象边界、兼容性、错误处理、依赖引入、权限扩大、日志是否暴露敏感信息。Reviewer 也可以分工并发：普通 reviewer 看可维护性，security reviewer 看输入/凭证/网络边界，domain reviewer 看业务语义。
+The Reviewer is not the same as the Tester. Tests answer "does it pass known verifications", while Review is more concerned with "should it be changed this way". It checks abstract boundaries, compatibility, error handling, dependency introduction, permission expansion, and whether logs expose sensitive information. Reviewers can also be divided and work in parallel: regular reviewers focus on maintainability, security reviewers focus on input/credentials/network boundaries, and domain reviewers focus on business semantics.
 
-自动化测试、代码审查和人工验收如何接入
+How to integrate automated testing, code review, and manual acceptance
 
-第一层是自动化测试和静态检查。Harness 把 test、lint、build、format check 视为一等公民。Developer 修改后，Tester 执行验证；失败时，Leader 判断是让 Developer 修复、让 Tester 补日志，还是把环境问题上报。
+The first layer is automated testing and static checks. Harness treats test, lint, build, and format check as first-class citizens. After the Developer makes changes, the Tester executes verification; upon failure, the Leader decides whether to have the Developer fix it, have the Tester supplement logs, or report environmental issues.
 
-第二层是代码审查。Reviewer Agent 可以先做自动初审，提前发现未使用变量、异常分支遗漏、公共 API 破坏、危险 shell 调用、secret 日志、越界改文件等问题。
+The second layer is code review. The Reviewer Agent can first conduct an automatic preliminary review to proactively identify issues such as unused variables, missing exception branches, public API violations, dangerous shell calls, secret logs, and out-of-bounds file modifications.
 
-3.3. 核心场景三：并行信息检索和研究
+3.3. Core Scenario Three: Parallel Information Retrieval and Research
 
-单 Agent 会遭遇研究速度慢、上下文被污染或危险注入、证据链迷失在上下文中、调研方向有偏向性等问题。Agent Team 的价值，是把研究过程拆成并行信息通道，再通过 verifier 和 synthesizer 合并为结构化结论。重点设计可信研究流水线，保证研究效率高的同时能跳出单Agent 的研究思路，从不同角度、正反面进行信息的搜集和确认。
+A single Agent may encounter issues such as slow research speed, context pollution or dangerous injection, loss of the chain of evidence in the context, and biased research directions. The value of an Agent Team is to break down the research process into parallel information channels, then merge them into structured conclusions through a verifier and synthesizer. The focus is on designing a trustworthy research pipeline that ensures high research efficiency while breaking away from the single Agent's research approach, collecting and verifying information from different angles and both positive and negative perspectives.
 
-独立 verifier 如何降低引用错误和事实幻觉
+How Independent Verifiers Reduce Citation Errors and Factual Hallucinations
 
-Verifier 首先检查来源可复查性。正式来源应尽量使用稳定 URL：官方页面、会议页面、作者博客。而搜索缓存、聚合页、只能作为线索，不能支撑正式结论。Verifier 还检查来源状态是否过期，是否存在反面证据否认真实性等。
+The verifier first checks source verifiability. Formal sources should use stable URLs whenever possible: official pages, conference pages, author blogs. Search caches and aggregation pages can only serve as clues and cannot support formal conclusions. The verifier also checks whether the source status is outdated and whether there is contrary evidence denying its authenticity.
 
-并行信息检索和研究
+Parallel Information Retrieval and Research
 
-3.4. 核心场景四：流水线式办公文档写作
+3.4. Core Scenario Four: Pipeline-style Office Document Writing
 
-单 Agent 做文档时，最容易出现的错觉是：只要模型会写，就等于能交付。用户说“帮我做一份报告 / Excel / PDF”，单 Agent 往往会先生成一大段文本，再尝试一次性排版、检查格式、修错误。短文档还可以靠一次上下文完成；一旦任务变成长报告、正式合同、财务表格，问题就会迅速暴露：内容规划、资料引用、结构一致性、图表对象、页眉页脚、导出质量，都挤在同一个上下文和同一个执行循环里。
+When a single Agent creates documents, the most common misconception is: if the model can write, it can deliver. When a user says "help me create a report/Excel/PDF," a single Agent often generates a large block of text first, then attempts one-time typesetting, format checking, and error correction. Short documents can still be completed in a single context; but once the task becomes a long report, formal contract, or financial spreadsheet, problems quickly emerge: content planning, reference citation, structural consistency, chart and diagram objects, headers and footers, and export quality—all are crammed into the same context and execution loop.
 
-AgentTeam让结果从“能生产”跨越到“能交付”
+AgentTeam bridges the gap from "can produce" to "can deliver"
 
-多 Agent 协作把文档交付拆成多个可验证阶段。Planner 先定义文档目标和结构；Writer 负责正文；Formatter 负责版式和文件对象；Evaluator 独立检查内容、格式和文件完整性。这样的拆分把“文档生成”从一次性文本生成，变成类似 CI/CD 的构建流水线：每一步产出中间件，每一步都有检查，每一步失败都能局部重试。
+Multi-Agent collaboration breaks down document delivery into multiple verifiable stages. The Planner first defines document goals and structure; the Writer is responsible for the main content; the Formatter handles layout and file objects; the Evaluator independently checks content, formatting, and file integrity. This division transforms "document generation" from a one-time text generation process into something similar to a CI/CD build pipeline: each step produces intermediate products, each step has checks, and each failure can be retried locally.
 
-流水线式办公文档写作
+Pipeline-style Office Document Writing
 
-4. 开发过程中的难点和思考
+4. Challenges and Considerations in the Development Process
 
-Team 合作带来的上下文成本
+Context Costs from Team Collaboration
 
-一组 Agent 协作，会暴露一类新的成本：交接成本、共享、聚合成本。这种成本都不是“模型的Context Window再大一点就能解决”的。
+When a group of Agents collaborate, a new type of cost emerges: handover costs, sharing and aggregation costs. These are not costs that can be solved by simply making the model's Context Window larger.
 
-交接成本指的是同样一段信息在不同 Agent 之间需要被重新组织。研究 Agent 收来的几十个网页后交接给写作Agent。写作Agent它需要一份经过初步研究的文档。写作Agent同样也需要交接一个写作结果给格式检查Agent。我们现在的处理方式是把交接物变成：1、可读的交接文件 2、多个Agent的共享留言板文件；Worker 之间通过这些文件的路径加摘要进行不打断的慢通信，避免一口气全部塞到上下文里。
+Handover cost refers to the need to reorganize the same piece of information between different Agents. After collecting dozens of web pages, the research Agent hands them over to the writing Agent. The writing Agent needs a document that has undergone preliminary research. Similarly, the writing Agent needs to hand its results to the formatting check Agent. Our current approach transforms handover materials into: 1. readable handover files 2. shared message board files for multiple Agents; Workers use file paths plus summaries for uninterrupted slow communication, avoiding cramming everything into the context at once.
 
-共享成本指的是“给所有 Agent 看到所有信息”的代价。每多一段共享内容，每个 Worker 的每一轮都要为它付 token。当某个Agent执行过程中遇到问题时，他应该通过正确的方式写记忆，进而确保能广播到所有运行的/待运行的Agent的上下文中。我们采用了三种方式来维护这类共享信息：1、Agent内的记忆，此Agent的一次经验，同样的Agent后续执行会收到提示，甚至执行中的Agent也会被立刻通知。2、Agent之间的通讯CLI，Agent有能力直接和其他的运行节点对话，进行打断式的沟通 3、上述提到的白板能力，相比1和2 的主动通知，白板能够支持保存更大量的信息，其他Agent在使用的时候也可以更优雅的按需获取。
+Shared cost refers to the price of "letting all Agents see all information." Each additional piece of shared content requires tokens from every Worker in every round. When an Agent encounters problems during execution, it should write memories properly to ensure broadcasting to the contexts of all running/pending Agents. We use three methods to maintain this type of shared information:
 
-聚合成本指的是把多个 Worker 的结果合成一个交付物所需要的工作量。并行收集 10 个版本的资料容易，把它们合成一份事实一致、引用对得上、风格统一的文章很难。Leader 在这一步要做的，往往是“把 10 份合到 1 份”而不是“多调几个人补充”。承认这件事昂贵，是设计 Team 时的第一步。
+1. Memory within an Agent - an experience of one Agent, subsequent executions of the same Agent will receive prompts, and even Agents currently running will be notified immediately.
+2. Inter-Agent communication CLI - Agents have the ability to directly communicate with other running nodes for interruptive communication.
+3. The whiteboard capability mentioned above - compared to the active notification in methods 1 and 2, the whiteboard can support storing much larger amounts of information, and other Agents can retrieve it more elegantly on demand.
 
-时间 / Token 消耗与结果 ROI 的平衡
+Aggregation cost refers to the workload required to synthesize results from multiple Workers into a single deliverable. It's easy to collect 10 versions of materials in parallel, but it's difficult to synthesize them into one article that is factually consistent, has proper citations, and has a unified style. What the Leader needs to do at this step is often "to combine 10 into 1" rather than "adding more people to supplement." Acknowledging that this is expensive is the first step in designing a Team.
 
-多 Agent 在过去的研究里很难和高ROI划等号。论文 Cost of Consensus 在特定模型与同质 debate 设置中声称，消耗可能达到 isolated self-correction 的 2.1–3.4 倍 token，准确率却没有提升甚至更差。这条结论指出一个清楚的事实：没有结构、没有停止条件的“多”，只是把不确定性并行扩散，简单的AI聊天室很难保证最终结果的质量。
+Balance between Time/Token Consumption and Result ROI
 
-ROI 也包括用户的等待。我们虽然已经把长任务异步化、让用户能随时和Leader的Agent沟通，能够降低用户即时的沟通诉求，但是整体任务的交付时间还是变长了，相比单个Agent的一口气做完，Agent Team不可避免需要按顺序执行1234。我们思考了很久如何控制合理的拆分粒度以及平衡大任务效果差、小任务拆太细交付慢的问题。我们相信随着模型智能水平的提高，后台跑Team，完成后主动汇报，就是用任务结构换掉了“同一个对话里盯着 Agent 慢慢生成”的心理成本。多 Agent 的价值在这里和成本一起出现：用户愿意为可验证、可恢复、可审计的结果等更长，前提是过程透明。
-并且我们相信当用户看到Agent Team完成的高质量结果后，对Agent信任度提高。会更加解放自己的思路，让自己去进行更深刻，更广泛的思考，做一个有人味的思想者，把执行思想和落地结果的任务交给Agent Team。
+Multi-Agents have been difficult to equate with high ROI in past research. The paper "Cost of Consensus" claims that in specific models and homogeneous debate settings, consumption can reach 2.1-3.4 times the tokens of isolated self-correction, without improvement in accuracy or even worse. This conclusion points to a clear fact: unstructured "multi" without stopping conditions just spreads uncertainty in parallel, and simple AI chatrooms can hardly guarantee the quality of the final result.
 
-Verifier、重试和 Leader decision 的成本
+ROI also includes user waiting time. Although we have already made long tasks asynchronous and allow users to communicate with the Leader Agent at any time to reduce immediate communication needs, the overall delivery time for tasks is still longer compared to a single Agent completing the task in one go. An Agent Team inevitably needs to execute steps 1-2-3-4 in sequence. We have thought a lot about how to control reasonable splitting granularity and balance the problems of poor performance on large tasks and slow delivery on overly fine-grained tasks. We believe that as the intelligence level of models improves, running Teams in the background and proactively reporting completion replaces the psychological cost of "watching the Agent slowly generate in the same conversation." The value of multi-Agents appears here together with the cost: users are willing to wait longer for verifiable, recoverable, and auditable results, provided the process is transparent.
 
-Verifier 是 Team 从演示走向交付的关键。
+Furthermore, we believe that when users see the high-quality results completed by Agent Teams, their trust in Agents increases. This allows them to free their minds for deeper and broader thinking, becoming more human-like thinkers, while leaving the task of implementing ideas and delivering results to Agent Teams.
 
-第一类成本是验证本身。一次代码任务要跑测试；一次研究任务要核对来源、确认引用边界；验证越认真，消耗越高；验证只走个过场，就只剩“看起来通过”的虚假安全感。
+Cost of Verifier, Retries, and Leader Decisions
 
-第二类成本是重试策略。如果 Worker 一直在“改一点—被 verifier 退回—再改一点”里转圈，整个 plan 会越跑越贵。
+The Verifier is key for moving a Team from demonstration to delivery.
 
-第三类成本是 Leader decision 不能被模糊。在高风险动作面前——是否合并代码、是否覆盖线上数据最终判断必须有人类签字。GitHub Copilot cloud agent 的官方文档把整个流程留在 GitHub 内：计划、提交、日志、PR 都可被团队审查；相关 changelog 也提到在 PR finalized 前会进行安全和质量分析。它指出的方向很清楚：Agent 交付的除了结果，还有可回放、可追责的轨迹。
+The first type of cost is verification itself. A code task needs to run tests; a research task needs to verify sources and confirm citation boundaries. The more thorough the verification, the higher the consumption. If verification is just going through the motions, it only leaves a false sense of security of "appears to pass."
 
-多 Agent 系统是 runtime，不是 prompt 编排
+The second type of cost is the retry strategy. if Workers keep cycling through "make a small change - get rejected by verifier - make another small change," the entire plan becomes more expensive.
 
-离开模型和上下文，回到我们的系统是怎么建设的：多 Agent 经常被简化成“写好几段 prompt /skills 让模型扮演不同角色”。在 我们的真实代码里，这种简化只是最初的演示demo，实际上的代码复杂度隐藏在很多的细节中，只为了让用户有“只要对话就行了”的丝滑体验。Team Engine 需要管理多种复杂对象和状态转化，以保证Agent Team的运行能够足够自动化和可观测；渲染层面要承接人/Agent/Team Engine等多个角色对同一个概念的操作：比如同样是创建一个任务，就需要处理多种来源。渲染的另一头复杂度来自消息的来源。除了用户和Agent的对话内容，还有Agent之间的对话内容、定时任务的消息、Team Engine的定时监控、还有来自IM的用户消息等。背后复杂的软件工程，都是为了用户能够在简洁的界面上浏览被仔细安排过的信息来源。
+The third type of cost is that Leader decisions cannot be ambiguous. In the face of high-risk actions—whether to merge code or overwrite online data—the final judgment must have human approval. The official documentation of GitHub Copilot cloud agent keeps the entire process within GitHub: planning, commits, logs, and PRs can be reviewed by the team; the related changelog also mentions that security and quality analysis will be performed before PR finalization. It points to a clear direction: what the agent delivers is not just results, but also replayable and accountable traces.
 
-行业资料也在指向同一方向。OpenAI Agents SDK 的官方说明强调 sandbox、workspace、handoff、tracing；AWS AgentCore 的官方发布把 Runtime、Memory、Identity、Gateway、Browser等列为企业级模块。它们共同提示一件事：Agent 产品的重心正在从“写 prompt”转向“维护控制面”。
+Multi-agent systems are runtimes, not prompt orchestration
 
-承认 Agent Team 是 runtime，会改变产品判断。新功能不能只靠 prompt 修补，要在 runtime 里加事件、加可观测；权限和运行时的约束、写记忆的约束不能只靠 Agent 自觉，要执行恰当的软硬门禁和拦截；把多 Agent 当 runtime 维护，比把它当 prompt 模板维护要重得多，但只有这样才能稳定服务真实工作。
+Leaving aside models and contexts, let's return to how our system is built: multi-agents are often simplified to "writing several prompts/skills to let models play different roles." In our actual code, this simplification is only the initial demo; the actual code complexity is hidden in many details, just to give users the smooth experience of "just having conversations is enough." Team Engine needs to manage various complex objects and state transformations to ensure that the Agent Team can run with sufficient automation and observability; the rendering layer needs to handle operations from multiple roles (human/agents/Team Engine) on the same concept: for example, creating a task requires handling multiple sources. The other complexity of rendering comes from the source of messages. In addition to user-agent conversations, there are also agent-to-agent conversations, scheduled task messages, Team Engine's scheduled monitoring, and user messages from IM, etc. The complex software engineering behind it is all so that users can browse carefully arranged information sources on a simple interface.
 
-5. 启发
+Industry materials are also pointing in the same direction. The official documentation of OpenAI Agents SDK emphasizes sandbox, workspace, handoff, and tracing; AWS AgentCore's official release lists Runtime, Memory, Identity, Gateway, Browser, etc., as enterprise-level modules. They all hint at one thing: the focus of Agent products is shifting from "writing prompts" to "maintaining the control plane."
 
-5.1 多 Agent为了更可靠地完成复杂任务
+Acknowledging that Agent Teams are runtimes will change product judgments. New features cannot rely solely on prompt fixes; events and observability need to be added to the runtime; constraints on permissions, runtime, and writing memory cannot rely solely on Agent self-discipline; appropriate soft and hard gates and interception must be enforced; maintaining multi-agents as runtimes is much heavier than maintaining them as prompt templates, but only this way can services be stable for real work.
 
-多 Agent 的核心是结构。没有结构的多 Agent 只是更贵的并发；有结构的多 Agent 才是可委派、可并行、可验证的执行系统。
+5. Insights
 
-因此判断一个多 Agent 产品是否有价值，不能看它能同时启动多少 Agent，而要看它是否能回答几个问题：为什么要拆分、如何验收、何时停止、失败如何恢复、如何管理记忆。这些问题回答得越清楚，多 Agent 越像生产系统；回答不清楚就越像演示中的群聊。
+5.1 Multi-agents for more reliable completion of complex tasks
 
-5.2 Team 的价值取决于复杂度，但ROI不能只看短期。
+The core of multi-agents is structure. Multi-agents without structure are just more expensive concurrency; multi-agents with structure are a delegatable, parallelizable, and verifiable execution system.
 
-Team 只是可选项。任务越复杂、链路越长、风险越高、经验越可复用，Team 的收益越可能超过成本；任务越短、越低风险、越确定，单 Agent 或传统自动化越可能更优。不应鼓励用户“凡事开 Team”，而应帮助用户判断什么时候值得协作、什么时候应该保持简单。
+Therefore, to judge whether a multi-agent product is valuable, we should not look at how many agents it can start simultaneously, but whether it can answer several questions: why split, how to verify, when to stop, how to recover from failure, and how to manage memory. The clearer these questions are answered, the more the multi-agent resembles a production system; the less clear the answers, the more it resembles a group chat in a demo.
 
-无论选择Team或者单个Agent直接执行，都需要通过记忆、Skill等手段让Agent进行长期进步。确保即使使用Team使用了更多Token和时间，但也让Agent拿到了更多的经验和记忆。从长期来看需要将每个更懂用户更老练的Agent的成长作为ROI的考虑。因为当我们认为Agent拥有足够多的记忆和Skill，Team应该就是最解放人类双手的Agent执行模式。
+5.2 The value of a Team depends on complexity, but ROI should not only consider short-term gains.
 
-5.3 未来的 Agent 会更像长期协作的数字团队
+Teams are optional. The more complex the task, the longer the chain, the higher the risk, and the more reusable the experience, the more likely the benefits of a Team will outweigh the costs; the shorter the task, the lower the risk, the more certain it is, the more likely a single agent or traditional automation will be better. Users should not be encouraged to "start a Team for everything," but rather helped to judge when collaboration is worthwhile and when simplicity should be maintained.
 
-「Agent间通讯设计：Agent与人类同权（Agent Communication Design: Equal Rights Between Agents and Humans）」部分提到的设计。后续Agent（智能体）产品会在给人类和Agent开放完全对等的控制接口、数据流通。人类会更多的基于管理面板（management panel）去配置Agent角色、Agent的能力和边界、分配任务。并在关键的节点交给人类决策。以及这个面板也可以由一个Agent来控制。整体的运行逻辑可能更接近，前文中提到的低效率的AI聊天室。是否能完全交给AI进行管理调度，让管理面板/Team Engine（团队引擎）越来越轻量，还需要更强的模型出现。
+Whether choosing Team execution or direct execution by a single Agent, it's necessary to enable long-term progress for Agents through means like memory and Skills. Even though Teams use more Tokens and time, they ensure that Agents gain more experience and memory. In the long term, the growth of each Agent that better understands users and becomes more skilled should be considered as part of the ROI. Because when we believe an Agent has sufficient memory and Skills, the Team model should be the execution mode that most liberates humans from manual tasks.
 
-多Agent（Multi-Agent）是为了让AI从"单次工具（single-use tool）"走向"长期伙伴（long-term partner）"，从个人效率提升（personal efficiency improvement）转变为把人从具体的开发中解放出来的关键一环。
+5.3 Future Agents will be more like long-collaborating digital teams
 
-6. 开源（open source）和如何使用
+Following the design mentioned in the "Inter-Agent Communication Design: Agents with Equal Rights to Humans" section, future Agent products will provide completely equal control interfaces and data flow for both humans and Agents. Humans will increasingly use management panels to configure Agent roles, capabilities, boundaries, and assign tasks, while making key decisions at critical nodes. This panel can also be controlled by an Agent. The overall operational logic may be closer to the inefficient AI chat room mentioned earlier. Whether AI can be completely entrusted with management and scheduling, making the management panel/Team Engine increasingly lightweight, still requires the emergence of more powerful models.
 
-我们最新的MiniMax Agent在不久后会开源，由于工作量较大且内部迭代较快，预计与MiniMax M3的模型一起发布。
+The multi-Agent approach is designed to transition AI from a "single-use tool" to a "long-term partner", and represents a crucial step in shifting from personal efficiency improvement to liberating humans from specific development tasks.
 
-在开源之前，我们的桌面端（desktop client）现在已经正式发布了，也欢迎您尝试下载体验：https://agent.minimaxi.com/download。目前只需要有一个MiniMax订阅（MiniMax subscription），就能享受到Agent和TokenPlan的两类产品。
+6. Open Source and How to Use
+
+Our latest MiniMax Agent will be open-sourced in the near future. Due to the significant workload and rapid internal iterations, it is expected to be released together with the MiniMax M3 model.
+
+Before open-sourcing, our desktop application has now been officially released. You are welcome to try downloading and experiencing it: https://agent.minimaxi.com/download. Currently, all you need is a MiniMax subscription to enjoy both Agent and TokenPlan products.

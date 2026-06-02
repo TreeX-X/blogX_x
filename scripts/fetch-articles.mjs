@@ -29,9 +29,9 @@ const POSTS_DIR = "src/content/posts";
 const ARTICLES_TABLE = "articles";
 const LOCAL_DB_PATH = process.env.LANCEDB_LOCAL_PATH || ".lancedb";
 const FETCH_TIMEOUT = 15_000;
-const TRANSLATE_BATCH_SIZE = 3000;
+const TRANSLATE_BATCH_SIZE = 1500;
 const MAX_RETRIES = 2;
-const TRANSLATE_TIMEOUT = 60_000;
+const TRANSLATE_TIMEOUT = 120_000;
 const USER_AGENT = "Mozilla/5.0 (compatible; BlogX_x/1.0; +https://blogx-x.vercel.app)";
 
 /*===== 命令行参数解析 =====*/
@@ -97,7 +97,9 @@ function hasMeaningfulBody(body) {
 
 function syncMarkdownFromRecord(filePath, data, record) {
   if (!record) return false;
-  const preferredBody = record.translatedContent || stripHtmlToMarkdownFallback(record.originalContent);
+  /*-- Defect fix: 禁止回退到未翻译的源文，避免 GLM 限流时把源文覆盖到 .md --*/
+  if (!record.translatedContent) return false;
+  const preferredBody = record.translatedContent;
   if (!hasMeaningfulBody(preferredBody)) return false;
   writeArticleMarkdown(filePath, data, preferredBody);
   return true;
@@ -314,7 +316,10 @@ async function translateText(text, sourceLang = "en") {
       }
     }
 
-    translatedSegments.push(translated || segment);
+    if (!translated) {
+      throw new Error(`段落 ${i + 1}/${segments.length} 在 ${MAX_RETRIES + 1} 次重试后仍翻译失败`);
+    }
+    translatedSegments.push(translated);
   }
 
   return translatedSegments.join("\n\n");
