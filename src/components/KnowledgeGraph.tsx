@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from "d3-force-3d";
+import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from "d3-force";
 import { zoom as d3Zoom, zoomIdentity } from "d3-zoom";
 import { select } from "d3-selection";
 
@@ -58,7 +58,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
   const wrapperGRef = useRef<SVGGElement | null>(null);
   const nodesGRef = useRef<SVGGElement | null>(null);
   const linksGRef = useRef<SVGGElement | null>(null);
-  const simRef = useRef<ReturnType<typeof forceSimulation> | null>(null);
+  const simRef = useRef<any>(null);
   const [width, setWidth] = useState(320);
   const [height, setHeight] = useState(430);
   const [loading, setLoading] = useState(true);
@@ -196,11 +196,11 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     select(svg).call(zoomBehavior).on("dblclick.zoom", null);
 
     /*-- 力导向模拟 --*/
-    const sim = forceSimulation(nodes, 2)
-      .force("link", forceLink(links, 2).id((d: any) => d.id).distance(100).strength(0.3))
-      .force("charge", forceManyBody(2).strength(-220))
-      .force("center", forceCenter(width / 2, (height - 36) / 2, 2).strength(0.05))
-      .force("collide", forceCollide(2).radius(45).strength(0.7))
+    const sim = forceSimulation(nodes)
+      .force("link", forceLink(links).id((d: any) => d.id).distance(100).strength(0.3))
+      .force("charge", forceManyBody().strength(-220))
+      .force("center", forceCenter(width / 2, (height - 36) / 2).strength(0.05))
+      .force("collide", forceCollide().radius(45).strength(0.7))
       .alphaDecay(0.02)
       .velocityDecay(0.35);
 
