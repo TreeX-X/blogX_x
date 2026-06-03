@@ -1,6 +1,7 @@
 ﻿/**
  * LanceDB 文章存储工具
  * 负责从 LanceDB 读取/写入抓取的文章原文和翻译
+ * 支持文章翻译功能：语言检测、翻译存储和双语内容检索
  */
 import crypto from "node:crypto";
 import path from "node:path";

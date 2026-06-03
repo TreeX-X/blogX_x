@@ -19,6 +19,7 @@ import { parseHTML } from "linkedom";
 import * as lancedb from "@lancedb/lancedb";
 import dotenv from "dotenv";
 import { Logger } from "./lib/logger.mjs";
+import { detectLanguage, translateText, processArticleTranslation } from "../src/lib/article-translation.service";
 
 dotenv.config();
 
@@ -109,25 +110,7 @@ function extractDomain(url) {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
 }
 
-/*-- 通过 CJK 字符占比判断源语言：>15% 视为中文，否则视为英文；未知默认 en 并 warn --*/
-function detectSourceLang(htmlOrText) {
-  const stripped = String(htmlOrText || "").replace(/<[^>]+>/g, " ");
-  if (!stripped.trim()) {
-    log.warn("源语言识别: 文本为空，默认按 en 处理");
-    return "en";
-  }
-  const cjkChars = (stripped.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
-  const totalChars = stripped.replace(/\s+/g, "").length;
-  if (totalChars === 0) {
-    log.warn("源语言识别: 无可见字符，默认按 en 处理");
-    return "en";
-  }
-  const ratio = cjkChars / totalChars;
-  if (ratio > 0.15) return "zh";
-  if (ratio === 0) return "en";
-  log.warn(`源语言识别: CJK 比例 ${(ratio * 100).toFixed(1)}% 处于边界，默认按 en 处理`);
-  return "en";
-}
+// The detectSourceLang function has been removed as we now use the unified detectLanguage function from article-translation.service.ts
 
 /*===== LanceDB 操作 =====*/
 
@@ -219,127 +202,9 @@ async function fetchArticle(url) {
 
 /*===== LLM 翻译 =====*/
 
-/*-- 英文 → 中文 的翻译 prompt：保留 HTML 标签、占位符、URL、代码块不翻译 --*/
-const TRANSLATE_SYSTEM_PROMPT_EN_TO_ZH = `你是一位专业的技术文章翻译者。请将以下技术文章翻译为中文（中文）。
-规则：
-1. 保留所有代码块（\`\`\`...\`\`\`）原样不翻译
-2. 保留所有行内代码（\`...\`）原样不翻译
-3. 保留所有链接 URL 不翻译，但翻译链接文字
-4. 保留所有图片 URL 不翻译
-5. 技术术语首次出现时用「中文（English）」格式，后续直接用中文
-6. 保持原文的段落结构和 Markdown 格式
-7. 翻译要自然流畅，不要生硬直译
-8. 直接输出翻译结果，不要添加任何解释
-9. 严格保留所有 HTML 标签（<p>、<h1>、<a>、<img>、<pre>、<code>、<ul>、<ol>、<li>、<blockquote> 等）的尖括号、属性名、属性值（包括 src / href / class / alt 等）
-10. 严格保留所有占位符 \`[[T_N]]\` 和 \`[[/T_N]]\`（N 为数字）原样不动，只翻译它们**内部**的文本内容
-11. 不要新增、删除、改写任何标签、URL、属性或占位符标记`;
-
-/*-- 中文 → 英文 的翻译 prompt：镜像 EN→ZH 规则，但目标语言为 English --*/
-const TRANSLATE_SYSTEM_PROMPT_ZH_TO_EN = `You are a professional technical article translator. Please translate the following technical article into English.
-Rules:
-1. Keep all code blocks (\`\`\`...\`\`\`\`) untranslated
-2. Keep all inline code (\`...\`\`) untranslated
-3. Keep all link URLs untranslated, but translate the link text
-4. Keep all image URLs untranslated
-5. For technical terms that have a well-known English name, keep the English name; on first occurrence, format as \`English (中文)\`, afterwards use English only
-6. Preserve the original paragraph structure and Markdown formatting
-7. Translate naturally and fluently, do not word-for-word literally
-8. Output the translation directly without any explanation
-9. Strictly preserve all HTML tags (<p>, <h1>, <a>, <img>, <pre>, <code>, <ul>, <ol>, <li>, <blockquote>, etc.) and their attribute names/values (src / href / class / alt, etc.) exactly as they appear
-10. Strictly preserve all placeholders \`[[T_N]]\` and \`[[/T_N]]\` (N is a number) exactly as they appear; only translate the text content **between** them
-11. Do not add, remove, or rewrite any tag, URL, attribute, or placeholder marker`;
-
-/*-- 根据源语言挑选对应的 system prompt；未知语言默认按 EN→ZH 处理 --*/
-function pickTranslateSystemPrompt(sourceLang) {
-  return sourceLang === "zh" ? TRANSLATE_SYSTEM_PROMPT_ZH_TO_EN : TRANSLATE_SYSTEM_PROMPT_EN_TO_ZH;
-}
-
-async function translateText(text, sourceLang = "en") {
-  const apiKey = process.env.GLM_API_KEY;
-  if (!apiKey) {
-    log.warn("GLM_API_KEY 未配置，跳过翻译");
-    return null;
-  }
-
-  const baseUrl = process.env.GLM_BASE_URL || "https://open.bigmodel.cn/api/paas/v4";
-  const model = process.env.GLM_MODEL || "glm-4.5-air";
-  const systemPrompt = pickTranslateSystemPrompt(sourceLang);
-
-  const segments = splitTextIntoSegments(text, TRANSLATE_BATCH_SIZE);
-  const translatedSegments = [];
-  if (segments.length > 1) log.process(`共 ${segments.length} 个段落待翻译...`);
-
-  for (let i = 0; i < segments.length; i++) {
-    const segment = segments[i];
-    let translated = null;
-    if (segments.length > 1) log.process(`翻译段落 ${i + 1}/${segments.length} (${segment.length} 字符)...`);
-
-    for (let retry = 0; retry <= MAX_RETRIES; retry++) {
-      const _ctrl = new AbortController();
-      const _tmr = setTimeout(() => _ctrl.abort(), TRANSLATE_TIMEOUT);
-      try {
-        const resp = await fetch(`${baseUrl}/chat/completions`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          signal: _ctrl.signal,
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: segment },
-            ],
-            temperature: 0.3,
-          }),
-        });
-
-        if (!resp.ok) {
-          const errText = await resp.text();
-          throw new Error(`HTTP ${resp.status}: ${errText}`);
-        }
-
-        const data = await resp.json();
-        translated = data.choices?.[0]?.message?.content || "";
-        break;
-      } catch (err) {
-        if (retry < MAX_RETRIES) {
-          const wait = 1000 * Math.pow(2, retry);
-          log.warn(`翻译段落 ${i + 1} 失败 (${retry + 1}/${MAX_RETRIES}): ${err.message}，${wait}ms 后重试...`);
-          await new Promise((r) => setTimeout(r, wait));
-        } else {
-          log.error(`翻译段落 ${i + 1} 最终失败: ${err.message}`);
-        }
-      } finally {
-        clearTimeout(_tmr);
-      }
-    }
-
-    if (!translated) {
-      throw new Error(`段落 ${i + 1}/${segments.length} 在 ${MAX_RETRIES + 1} 次重试后仍翻译失败`);
-    }
-    translatedSegments.push(translated);
-  }
-
-  return translatedSegments.join("\n\n");
-}
-
-function splitTextIntoSegments(text, maxLen) {
-  if (text.length <= maxLen) return [text];
-  const segments = [];
-  const paragraphs = text.split(/\n\n+/);
-  let current = "";
-  for (const para of paragraphs) {
-    if (current.length + para.length + 2 > maxLen && current.length > 0) {
-      segments.push(current.trim());
-      current = "";
-    }
-    current += (current ? "\n\n" : "") + para;
-  }
-  if (current.trim()) segments.push(current.trim());
-  return segments;
-}
+// Translation logic is imported from ../src/lib/article-translation.service.ts
+// See that file for TRANSLATE_SYSTEM_PROMPT_EN_TO_ZH, TRANSLATE_SYSTEM_PROMPT_ZH_TO_EN,
+// pickTranslateSystemPrompt, and splitTextIntoSegments implementations
 
 /*===== 富媒体翻译辅助（按文本节点分段、保留 HTML 结构）===== */
 
@@ -659,7 +524,7 @@ async function main() {
         contentHash,
         fetchedAt: now,
         translatedAt: existing?.translatedAt || "",
-        originalLang: data.originalLang || detectSourceLang(result.textContent || result.content),
+        originalLang: data.originalLang || detectLanguage(result.textContent || result.content),
         title: result.title || data.title || slug,
         description: result.excerpt || data.description || "",
         author: result.author || data.originalAuthor || "",
@@ -697,7 +562,7 @@ async function main() {
         contentHash: "",
         fetchedAt: now,
         translatedAt: "",
-        originalLang: data.originalLang || detectSourceLang(`${data.title || ""} ${data.description || ""}`),
+        originalLang: data.originalLang || detectLanguage(`${data.title || ""} ${data.description || ""}`),
         title: data.title || slug,
         description: data.description || "",
         author: data.originalAuthor || "",
@@ -737,9 +602,9 @@ async function doTranslate(table, record, slug) {
   }
 
   log.translate(`${slug} — 开始翻译...`);
-  /*-- Defect 4: 根据原始语言动态决定翻译方向，传入 translateText 选取对应 prompt --*/
-  const sourceLang = record.originalLang || detectSourceLang(record.originalContent);
-  const targetLang = sourceLang === "en" ? "zh" : "en";
+  /*-- 使用统一的语言检测函数 --*/
+  const sourceLang = record.originalLang || detectLanguage(record.originalContent);
+  const targetLang = sourceLang === "zh" ? "en" : "zh";
   log.process(`${slug} — 源语言=${sourceLang}，目标语言=${targetLang}，待翻译 ${record.originalContent.length} 字符 HTML`);
 
   let translated = null;
@@ -751,7 +616,7 @@ async function doTranslate(table, record, slug) {
       log.process(`${slug} — 无可翻译文本节点，直接转 Markdown`);
       translated = reassembleMarkdown(record.originalContent);
     } else {
-      const llmOutput = await translateText(markedHtml, sourceLang);
+      const llmOutput = await translateText(markedHtml, sourceLang, targetLang);
       if (llmOutput) {
         translated = reassembleMarkdown(llmOutput);
       }
@@ -771,7 +636,7 @@ async function doTranslate(table, record, slug) {
       .replace(/<[^>]+>/g, "\n")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
-    translated = await translateText(plainText, sourceLang);
+    translated = await translateText(plainText, sourceLang, targetLang);
   }
 
   if (translated) {
