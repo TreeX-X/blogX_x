@@ -130,8 +130,9 @@ export const GET: APIRoute = async () => {
 
     for (const row of baseRows) {
       const sourceId = String(row.id ?? "");
-      const vector = row.vector as number[] | undefined;
-      if (!sourceId || !Array.isArray(vector) || vector.length === 0) continue;
+      /*-- LanceDB returns Vector objects (not plain arrays), check .length directly --*/
+      const vector = row.vector as { length: number } | undefined;
+      if (!sourceId || !vector || vector.length === 0) continue;
 
       const candidateRows = (await table
         .search(vector)
