@@ -630,6 +630,16 @@ a {
   50% { opacity: 1; transform: scale(1.2); }
 }
 
+/* node hover highlight */
+[data-node]:hover circle:first-child {
+  opacity: 0.9;
+  transition: opacity 0.15s ease;
+}
+[data-node]:hover circle:nth-child(2) {
+  filter: brightness(1.3);
+  transition: filter 0.15s ease;
+}
+
 .kg-error, .kg-empty {
   display: flex;
   align-items: center;

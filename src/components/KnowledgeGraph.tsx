@@ -55,10 +55,10 @@ function toAppUrl(rawUrl: string) {
 export default function KnowledgeGraph({ apiUrl }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const wrapperGRef = useRef<SVGGElement | null>(null);
   const nodesGRef = useRef<SVGGElement | null>(null);
   const linksGRef = useRef<SVGGElement | null>(null);
   const simRef = useRef<ReturnType<typeof forceSimulation> | null>(null);
-  const zoomTransformRef = useRef({ k: 1, x: 0, y: 0 });
   const [width, setWidth] = useState(320);
   const [height, setHeight] = useState(430);
   const [loading, setLoading] = useState(true);
@@ -110,9 +110,10 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
   useEffect(() => {
     if (payload.nodes.length === 0) return;
     const svg = svgRef.current;
+    const wrapperG = wrapperGRef.current;
     const nodesG = nodesGRef.current;
     const linksG = linksGRef.current;
-    if (!svg || !nodesG || !linksG) return;
+    if (!svg || !wrapperG || !nodesG || !linksG) return;
 
     /*-- 清理旧模拟 --*/
     if (simRef.current) {
@@ -132,73 +133,135 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .data(links)
       .join("line")
       .attr("stroke", "rgba(148,163,184,0.18)")
-      .attr("stroke-width", (d) => Math.max(0.6, Math.min(2.0, (d.similarity || 0) * 3.5)));
+      .attr("stroke-width", (d: any) => Math.max(0.6, Math.min(2.0, (d.similarity || 0) * 3.5)));
 
     const nodeGroups = select(nodesG)
       .selectAll("g")
       .data(nodes, (d: any) => d.id)
       .join("g")
+      .attr("data-node", "true")
       .style("cursor", "pointer");
 
     /*-- 光晕 --*/
     nodeGroups
       .append("circle")
-      .attr("r", 10)
-      .attr("fill", (d) => getNodeStyle(d.collection).glow)
-      .attr("opacity", 0.6);
+      .attr("r", 12)
+      .attr("fill", (d: any) => getNodeStyle(d.collection).glow)
+      .attr("opacity", 0.5);
 
     /*-- 核心节点 --*/
     nodeGroups
       .append("circle")
       .attr("r", 6)
-      .attr("fill", (d) => getNodeStyle(d.collection).core)
+      .attr("fill", (d: any) => getNodeStyle(d.collection).core)
       .attr("stroke", "rgba(255,255,255,0.25)")
       .attr("stroke-width", 0.8);
 
     /*-- 文字标签 --*/
     nodeGroups
       .append("text")
-      .text((d) => (d.title.length > 18 ? d.title.slice(0, 18) + "…" : d.title))
+      .text((d: any) => (d.title.length > 18 ? d.title.slice(0, 18) + "…" : d.title))
       .attr("x", 11)
       .attr("y", 1)
       .attr("dy", "0.35em")
       .attr("font-size", 12)
       .attr("font-weight", 500)
       .attr("font-family", '"IBM Plex Sans", -apple-system, sans-serif')
-      .attr("fill", (d) => getNodeStyle(d.collection).text)
+      .attr("fill", (d: any) => getNodeStyle(d.collection).text)
       .attr("paint-order", "stroke")
       .attr("stroke", "rgba(0,0,0,0.7)")
       .attr("stroke-width", 3);
 
     /*-- 点击跳转 --*/
-    nodeGroups.on("click", (_event, d: any) => {
+    nodeGroups.on("click", (_event: any, d: any) => {
       if (!d?.url || d.url === "#") return;
       window.location.href = toAppUrl(d.url);
     });
 
-    /*-- 缩放 + 平移 --*/
+    /*-- 缩放 + 平移：transform 只作用于 wrapperG --*/
     const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.3, 5])
-      .filter((event) => {
+      .filter((event: any) => {
         if (event.type === "wheel") return true;
         if (event.type === "mousedown" || event.type === "touchstart") {
           const target = event.target as Element;
-          if (target.closest("g[data-node]")) return false;
+          if (target.closest("[data-node]")) return false;
         }
         return !event.button;
       })
       .on("zoom", (event: any) => {
-        const t = event.transform;
-        zoomTransformRef.current = { k: t.k, x: t.x, y: t.y };
-        select(nodesG).attr("transform", t.toString());
-        select(linksG).attr("transform", t.toString());
+        select(wrapperG).attr("transform", event.transform.toString());
       });
 
     select(svg).call(zoomBehavior).on("dblclick.zoom", null);
 
+    /*-- 力导向模拟 --*/
+    const sim = forceSimulation(nodes, 2)
+      .force("link", forceLink(links, 2).id((d: any) => d.id).distance(100).strength(0.3))
+      .force("charge", forceManyBody(2).strength(-220))
+      .force("center", forceCenter(width / 2, (height - 36) / 2, 2).strength(0.05))
+      .force("collide", forceCollide(2).radius(45).strength(0.7))
+      .alphaDecay(0.02)
+      .velocityDecay(0.35);
+
+    /*-- 拖拽节点 --*/
+    let dragNode: Node | null = null;
+    let dragStartPos = { x: 0, y: 0 };
+
+    nodeGroups
+      .on("mousedown.drag", function (event: MouseEvent, d: any) {
+        event.stopPropagation();
+        event.preventDefault();
+        dragNode = d;
+        dragStartPos = { x: event.clientX, y: event.clientY };
+        d.fx = d.x;
+        d.fy = d.y;
+        sim.alphaTarget(0.3).restart();
+        select(svg).style("cursor", "grabbing");
+      });
+
+    const onMouseMove = (event: MouseEvent) => {
+      if (!dragNode) return;
+      const t = select(svg).property("__zoom") || zoomIdentity;
+      const dx = (event.clientX - dragStartPos.x) / t.k;
+      const dy = (event.clientY - dragStartPos.y) / t.k;
+      dragNode.fx = (dragNode.fx ?? dragNode.x!) + dx;
+      dragNode.fy = (dragNode.fy ?? dragNode.y!) + dy;
+      dragStartPos = { x: event.clientX, y: event.clientY };
+    };
+
+    const onMouseUp = () => {
+      if (dragNode) {
+        dragNode.fx = null;
+        dragNode.fy = null;
+        dragNode = null;
+        sim.alphaTarget(0);
+        select(svg).style("cursor", "grab");
+      }
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+
+    /*-- Tick：只设置 simulation 空间坐标，zoom 由 wrapperG 统一处理 --*/
+    sim.on("tick", () => {
+      linkEls
+        .attr("x1", (d: any) => d.source.x)
+        .attr("y1", (d: any) => d.source.y)
+        .attr("x2", (d: any) => d.target.x)
+        .attr("y2", (d: any) => d.target.y);
+
+      nodeGroups.attr("transform", (d: any) => `translate(${d.x}, ${d.y})`);
+    });
+
+    simRef.current = sim;
+
+    /*-- Tooltip --*/
+    nodeGroups.append("title").text((d: any) => `${d.title} (${d.collection})`);
+
     /*-- 初始适配 --*/
     const fitTimer = setTimeout(() => {
-      const padding = 30;
+      const padding = 40;
       const nodePositions = nodes.filter((n) => n.x !== undefined && n.y !== undefined);
       if (nodePositions.length === 0) return;
       const xs = nodePositions.map((n) => n.x!);
@@ -217,71 +280,6 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       const initialTransform = zoomIdentity.translate(tx, ty).scale(k);
       select(svg).call(zoomBehavior.transform, initialTransform);
     }, 800);
-
-    /*-- 力导向模拟 --*/
-    const sim = forceSimulation(nodes, 2)
-      .force("link", forceLink(links, 2).id((d: any) => d.id).distance(90).strength(0.3))
-      .force("charge", forceManyBody(2).strength(-180))
-      .force("center", forceCenter(width / 2, (height - 36) / 2, 2).strength(0.05))
-      .force("collide", forceCollide(2).radius(20).strength(0.5))
-      .alphaDecay(0.02)
-      .velocityDecay(0.3);
-
-    /*-- 拖拽节点 --*/
-    let dragNode: Node | null = null;
-    let dragStartPos = { x: 0, y: 0 };
-
-    nodeGroups
-      .attr("data-node", "true")
-      .on("mousedown.drag", function (event: MouseEvent, d: any) {
-        event.stopPropagation();
-        event.preventDefault();
-        dragNode = d;
-        dragStartPos = { x: event.clientX, y: event.clientY };
-        d.fx = d.x;
-        d.fy = d.y;
-        sim.alphaTarget(0.3).restart();
-      });
-
-    const onMouseMove = (event: MouseEvent) => {
-      if (!dragNode) return;
-      const t = zoomTransformRef.current;
-      const dx = event.clientX - dragStartPos.x;
-      const dy = event.clientY - dragStartPos.y;
-      dragNode.fx = dragNode.x! + dx / t.k;
-      dragNode.fy = dragNode.y! + dy / t.k;
-      dragStartPos = { x: event.clientX, y: event.clientY };
-    };
-
-    const onMouseUp = () => {
-      if (dragNode) {
-        dragNode.fx = null;
-        dragNode.fy = null;
-        dragNode = null;
-        sim.alphaTarget(0);
-      }
-    };
-
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-
-    /*-- Tick 更新位置 --*/
-    const tickHandler = () => {
-      const t = zoomTransformRef.current;
-      linkEls
-        .attr("x1", (d: any) => t.k * d.source.x + t.x)
-        .attr("y1", (d: any) => t.k * d.source.y + t.y)
-        .attr("x2", (d: any) => t.k * d.target.x + t.x)
-        .attr("y2", (d: any) => t.k * d.target.y + t.y);
-
-      nodeGroups.attr("transform", (d: any) => `translate(${t.k * d.x + t.x}, ${t.k * d.y + t.y}) scale(${t.k})`);
-    };
-
-    sim.on("tick", tickHandler);
-    simRef.current = sim;
-
-    /*-- Tooltip --*/
-    nodeGroups.append("title").text((d: any) => `${d.title} (${d.collection})`);
 
     return () => {
       sim.stop();
@@ -337,8 +335,10 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         height={height - 36}
         style={{ display: "block", cursor: "grab", touchAction: "none", userSelect: "none" }}
       >
-        <g ref={linksGRef} />
-        <g ref={nodesGRef} />
+        <g ref={wrapperGRef}>
+          <g ref={linksGRef} />
+          <g ref={nodesGRef} />
+        </g>
       </svg>
 
       <p className="kg-tip">点击节点跳转对应条目</p>
