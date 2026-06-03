@@ -159,7 +159,8 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         backgroundColor="rgba(0,0,0,0)"
         /*-- 交互：启用拖拽 + 缩放平移 --*/
         enableNodeDrag={true}
-        enableZoomPanInteraction={true}
+        enableZoomInteraction={true}
+        enablePanInteraction={true}
         enablePointerInteraction={true}
         /*-- 动画 --*/
         cooldownTicks={150}
