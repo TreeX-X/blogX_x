@@ -112,14 +112,18 @@ function pickTranslateSystemPrompt(sourceLang: 'zh' | 'en'): string {
 function splitTextIntoSegments(text: string, maxLen: number): string[] {
   if (text.length <= maxLen) return [text];
   const segments: string[] = [];
-  const paragraphs = text.split(/\n\n+/);
+  /*-- 优先按 HTML 块级标签分割（<p>, <div>, <h*> 等），再按双换行分割 --*/
+  const hasHtml = /<[a-z][\s\S]*>/i.test(text);
+  const paragraphs = hasHtml
+    ? text.split(/(?=<\/?(?:p|div|h[1-6]|li|blockquote|section|article|tr|ul|ol)[\s>])/i)
+    : text.split(/\n\n+/);
   let current = "";
   for (const para of paragraphs) {
     if (current.length + para.length + 2 > maxLen && current.length > 0) {
       segments.push(current.trim());
       current = "";
     }
-    current += (current ? "\n\n" : "") + para;
+    current += (current ? (hasHtml ? "" : "\n\n") : "") + para;
   }
   if (current.trim()) segments.push(current.trim());
   return segments;
@@ -210,7 +214,7 @@ async function callGlmApi(text: string, systemPrompt: string): Promise<string | 
   try {
     const config = getGlmConfig();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+    const timeout = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
     
     const resp = await fetch(`${config.baseUrl}/chat/completions`, {
       method: "POST",
