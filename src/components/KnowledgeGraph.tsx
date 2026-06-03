@@ -1,10 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from "d3-force-3d";
+import { zoom as d3Zoom, zoomIdentity } from "d3-zoom";
+import { select } from "d3-selection";
 
 type Node = {
   id: string;
   title: string;
   url: string;
   collection: string;
+  x?: number;
+  y?: number;
+  fx?: number | null;
+  fy?: number | null;
+  __vx?: number;
+  __vy?: number;
 };
 
 type Link = {
@@ -27,9 +36,9 @@ type Props = {
 
 /*-- 配色：posts 温紫, knowledge-base 冷青, wiki 暖琥珀 --*/
 const NODE_COLORS: Record<string, { core: string; glow: string; text: string }> = {
-  posts:              { core: "#c084fc", glow: "rgba(192,132,252,0.35)", text: "#e8d5ff" },
-  "knowledge-base":   { core: "#38bdf8", glow: "rgba(56,189,248,0.30)", text: "#bae6fd" },
-  wiki:               { core: "#fbbf24", glow: "rgba(251,191,36,0.28)", text: "#fef3c7" },
+  posts:            { core: "#c084fc", glow: "rgba(192,132,252,0.35)", text: "#e8d5ff" },
+  "knowledge-base": { core: "#38bdf8", glow: "rgba(56,189,248,0.30)", text: "#bae6fd" },
+  wiki:             { core: "#fbbf24", glow: "rgba(251,191,36,0.28)", text: "#fef3c7" },
 };
 
 function getNodeStyle(collection: string) {
@@ -45,14 +54,18 @@ function toAppUrl(rawUrl: string) {
 
 export default function KnowledgeGraph({ apiUrl }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const graphRef = useRef<any>(null);
-  const [GraphImpl, setGraphImpl] = useState<any>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const nodesGRef = useRef<SVGGElement | null>(null);
+  const linksGRef = useRef<SVGGElement | null>(null);
+  const simRef = useRef<ReturnType<typeof forceSimulation> | null>(null);
+  const zoomTransformRef = useRef({ k: 1, x: 0, y: 0 });
   const [width, setWidth] = useState(320);
   const [height, setHeight] = useState(430);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [payload, setPayload] = useState<Payload>({ nodes: [], links: [], nodeCount: 0, linkCount: 0 });
 
+  /*-- 响应式尺寸 --*/
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -65,6 +78,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     return () => observer.disconnect();
   }, []);
 
+  /*-- 拉取数据 --*/
   useEffect(() => {
     let active = true;
     const run = async () => {
@@ -92,26 +106,194 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     return () => { active = false; };
   }, [apiUrl]);
 
+  /*-- 力导向模拟 + SVG 交互 --*/
   useEffect(() => {
-    let active = true;
-    import("react-force-graph-2d")
-      .then((mod) => { if (active) setGraphImpl(() => mod.default); })
-      .catch(() => { if (active) setError("图谱渲染库加载失败"); });
-    return () => { active = false; };
-  }, []);
+    if (payload.nodes.length === 0) return;
+    const svg = svgRef.current;
+    const nodesG = nodesGRef.current;
+    const linksG = linksGRef.current;
+    if (!svg || !nodesG || !linksG) return;
 
-  const graphData = useMemo(() => ({ nodes: payload.nodes, links: payload.links }), [payload]);
+    /*-- 清理旧模拟 --*/
+    if (simRef.current) {
+      simRef.current.stop();
+      simRef.current = null;
+    }
 
-  useEffect(() => {
-    if (!graphRef.current || payload.nodes.length === 0) return;
-    /*-- 力导向参数：节点间距适中，电荷力适度排斥 --*/
-    graphRef.current.d3Force("charge")?.strength(-180);
-    graphRef.current.d3Force("link")?.distance(90);
-    graphRef.current.zoomToFit(600, 30);
-  }, [payload]);
+    const nodes: Node[] = payload.nodes.map((n) => ({ ...n }));
+    const links: Link[] = payload.links.map((l) => ({ ...l }));
 
-  /*-- Loading / Error / Empty states --*/
-  if (loading || !GraphImpl) {
+    /*-- 创建 SVG 元素 --*/
+    select(linksG).selectAll("*").remove();
+    select(nodesG).selectAll("*").remove();
+
+    const linkEls = select(linksG)
+      .selectAll("line")
+      .data(links)
+      .join("line")
+      .attr("stroke", "rgba(148,163,184,0.18)")
+      .attr("stroke-width", (d) => Math.max(0.6, Math.min(2.0, (d.similarity || 0) * 3.5)));
+
+    const nodeGroups = select(nodesG)
+      .selectAll("g")
+      .data(nodes, (d: any) => d.id)
+      .join("g")
+      .style("cursor", "pointer");
+
+    /*-- 光晕 --*/
+    nodeGroups
+      .append("circle")
+      .attr("r", 10)
+      .attr("fill", (d) => getNodeStyle(d.collection).glow)
+      .attr("opacity", 0.6);
+
+    /*-- 核心节点 --*/
+    nodeGroups
+      .append("circle")
+      .attr("r", 6)
+      .attr("fill", (d) => getNodeStyle(d.collection).core)
+      .attr("stroke", "rgba(255,255,255,0.25)")
+      .attr("stroke-width", 0.8);
+
+    /*-- 文字标签 --*/
+    nodeGroups
+      .append("text")
+      .text((d) => (d.title.length > 18 ? d.title.slice(0, 18) + "…" : d.title))
+      .attr("x", 11)
+      .attr("y", 1)
+      .attr("dy", "0.35em")
+      .attr("font-size", 12)
+      .attr("font-weight", 500)
+      .attr("font-family", '"IBM Plex Sans", -apple-system, sans-serif')
+      .attr("fill", (d) => getNodeStyle(d.collection).text)
+      .attr("paint-order", "stroke")
+      .attr("stroke", "rgba(0,0,0,0.7)")
+      .attr("stroke-width", 3);
+
+    /*-- 点击跳转 --*/
+    nodeGroups.on("click", (_event, d: any) => {
+      if (!d?.url || d.url === "#") return;
+      window.location.href = toAppUrl(d.url);
+    });
+
+    /*-- 缩放 + 平移 --*/
+    const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.3, 5])
+      .filter((event) => {
+        if (event.type === "wheel") return true;
+        if (event.type === "mousedown" || event.type === "touchstart") {
+          const target = event.target as Element;
+          if (target.closest("g[data-node]")) return false;
+        }
+        return !event.button;
+      })
+      .on("zoom", (event: any) => {
+        const t = event.transform;
+        zoomTransformRef.current = { k: t.k, x: t.x, y: t.y };
+        select(nodesG).attr("transform", t.toString());
+        select(linksG).attr("transform", t.toString());
+      });
+
+    select(svg).call(zoomBehavior).on("dblclick.zoom", null);
+
+    /*-- 初始适配 --*/
+    const fitTimer = setTimeout(() => {
+      const padding = 30;
+      const nodePositions = nodes.filter((n) => n.x !== undefined && n.y !== undefined);
+      if (nodePositions.length === 0) return;
+      const xs = nodePositions.map((n) => n.x!);
+      const ys = nodePositions.map((n) => n.y!);
+      const minX = Math.min(...xs) - padding;
+      const maxX = Math.max(...xs) + padding;
+      const minY = Math.min(...ys) - padding;
+      const maxY = Math.max(...ys) + padding;
+      const graphW = maxX - minX || 1;
+      const graphH = maxY - minY || 1;
+      const k = Math.min(width / graphW, (height - 36) / graphH, 2);
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const tx = width / 2 - k * cx;
+      const ty = (height - 36) / 2 - k * cy;
+      const initialTransform = zoomIdentity.translate(tx, ty).scale(k);
+      select(svg).call(zoomBehavior.transform, initialTransform);
+    }, 800);
+
+    /*-- 力导向模拟 --*/
+    const sim = forceSimulation(nodes, 2)
+      .force("link", forceLink(links, 2).id((d: any) => d.id).distance(90).strength(0.3))
+      .force("charge", forceManyBody(2).strength(-180))
+      .force("center", forceCenter(width / 2, (height - 36) / 2, 2).strength(0.05))
+      .force("collide", forceCollide(2).radius(20).strength(0.5))
+      .alphaDecay(0.02)
+      .velocityDecay(0.3);
+
+    /*-- 拖拽节点 --*/
+    let dragNode: Node | null = null;
+    let dragStartPos = { x: 0, y: 0 };
+
+    nodeGroups
+      .attr("data-node", "true")
+      .on("mousedown.drag", function (event: MouseEvent, d: any) {
+        event.stopPropagation();
+        event.preventDefault();
+        dragNode = d;
+        dragStartPos = { x: event.clientX, y: event.clientY };
+        d.fx = d.x;
+        d.fy = d.y;
+        sim.alphaTarget(0.3).restart();
+      });
+
+    const onMouseMove = (event: MouseEvent) => {
+      if (!dragNode) return;
+      const t = zoomTransformRef.current;
+      const dx = event.clientX - dragStartPos.x;
+      const dy = event.clientY - dragStartPos.y;
+      dragNode.fx = dragNode.x! + dx / t.k;
+      dragNode.fy = dragNode.y! + dy / t.k;
+      dragStartPos = { x: event.clientX, y: event.clientY };
+    };
+
+    const onMouseUp = () => {
+      if (dragNode) {
+        dragNode.fx = null;
+        dragNode.fy = null;
+        dragNode = null;
+        sim.alphaTarget(0);
+      }
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+
+    /*-- Tick 更新位置 --*/
+    const tickHandler = () => {
+      const t = zoomTransformRef.current;
+      linkEls
+        .attr("x1", (d: any) => t.k * d.source.x + t.x)
+        .attr("y1", (d: any) => t.k * d.source.y + t.y)
+        .attr("x2", (d: any) => t.k * d.target.x + t.x)
+        .attr("y2", (d: any) => t.k * d.target.y + t.y);
+
+      nodeGroups.attr("transform", (d: any) => `translate(${t.k * d.x + t.x}, ${t.k * d.y + t.y}) scale(${t.k})`);
+    };
+
+    sim.on("tick", tickHandler);
+    simRef.current = sim;
+
+    /*-- Tooltip --*/
+    nodeGroups.append("title").text((d: any) => `${d.title} (${d.collection})`);
+
+    return () => {
+      sim.stop();
+      simRef.current = null;
+      clearTimeout(fitTimer);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [payload, width, height]);
+
+  /*-- Loading / Error / Empty --*/
+  if (loading) {
     return (
       <div className="kg-panel" ref={containerRef}>
         <div className="kg-loading">
@@ -140,96 +322,25 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
 
   return (
     <div className="kg-panel" ref={containerRef}>
-      {/*-- 顶部状态栏 --*/}
       <div className="kg-header">
         <span className="kg-stats">
           <span className="kg-stat-dot posts" /> {payload.nodeCount} 节点
           <span className="kg-sep">·</span>
           {payload.linkCount} 关系
         </span>
-        <span className="kg-hint">滚轮缩放 · 拖拽平移</span>
+        <span className="kg-hint">滚轮缩放 · 拖拽平移 · 拖动节点</span>
       </div>
 
-      {/*-- 力导向图 --*/}
-      <GraphImpl
-        ref={graphRef}
+      <svg
+        ref={svgRef}
         width={width}
         height={height - 36}
-        graphData={graphData}
-        backgroundColor="rgba(0,0,0,0)"
-        /*-- 交互：启用拖拽 + 缩放平移 --*/
-        enableNodeDrag={true}
-        enableZoomInteraction={true}
-        enablePanInteraction={true}
-        enableZoomPanInteraction={true}
-        enablePointerInteraction={true}
-        /*-- 动画 --*/
-        cooldownTicks={150}
-        d3AlphaDecay={0.02}
-        d3VelocityDecay={0.3}
-        /*-- 连线样式：半透明渐变 --*/
-        linkWidth={(link) => Math.max(0.6, Math.min(2.0, Number((link as Link).similarity || 0) * 3.5))}
-        linkColor={() => "rgba(148,163,184,0.18)"}
-        linkDirectionalParticles={1}
-        linkDirectionalParticleWidth={1.5}
-        linkDirectionalParticleColor={() => "rgba(192,132,252,0.4)"}
-        linkDirectionalParticleSpeed={0.003}
-        /*-- 节点样式 --*/
-        nodeRelSize={6}
-        nodeLabel={(node) => `${(node as Node).title} (${(node as Node).collection})`}
-        nodeCanvasObject={(node, ctx, scale) => {
-          const n = node as Node;
-          const style = getNodeStyle(n.collection);
-          const x = (node as { x?: number }).x ?? 0;
-          const y = (node as { y?: number }).y ?? 0;
-          const r = 6;
+        style={{ display: "block", cursor: "grab", touchAction: "none", userSelect: "none" }}
+      >
+        <g ref={linksGRef} />
+        <g ref={nodesGRef} />
+      </svg>
 
-          /*-- 光晕层（外圈模糊） --*/
-          ctx.save();
-          ctx.shadowColor = style.glow;
-          ctx.shadowBlur = 14;
-          ctx.beginPath();
-          ctx.arc(x, y, r + 2, 0, 2 * Math.PI, false);
-          ctx.fillStyle = style.glow;
-          ctx.fill();
-          ctx.restore();
-
-          /*-- 核心节点 --*/
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, 2 * Math.PI, false);
-          ctx.fillStyle = style.core;
-          ctx.fill();
-
-          /*-- 节点边框高光 --*/
-          ctx.strokeStyle = "rgba(255,255,255,0.25)";
-          ctx.lineWidth = 0.8;
-          ctx.stroke();
-
-          /*-- 文字标签（始终可见，阴影增强对比度） --*/
-          if (scale <= 3) {
-            const label = n.title.length > 18 ? n.title.slice(0, 18) + "…" : n.title;
-            const fontSize = Math.max(10, 12 / Math.sqrt(scale));
-            ctx.font = `500 ${fontSize}px "IBM Plex Sans", -apple-system, sans-serif`;
-
-            /*-- 文字阴影（深色背景对比度保障） --*/
-            ctx.fillStyle = "rgba(0,0,0,0.7)";
-            ctx.textAlign = "left";
-            ctx.textBaseline = "middle";
-            ctx.fillText(label, x + r + 5, y + 1);
-
-            /*-- 文字本体 --*/
-            ctx.fillStyle = style.text;
-            ctx.fillText(label, x + r + 4, y);
-          }
-        }}
-        onNodeClick={(node) => {
-          const n = node as Node;
-          if (!n?.url || n.url === "#") return;
-          window.location.href = toAppUrl(n.url);
-        }}
-      />
-
-      {/*-- 底部提示 --*/}
       <p className="kg-tip">点击节点跳转对应条目</p>
     </div>
   );

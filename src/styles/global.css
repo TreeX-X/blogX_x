@@ -322,8 +322,7 @@ a {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   box-shadow: 0 0 40px rgba(192,132,252,0.06), inset 0 1px 0 rgba(255,255,255,0.04);
-  position: relative;
-  z-index: 1;
+  overflow: hidden;
 }
 
 .hero-stats {
@@ -558,12 +557,6 @@ a {
   display: flex;
   flex-direction: column;
   box-shadow: 0 0 30px rgba(192,132,252,0.04), inset 0 1px 0 rgba(255,255,255,0.03);
-  position: relative;
-  z-index: 1;
-}
-.kg-panel .force-graph-container canvas {
-  pointer-events: auto;
-  touch-action: none;
 }
 
 .kg-header {
