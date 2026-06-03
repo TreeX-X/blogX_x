@@ -19,7 +19,7 @@ import { parseHTML } from "linkedom";
 import * as lancedb from "@lancedb/lancedb";
 import dotenv from "dotenv";
 import { Logger } from "./lib/logger.mjs";
-import { detectLanguage, translateText, processArticleTranslation } from "../src/lib/article-translation.service";
+import { detectLanguage, translateText, processArticleTranslation } from "../src/lib/article-translation.service.mjs";
 
 dotenv.config();
 
@@ -110,7 +110,7 @@ function extractDomain(url) {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
 }
 
-// The detectSourceLang function has been removed as we now use the unified detectLanguage function from article-translation.service.ts
+// The detectSourceLang function has been removed as we now use the unified detectLanguage function from article-translation.service.mjs
 
 /*===== LanceDB 操作 =====*/
 
@@ -202,7 +202,7 @@ async function fetchArticle(url) {
 
 /*===== LLM 翻译 =====*/
 
-// Translation logic is imported from ../src/lib/article-translation.service.ts
+// Translation logic is imported from ../src/lib/article-translation.service.mjs
 // See that file for TRANSLATE_SYSTEM_PROMPT_EN_TO_ZH, TRANSLATE_SYSTEM_PROMPT_ZH_TO_EN,
 // pickTranslateSystemPrompt, and splitTextIntoSegments implementations
 

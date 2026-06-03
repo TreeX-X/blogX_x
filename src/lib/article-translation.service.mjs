@@ -1,6 +1,9 @@
 /**
  * 翻译服务：检测语言方向并执行翻译
  * 负责文章的语言检测、翻译执行和结果处理
+ *
+ * 这是 article-translation.service.ts 的 JavaScript 版本，
+ * 供 scripts/fetch-articles.mjs 等直接使用 node 运行的脚本使用。
  */
 
 /*-- 语言检测正则表达式 --*/
@@ -44,27 +47,27 @@ Rules:
 
 /**
  * 检测文本主要语言
- * @param text 待检测的文本
- * @returns 'zh' 表示中文，'en' 表示英文，'unknown' 表示无法确定
+ * @param {string} text 待检测的文本
+ * @returns {'zh' | 'en' | 'unknown'} 'zh' 表示中文，'en' 表示英文，'unknown' 表示无法确定
  */
-export function detectLanguage(text: string): 'zh' | 'en' | 'unknown' {
+export function detectLanguage(text) {
   if (!text || text.trim().length === 0) {
     return 'unknown';
   }
 
   // 移除HTML标签和多余空格进行更准确的检测
   const cleanText = text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-   
+
   if (cleanText.length === 0) {
     return 'unknown';
   }
 
   const chineseMatches = cleanText.match(CHINESE_CHAR_REGEX);
   const englishMatches = cleanText.match(ENGLISH_CHAR_REGEX);
-   
+
   const chineseCount = chineseMatches ? chineseMatches.length : 0;
   const englishCount = englishMatches ? englishMatches.length : 0;
-   
+
   // 如果中文字符数量显著多于英文字符，判断为中文
   if (chineseCount > englishCount * 1.5) {
     return 'zh';
@@ -73,35 +76,35 @@ export function detectLanguage(text: string): 'zh' | 'en' | 'unknown' {
   if (englishCount > chineseCount * 1.5) {
     return 'en';
   }
-   
+
   // 否则根据哪种字符更多来判断
   if (chineseCount > englishCount) {
     return 'zh';
   } else if (englishCount > chineseCount) {
     return 'en';
   }
-   
+
   return 'unknown';
 }
 
 /**
  * 根据源语言挑选对应的 system prompt；未知语言默认按 EN→ZH 处理
- * @param sourceLang 源语言 ('zh' 或 'en')
- * @returns 系统提示词
+ * @param {'zh' | 'en'} sourceLang 源语言
+ * @returns {string} 系统提示词
  */
-function pickTranslateSystemPrompt(sourceLang: 'zh' | 'en'): string {
+function pickTranslateSystemPrompt(sourceLang) {
   return sourceLang === "zh" ? TRANSLATE_SYSTEM_PROMPT_ZH_TO_EN : TRANSLATE_SYSTEM_PROMPT_EN_TO_ZH;
 }
 
 /**
  * 将文本分割成适合翻译的段落
- * @param text 待分割的文本
- * @param maxLen 每段最大长度
- * @returns 分割后的段落数组
+ * @param {string} text 待分割的文本
+ * @param {number} maxLen 每段最大长度
+ * @returns {string[]} 分割后的段落数组
  */
-function splitTextIntoSegments(text: string, maxLen: number): string[] {
+function splitTextIntoSegments(text, maxLen) {
   if (text.length <= maxLen) return [text];
-  const segments: string[] = [];
+  const segments = [];
   const paragraphs = text.split(/\n\n+/);
   let current = "";
   for (const para of paragraphs) {
@@ -116,86 +119,12 @@ function splitTextIntoSegments(text: string, maxLen: number): string[] {
 }
 
 /**
- * 执行翻译（使用 GLM API）
- * @param text 待翻译的文本
- * @param sourceLang 源语言 ('zh' 或 'en')
- * @param targetLang 目标语言 ('zh' 或 'en')
- * @returns 翻译后的文本
- */
-export async function translateText(
-  text: string,
-  sourceLang: 'zh' | 'en',
-  targetLang: 'zh' | 'en'
-): Promise<string> {
-  // 如果源语言和目标语言相同，直接返回原文
-  if (sourceLang === targetLang) {
-    return text;
-  }
-   
-  // 检查 GLM API 配置
-  if (!GLM_API_KEY) {
-    console.warn("[article-translation] GLM_API_KEY 未配置，使用占位翻译");
-    // 占位符翻译逻辑（实际应用中应删除此部分并集成真实翻译API）
-    if (sourceLang === 'zh' && targetLang === 'en') {
-      // 中文到英文的简单占位翻译
-      return `[English Translation] ${text}`;
-    } else if (sourceLang === 'en' && targetLang === 'zh') {
-      // 英文到中文的简单占位翻译
-      return `[中文翻译] ${text}`;
-    }
-    // 如果语言组合不支持，返回原文并记录警告
-    console.warn(`[article-translation] 不支持的语言组合: ${sourceLang} -> ${targetLang}`);
-    return text;
-  }
-   
-  try {
-    console.log(`[article-translation] 翻译请求: ${sourceLang} -> ${targetLang}, 文本长度: ${text.length}`);
-    
-    // 系统提示词
-    const systemPrompt = pickTranslateSystemPrompt(sourceLang);
-    
-    // 将文本分割成段落以避免超出 API 限制
-    const TRANSLATE_BATCH_SIZE = 1500; // 与 fetch-articles.mjs 保持一致
-    const segments = splitTextIntoSegments(text, TRANSLATE_BATCH_SIZE);
-    const translatedSegments: string[] = [];
-    
-    if (segments.length > 1) {
-      console.log(`[article-translation] 共 ${segments.length} 个段落待翻译...`);
-    }
-    
-    // 翻译每个段落
-    for (let i = 0; i < segments.length; i++) {
-      const segment = segments[i];
-      if (segments.length > 1) {
-        console.log(`[article-translation] 翻译段落 ${i + 1}/${segments.length} (${segment.length} 字符)...`);
-      }
-      
-      // 调用 GLM API
-      const translated = await callGlmApi(segment, systemPrompt);
-      if (translated) {
-        translatedSegments.push(translated);
-      } else {
-        // 如果翻译失败，使用原文作为后备
-        console.warn(`[article-translation] 段落 ${i + 1} 翻译失败，使用原文`);
-        translatedSegments.push(segment);
-      }
-    }
-    
-    return translatedSegments.join("\n\n");
-  } catch (error) {
-    console.error(`[article-translation] 翻译过程中发生错误:`, error);
-    // 出现错误时返回原文
-    return text;
-  }
-}
-
-/**
  * 调用 GLM API 进行翻译
- * @param text 待翻译的文本
- * @param systemPrompt 系统提示词
- * @returns 翻译后的文本
+ * @param {string} text 待翻译的文本
+ * @param {string} systemPrompt 系统提示词
+ * @returns {Promise<string|null>} 翻译后的文本
  */
-async function callGlmApi(text: string, systemPrompt: string): Promise<string | null> {
+async function callGlmApi(text, systemPrompt) {
   try {
     const resp = await fetch(`${GLM_BASE_URL}/chat/completions`, {
       method: "POST",
@@ -227,75 +156,118 @@ async function callGlmApi(text: string, systemPrompt: string): Promise<string | 
 }
 
 /**
- * 处理文章翻译流程
- * @param articleData 包含文章信息的对象
- * @returns 处理后的文章数据，包含翻译结果
+ * 执行翻译（使用 GLM API）
+ * @param {string} text 待翻译的文本
+ * @param {'zh' | 'en'} sourceLang 源语言
+ * @param {'zh' | 'en'} targetLang 目标语言
+ * @returns {Promise<string>} 翻译后的文本
  */
-export async function processArticleTranslation(
-  articleData: {
-    slug: string;
-    sourceUrl: string;
-    originalContent: string;
-    title: string;
-    description: string;
-    author: string;
-    coverImage: string;
-    wordCount: number;
-    fetchStatus: string;
+export async function translateText(text, sourceLang, targetLang) {
+  // 如果源语言和目标语言相同，直接返回原文
+  if (sourceLang === targetLang) {
+    return text;
   }
-): Promise<{
-  slug: string;
-  sourceUrl: string;
-  originalContent: string;
-  translatedContent: string;
-  contentHash: string;
-  fetchedAt: string;
-  translatedAt: string;
-  originalLang: string;
-  title: string;
-  description: string;
-  author: string;
-  coverImage: string;
-  wordCount: number;
-  fetchStatus: string;
-}> {
+
+  // 检查 GLM API 配置
+  if (!GLM_API_KEY) {
+    console.warn("[article-translation] GLM_API_KEY 未配置，使用占位翻译");
+    // 占位符翻译逻辑（实际应用中应删除此部分并集成真实翻译API）
+    if (sourceLang === 'zh' && targetLang === 'en') {
+      // 中文到英文的简单占位翻译
+      return `[English Translation] ${text}`;
+    } else if (sourceLang === 'en' && targetLang === 'zh') {
+      // 英文到中文的简单占位翻译
+      return `[中文翻译] ${text}`;
+    }
+    // 如果语言组合不支持，返回原文并记录警告
+    console.warn(`[article-translation] 不支持的语言组合: ${sourceLang} -> ${targetLang}`);
+    return text;
+  }
+
+  try {
+    console.log(`[article-translation] 翻译请求: ${sourceLang} -> ${targetLang}, 文本长度: ${text.length}`);
+
+    // 系统提示词
+    const systemPrompt = pickTranslateSystemPrompt(sourceLang);
+
+    // 将文本分割成段落以避免超出 API 限制
+    const TRANSLATE_BATCH_SIZE = 1500; // 与 fetch-articles.mjs 保持一致
+    const segments = splitTextIntoSegments(text, TRANSLATE_BATCH_SIZE);
+    const translatedSegments = [];
+
+    if (segments.length > 1) {
+      console.log(`[article-translation] 共 ${segments.length} 个段落待翻译...`);
+    }
+
+    // 翻译每个段落
+    for (let i = 0; i < segments.length; i++) {
+      const segment = segments[i];
+      if (segments.length > 1) {
+        console.log(`[article-translation] 翻译段落 ${i + 1}/${segments.length} (${segment.length} 字符)...`);
+      }
+
+      // 调用 GLM API
+      const translated = await callGlmApi(segment, systemPrompt);
+      if (translated) {
+        translatedSegments.push(translated);
+      } else {
+        // 如果翻译失败，使用原文作为后备
+        console.warn(`[article-translation] 段落 ${i + 1} 翻译失败，使用原文`);
+        translatedSegments.push(segment);
+      }
+    }
+
+    return translatedSegments.join("\n\n");
+  } catch (error) {
+    console.error(`[article-translation] 翻译过程中发生错误:`, error);
+    // 出现错误时返回原文
+    return text;
+  }
+}
+
+/**
+ * 处理文章翻译流程
+ * @param {Object} articleData 包含文章信息的对象
+ * @returns {Promise<Object>} 处理后的文章数据，包含翻译结果
+ */
+export async function processArticleTranslation(articleData) {
   // 检测原始内容语言
   const originalLang = detectLanguage(articleData.originalContent);
-  
+
   // 如果无法检测语言，默认为英文（因为大多数技术内容源自英文，且英文处理更安全）
   const lang = originalLang !== 'unknown' ? originalLang : 'en';
-  
+
   // 确定目标语言（与源语言相反）
   const targetLang = lang === 'zh' ? 'en' : 'zh';
-  
+
   // 执行翻译
   const translatedContent = await translateText(
     articleData.originalContent,
     lang,
     targetLang
   );
-  
+
   // 翻译标题和描述
   const translatedTitle = await translateText(
     articleData.title,
     lang,
     targetLang
   );
-  
+
   const translatedDescription = await translateText(
     articleData.description,
     lang,
     targetLang
   );
-  
+
   // 生成内容哈希
   const crypto = await import("node:crypto");
   const contentHash = crypto.createHash("sha256")
     .update(`${articleData.sourceUrl}::${articleData.originalContent.slice(0, 500)}`, "utf8")
     .digest("hex");
-  
+
   const now = new Date().toISOString();
-  
+
   return {
     slug: articleData.slug,
     sourceUrl: articleData.sourceUrl,
