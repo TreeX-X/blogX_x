@@ -8,6 +8,7 @@
  *   node scripts/fetch-articles.mjs --translate   # 抓取 + 翻译（仅新文章）
  *   node scripts/fetch-articles.mjs --force       # 强制重新抓取所有
  *   node scripts/fetch-articles.mjs --translate --force  # 强制重新抓取并翻译
+ *   node scripts/fetch-articles.mjs --translate --force-translate  # 强制重新翻译（不重新抓取）
  */
 
 import fs from "node:fs";
@@ -39,6 +40,7 @@ const USER_AGENT = "Mozilla/5.0 (compatible; BlogX_x/1.0; +https://blogx-x.verce
 const args = process.argv.slice(2);
 const shouldTranslate = args.includes("--translate");
 const forceRefetch = args.includes("--force");
+const forceTranslate = args.includes("--force-translate");
 
 /*===== 统计计数器 =====*/
 const stats = {
@@ -417,7 +419,12 @@ function reassembleMarkdown(translatedHtml) {
 
 /*===== 翻译判断逻辑 =====*/
 
-function shouldTranslateArticle(existing, newContent) {
+function shouldTranslateArticle(existing, newContent, forceTranslate = false) {
+  /*-- 强制翻译模式：跳过所有检查，直接返回需要翻译 --*/
+  if (forceTranslate) {
+    return { needed: true, reason: "强制重新翻译" };
+  }
+
   // 1. 没有翻译记录 -> 需要翻译
   if (!existing || !existing.translatedContent || existing.translatedContent === "") {
     return { needed: true, reason: "无翻译记录" };
@@ -441,7 +448,7 @@ function shouldTranslateArticle(existing, newContent) {
 
 async function main() {
   log.start("文章抓取脚本启动");
-  log.config(`模式: ${shouldTranslate ? "抓取 + 翻译" : "仅抓取"}${forceRefetch ? " (强制刷新)" : ""}`);
+  log.config(`模式: ${shouldTranslate ? "抓取 + 翻译" : "仅抓取"}${forceRefetch ? " (强制刷新)" : ""}${forceTranslate ? " (强制重译)" : ""}`);
 
   /*-- 1. 扫描 posts 目录 --*/
   if (!fs.existsSync(POSTS_DIR)) {
@@ -493,7 +500,7 @@ async function main() {
 
       // 检查是否需要翻译
       if (shouldTranslate) {
-        const translateCheck = shouldTranslateArticle(existing, { contentHash: existing.contentHash });
+        const translateCheck = shouldTranslateArticle(existing, { contentHash: existing.contentHash }, forceTranslate);
         if (translateCheck.needed) {
           log.translate(`${slug} — ${translateCheck.reason}`);
           await doTranslate(table, existing, slug);
@@ -524,7 +531,7 @@ async function main() {
         contentHash,
         fetchedAt: now,
         translatedAt: existing?.translatedAt || "",
-        originalLang: data.originalLang || detectLanguage(result.textContent || result.content),
+        originalLang: detectLanguage(result.textContent || result.content, data.originalLang),
         title: result.title || data.title || slug,
         description: result.excerpt || data.description || "",
         author: result.author || data.originalAuthor || "",
@@ -543,7 +550,7 @@ async function main() {
 
       /*-- 翻译 --*/
       if (shouldTranslate) {
-        const translateCheck = shouldTranslateArticle(existing, { contentHash });
+        const translateCheck = shouldTranslateArticle(existing, { contentHash }, forceTranslate);
         if (translateCheck.needed) {
           log.translate(`${slug} — ${translateCheck.reason}`);
           await doTranslate(table, record, slug);
@@ -562,7 +569,7 @@ async function main() {
         contentHash: "",
         fetchedAt: now,
         translatedAt: "",
-        originalLang: data.originalLang || detectLanguage(`${data.title || ""} ${data.description || ""}`),
+        originalLang: detectLanguage(`${data.title || ""} ${data.description || ""}`, data.originalLang),
         title: data.title || slug,
         description: data.description || "",
         author: data.originalAuthor || "",
@@ -603,7 +610,7 @@ async function doTranslate(table, record, slug) {
 
   log.translate(`${slug} — 开始翻译...`);
   /*-- 使用统一的语言检测函数 --*/
-  const sourceLang = record.originalLang || detectLanguage(record.originalContent);
+  const sourceLang = detectLanguage(record.originalContent, record.originalLang);
   const targetLang = sourceLang === "zh" ? "en" : "zh";
   log.process(`${slug} — 源语言=${sourceLang}，目标语言=${targetLang}，待翻译 ${record.originalContent.length} 字符 HTML`);
 

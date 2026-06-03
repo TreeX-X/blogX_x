@@ -45,9 +45,15 @@ Rules:
 /**
  * 检测文本主要语言
  * @param text 待检测的文本
+ * @param frontmatterLang 可选的 frontmatter originalLang，优先使用
  * @returns 'zh' 表示中文，'en' 表示英文，'unknown' 表示无法确定
  */
-export function detectLanguage(text: string): 'zh' | 'en' | 'unknown' {
+export function detectLanguage(text: string, frontmatterLang?: string): 'zh' | 'en' | 'unknown' {
+  /*-- 优先使用 frontmatter 中已有的 originalLang --*/
+  if (frontmatterLang === 'zh' || frontmatterLang === 'en') {
+    return frontmatterLang;
+  }
+
   if (!text || text.trim().length === 0) {
     return 'unknown';
   }
