@@ -12,206 +12,199 @@ originalAuthor: Anthropic
 originalLang: en
 isDraft: false
 ---
-为什么使用 HTML？
+## Why use HTML?
 
-有几件事使 HTML 比更适合我现在使用 Claude Code 进行的工作，包括需要或涉及的任务：
+A few things make HTML a better fit than Markdown for the kind of work I'm now doing with Claude Code, including tasks that require or entail:
 
-信息密度
+## Information density
 
-与 Markdown 相比，HTML 可以传达更丰富的信息。当然，它可以做简单的文档结构，如标题和格式化，但它也可以表示各种其他信息，例如：
+![](https://cdn.prod.website-files.com/68a44d4040f98a4adf2207b6/6a0cc2df7520821249c2495c_image10.png)
 
-使用表格的表格数据
+HTML can convey much richer information compared to Markdown. It can, of course, do simple document structure like headers and formatting, but it can also represent all sorts of other information such as:
 
-使用 CSS 的设计数据
+- Tabular data using tables
+- Design data with CSS
+- Illustrations with SVG
+- Code snippets with script tags
+- Interactions using HTML elements with javascript + CSS
+- Workflows using SVG and HTML
+- Spatial data using absolute positions and canvases
+- Images using image tags
 
-使用 SVG 的插图
+In my opinion, there is almost no set of information that Claude can read that you cannot efficiently represent with HTML. This makes it a highly efficient way for the model to communicate in-depth information to you and for you to review it.
 
-使用 script 标签的代码片段
+I’ve found that in the absence of being able to do this, the model may do more inefficient things in Markdown, like ASCII diagrams or, my favorite, estimating colors with unicode characters.
 
-使用 HTML 元素与 javascript + CSS 的交互
-
-使用 SVG 和 HTML 的工作流程
-
-使用绝对位置和画布的空间数据
-
-使用 image 标签的图像
-
-在我看来，几乎没有 Claude 可以读取的信息集不能用 HTML 高效表示。这使得模型能够向您传达深入信息，并让您能够高效地审查它。
-
-我发现，如果无法做到这一点，模型可能会在 Markdown 中做更多低效的事情，比如 ASCII 图表，或者我最喜欢的，使用 unicode 字符估计颜色。
+![](https://cdn.prod.website-files.com/68a44d4040f98a4adf2207b6/6a0cccd2c085977fc720eb4e_be6aa05f.png)
 
 ‍
 
-视觉清晰度和易读性‍
-
-随着 Claude 能够处理更复杂的工作，它也能够编写越来越大的规范和计划。我发现我实际上不会阅读超过 100 行的 Markdown 文件，而且我肯定无法让组织中的其他人阅读它。‍
-
-但 HTML 文档更容易阅读，因为 Claude 可以直观地组织结构，使其通过标签、插图和链接实现理想的导航。它甚至可以响应移动设备，因此您可以根据设备形态以不同方式阅读。
-
-易于分享
-
-Markdown 文件相当难以分享，因为大多数浏览器无法很好地原生渲染它们。您通常需要将它们作为附件添加到电子邮件或消息中。
-
-只要您上传 HTML&#160;文件，就可以轻松分享链接。您的同事可以在任何他们希望的地方打开它并轻松引用它。&#160;
-
-如果您的规范、报告或 PR 说明以 HTML 格式呈现，那么有人实际阅读它们的几率会高得多。
-
-双向交互
+## Visual clarity and ease of reading
 
 ‍
 
-HTML 还允许您 
-与文档进行交互
-；例如，您可能希望它添加滑块或旋钮来调整设计，或允许您调整算法中的不同选项以查看会发生什么。您还可以要求它将这些更改复制到提示中，以便粘贴回 Claude Code。&#160;
+![](https://cdn.prod.website-files.com/68a44d4040f98a4adf2207b6/6a0cccd2c085977fc720eb48_343de6c4.png)
 
-在有用的情况下，这可以为您为正在处理的具体问题创建单独的编辑环境。
+As Claude is capable of tackling more complex work, it's also able to write larger and larger specs and plans. I’ve found that I tend to not actually read more than a 100-line Markdown file, and I certainly am not able to get anyone else in my organization to read it.
 
-数据摄取
+But HTML documents are much easier to read because Claude can organize the structure visually to be ideal to navigate with tabs, illustrations, and links. It can even be mobile responsive so you can read it differently based on your form factor.
 
-使用 Claude Code 而不是 Claude.ai 或 Claude Design 来制作 HTML 文件的最大原因之一是 Claude Code 可以处理大量上下文（context）。例如，在撰写本文时，我要求 Claude Code 阅读我的代码文件夹，找到我生成的所有 HTML 文件，将它们分组和分类，然后制作一个包含代表每种类型的图表的 HTML 文件。您在本文中看到的图表就是直接结果。
+## Ease of sharing
 
-除了文件系统，Claude Code 还可以使用您的 MCP（如 Slack、Linear 等）、您的网络浏览器（Chrome 中的 Claude）和您的 git 历史记录来查找额外的上下文。
+Markdown files are fairly hard to share since most browsers do not render them natively well. You often have to add them as attachments to emails or messages.
 
-入门指南
+As long as you upload the HTML file, you can share the link easily. Your colleagues can open it wherever they wish and easily reference it.
 
-有一点值得注意：要让 Claude 生成这样的 HTML 文件，您不需要做太多事情。您可以简单地提示它"制作一个 HTML 文件"或"制作一个 HTML 工件（artifact）"。最重要的是要知道您希望这个工件做什么以及如何使用它。随着时间的推移，围绕重复模式构建技能可能是合理的，但从零开始提示是了解它在不同用例中如何工作的好方法。
+The chance of someone actually reading your spec, report, or PR writeup is much higher if it’s in HTML.
 
-用例
+## Two-way interactions
 
-为了使这种方法更加具体，以下是一些我认为使用 HTML 文件比 Markdown 更有意义的示例用例。您也可以通过这些用例的 GitHub 图库来跟进，[这里](https://github.com/example)。
-
-规范、规划和探索
-
-HTML（超文本标记语言）是一个丰富的画布，可以让 Claude 深入解决问题。当我开始处理一个问题时，而不是简单的 Markdown（轻量级标记语言）计划，我期望创建一个由 HTML 文件组成的网络。例如，我可能会先要求 Claude Code 进行头脑风暴，创建一些不同选项的探索方案。然后我会要求它进一步扩展其中一个方案，可能制作模型（mockups）或接口（interfaces）类型的示例。最后，当我感觉良好时，我会要求它编写一个实施计划（implementation plan）。当我对计划满意时，我会创建一个新会话，并将所有这些文件传递给它来实施。
-
-在进行验证时，我也会要求验证代理（verification agent）读取这些文件，这样它就能对所需内容有更广泛的了解。
+![](https://cdn.prod.website-files.com/68a44d4040f98a4adf2207b6/6a0cccd2c085977fc720eb4b_438fa236.png)
 
 ‍
 
-示例提示：
+HTML can also allow you to [interact with the document](https://x.com/trq212/status/2017024445244924382); for example, you might want to ask it to add sliders or knobs to adjust a design or allow you to tweak different options in the algorithm to see what happens. You can also ask it to let you copy these changes into a prompt to paste back into Claude Code.
 
-我不确定入职屏幕应该采用什么方向。生成 6 种明显不同的方法——改变布局、语调和密度——并将它们作为单个 HTML 文件以网格形式布局，以便我可以并排比较它们。为每个方法标注其做出的权衡。
+When useful, this can allow you to create individual editing environments for the specific problem you’re working on.
 
-在 HTML 文件中创建一个详细的实施计划，确保制作一些模型，展示数据流，并添加我可能想要查看的重要代码片段。使其易于阅读和理解。
+## Data ingestion
 
-用途：&#160;
+One of the biggest reasons to use Claude Code to make HTML files instead of Claude.ai or Claude Design is all of the context Claude Code can ingest. For example, when writing this article, I asked Claude Code to read through my code folder and find all the HTML files I've generated, group and categorize them, and then make an HTML file with diagrams representing each type. The diagrams you see in this article are a direct result of that.
 
-探索在代码中实现某物的其他方法
+Besides the file system, Claude Code can find additional context using your MCPs (like Slack, Linear, etc.), your web browser (with Claude in Chrome), and your git history.
 
-同时尝试多种视觉设计
+## Getting started
 
-代码审查和理解
+One thing worth noting: you don't need to do much to get Claude to generate HTML like this. You can simply prompt it to "*make an HTML file*" or "*make an HTML artifact*." The main thing is knowing what you want the artifact to do and how you might use it. Over time, it may make sense to build a skill around recurring patterns, but starting by prompting from scratch is a good way to get a feel for how it works across different use cases.
 
-在 Markdown 文件中，代码可能难以阅读，但使用 HTML，我们可以渲染差异（diffs）、注释、流程图和模块。使用 HTML 来理解代理编写的代码，审查代码，或向审查您代码的人解释 PR。
+## Use cases
 
-‍
+To make this approach more concrete, below are some [example use cases](https://thariqs.github.io/html-effectiveness/) where I think using HTML files make more sense than Markdown. You can also follow along with a GitHub gallery of these use cases, [here](https://github.com/anthropics/html-effectiveness).
 
-示例提示：
+### Specs, planning, and exploration
 
-通过创建一个描述此 PR 的 HTML 工件来帮助我审查它。我对流式/背压（streaming/backpressure）逻辑不太熟悉，所以请重点关注这一点。使用内联边距注释渲染实际的差异，按严重程度对发现进行颜色编码，以及任何其他可能有助于清晰传达概念的内容。
+HTML is a rich canvas for Claude to dive into a problem. When I start working on a problem instead of a simple Markdown plan I expect to make a web of HTML files. For example, I might start with asking Claude Code to brainstorm and create some explorations of different options. I would then ask it to expand more into one, maybe make mockups or examples of the type interfaces. Finally, when I feel good I’ll ask it to write an implementation plan. When I’m happy with the plan I’ll create a new session and pass in all of these files for it to implement.
 
-用途：
-
-创建 PR
-
-审查 PR
-
-理解代码中的主题
-
-设计和原型
-
-Claude Design 基于 HTML，因为 HTML 在设计方面具有极强的表现力，即使您的最终界面不是 HTML。Claude 可以用 HTML 勾勒出设计，然后用您选择的语言（如 React、Swift 等）编写它。
-
-您还可以原型化交互，如动画、动作等。可以考虑要求 Claude 制作滑块、旋钮等，以精确调整您所需的内容。
+When verifying I’ll also ask the verification agent to read in the files and it will have much broader context on what is needed.
 
 ‍
 
-示例提示：
+![](https://cdn.prod.website-files.com/68a44d4040f98a4adf2207b6/6a0cccd2c085977fc720eb5c_7eaa0090.png)
 
-我想原型化一个新的结账按钮，点击时它会播放一个动画，然后迅速变成紫色。创建一个包含多个滑块和选项的 HTML 文件，让我可以尝试此动画的不同选项，给我一个复制按钮来复制效果良好的参数。
+**Example prompts:**
 
-用途：
+- *I'm not sure what direction to take the onboarding screen. Generate 6 distinctly different approaches—vary layout, tone, and density—and lay them out as a single HTML file in a grid so I can compare them side by side. Label each with the tradeoff it's making.*
+- *Create a thorough implementation plan in a HTML file, be sure to make some mockups, show data flow and add important code snippets I might want to review. Make it easy to read and digest.*
 
-创建设计系统工件
+**Use this for: **
 
-调整组件
+- Exploring other ways to implement something in code
+- Experimenting with multiple visual designs at once
 
-可视化组件库
+### Code review and understanding
 
-原型制作动画
+Code can be difficult to read in a Markdown file, but with HTML, we can render diffs, annotations, flowcharts, and modules.  Use HTML to understand code that the agent has written, to review code, or to explain a PR to someone reviewing your code.
 
-报告、研究和学习
+‍
 
-Claude Code 在综合多个数据源的信息并将其转换为易于阅读的报告方面非常有效。您可以提示 Claude 搜索您的 Slack、代码库、git 历史记录或互联网，并利用它生成易于阅读的报告。
+![](https://cdn.prod.website-files.com/68a44d4040f98a4adf2207b6/6a0cccd2c085977fc720eb5f_ce1ada20.png)
 
-您可以将其组装成长篇 HTML 文档、交互式说明页面，甚至是幻灯片/演示文稿。请 Claude 使用 SVG 制作图表以帮助可视化。
+**Example prompt: **
 
-示例提示：
+*Help me review this PR by creating an HTML artifact that describes it. I'm not very familiar with the streaming/backpressure logic, so focus on that. Render the actual diff with inline margin annotations, color-code findings by severity and whatever else might be needed to convey the concept well.*
 
-我不理解我们的速率限制器（rate limiter）实际是如何工作的。阅读相关代码并生成一个单独的 HTML 说明页面：一个令牌桶（token-bucket）流程图，3-4 个带注释的关键代码片段，以及底部的"陷阱"（gotchas）部分。针对一次性阅读的读者进行优化。
+**Use this for: **
 
-用途：
+- Creating a PR
+- Reviewing a PR
+- Understanding a topic in code
 
-编写功能摘要
+### Design and prototypes
 
-生成说明文档
+Claude Design is based on HTML because HTML** **is incredibly expressive at design, even if your end surface is not HTML. Claude can sketch out a design in HTML and then write it in your language of choice, be it React, Swift, etc.
 
-起草每周状态报告
+You can also prototype interactions, such as animations, actions, etc. Consider asking Claude to make sliders, knobs, etc. to tune in exactly what you’re looking for.
 
-创建事件报告
+‍
 
-生成 SVG 插图、流程图和技术图表，
+![](https://cdn.prod.website-files.com/68a44d4040f98a4adf2207b6/6a0cccd2c085977fc720eb51_2f351343.png)
 
-自定义编辑界面
+**Example prompt: **
 
-有时很难在文本框中纯粹描述您想要的内容。对于这种用例，我经常要求 Claude 为我正在处理的具体内容构建一个一次性编辑器：不是产品，也不是可重用工具，而是一个专门为这一数据设计的单一 HTML 文件。
+I want to prototype a new checkout button, when clicked it does a play animation and then turns purple quickly. Create a HTML file with several sliders and options for me to try different options on this animation, give me a copy button to copy the parameters that worked well.
 
-诀窍始终是以导出功能结束：一个"复制为JSON"或"复制为提示"按钮，将我在UI中所做的任何操作转换回可以粘贴到Claude Code或提交到文件的内容。你仍然在循环中，但循环变得紧密得多。
+**Use this for:**
 
-示例提示：
+- Creating design system artifacts
+- Adjusting components
+- Visualizing component libraries
+- Prototyping  animations
 
-我需要重新排序这30个Linear工单。为我创建一个HTML文件，每个工单作为一个可拖拽卡片，分布在"现在"/"下一步"/"稍后"/"删除"列中。根据你的最佳猜测进行预排序。添加一个"复制为Markdown"按钮，导出最终排序结果，每个桶附带一行理由。
+### Reports, research, and learning
 
-这是我们功能标志（feature flags）的配置。为它构建一个基于表单的编辑器，按区域分组标志，显示它们之间的依赖关系，如果我启用了一个其先决条件已关闭的标志，请警告我。添加一个"复制差异"按钮，只给我变更的键。
+Claude Code is very effective at synthesizing information across multiple data sources and converting it into a report for readability. You can prompt Claude to search your Slack, your codebase, git history, or the internet and use it to generate easy to read reports..
 
-我正在调整这个系统提示。创建一个并排编辑器：左侧是可编辑的提示，变量槽位高亮显示；右侧是三个示例输入，实时重新渲染填充后的模板。添加一个字符/令牌计数器和复制按钮。
+You could assemble this in the form of a long HTML document, an interactive explainer or even a slideshow/deck. Ask Claude to use SVG for diagrams to help visualize it.
 
-用途：
+![](https://cdn.prod.website-files.com/68a44d4040f98a4adf2207b6/6a0cccd2c085977fc720eb54_e0306f54.png)
 
-重新排序、分类或分组任何内容（工单、测试用例、反馈）
+**Example prompt:**
 
-编辑结构化配置（功能标志、环境变量、带有约束的JSON/YAML）
+*I don't understand how our rate limiter actually works. Read the relevant code and produce a single HTML explainer page: a diagram of the token-bucket flow, the 3–4 key code snippets annotated, and a "gotchas" section at the bottom. Optimize it for someone reading it once.*
 
-调整提示、模板或文案，并带有实时预览
+**Use this for:**
 
-策划数据集 — 批准/拒绝行，标记示例，导出选择项
+- Writing feature summarizations
+- Generating explainers
+- Drafting weekly status reports
+- Creating incident reports
+- Producing SVG illustrations, flowcharts, and technical diagrams,
 
-注释文档、转录稿或差异，并导出注释
+### Custom editing interfaces
 
-选择难以用文本表达的值：颜色、缓动曲线、裁剪区域、cron计划、正则表达式
+Sometimes it’s hard to describe what you want purely in a text box. For this use case, I'll often ask Claude to build me a throwaway editor for the exact thing I'm working on: not a product, or a reusable tool, but a single HTML file, purpose-built for this one piece of data.
 
-常见问题
+The trick is always to end with an export: a "copy as JSON" or "copy as prompt" button that turns whatever I did in the UI back into something I can paste into Claude Code or commit to a file. You stay in the loop, but the loop gets much tighter.
 
-这些是我关于使用HTML与Claude Code被问到最多的问题，以及我最终形成的日常实用习惯：
+![](https://cdn.prod.website-files.com/68a44d4040f98a4adf2207b6/6a0cccd2c085977fc720eb57_0e3ace42.png)
 
-这不是效率更低吗？
+**Example prompts:**
 
-虽然Markdown通常使用的token更少，但我发现HTML更强的表达力以及我更可能阅读它，意味着我能获得更好的整体输出。在Opus 4.7的1MM上下文窗口中，增加的token使用在上下文窗口中并不明显。
+- * I need to reprioritize these 30 Linear tickets. Make me an HTML file with each ticket as a draggable card across Now / Next / Later / Cut columns. Pre-sort them by your best guess. Add a "copy as Markdown" button that exports the final ordering with a one-line rationale per bucket.*
+- *Here's our feature flag config. Build a form-based editor for it,  group flags by area, show dependencies between them, warn me if I enable a flag whose prerequisite is off. Add a "copy diff" button that gives me just the changed keys.*
+- * I'm tuning this system prompt. Make a side-by-side editor: editable prompt on the left with the variable slots highlighted, three sample inputs on the right that re-render the filled template live. Add a character/token counter and a copy button.*
 
-你现在什么时候使用Markdown？
+**Use this for:**
 
-老实说，我已经几乎完全停止使用Markdown做几乎所有事情，但我可能已经站在HTML最大主义的一端了。
+- Reordering, triaging, or bucketing anything (tickets, test cases, feedback)
+- Editing structured config (feature flags, env vars, JSON/YAML with constraints)
+- Tuning prompts, templates, or copy with live preview
+- Curating datasets — approve/reject rows, tag examples, export the selection
+- Annotating a document, transcript, or diff and exporting the annotations
+- Picking values that are painful to express in text: colors, easing curves, crop regions, cron schedules, regexes
 
-这就是你替代规划的方式吗？
+### Frequently asked questions
 
-我发现，与其拥有一个单一的计划，我倾向于为计划的不同部分/阶段创建几个不同的HTML文件。例如，我可能会用HTML制定一个实施计划，然后创建另一个文件用于探索UI，最后制作一个列出每个设计的HTML组件。我倾向于保留这些文件作为未来的参考，也用于验证。
+These are the questions I get asked most often about using HTML with Claude Code, paired with the practical, day-to-day habits I've landed on:
 
-与Claude保持同步
+**Isn’t it less efficient?**
 
-综上所述，我使用HTML而不是Markdown的真正原因是，这让我感觉与Claude的联系更加紧密。随着Claude承担更多任务，我注意到自己不再那么仔细地阅读计划，我想要一种方式能够参与它的决策过程，而不是简单地交出任务。HTML恰好提供了这种方式。现在我感觉比以往任何时候都更加融入其中。"
+While Markdown often uses fewer tokens, I’ve found that the added expressiveness of HTML and the much higher likelihood of me reading it means I get overall better output. With the 1MM context window in Opus 4.7, the increased token usage is not really noticeable in the context window.
 
-开始使用 
-Claude Code
-.
+**When do you use Markdown for now?**
 
-本文由技术团队成员Thariq Shihipar撰写，表达了他个人对于在Claude Code中使用HTML文件的看法和偏好。&#160;
+I have honestly stopped using Markdown altogether for almost everything, but I’m probably far on the HTML maximalist side of things.
+
+**Is this how you’ve replaced planning?**
+
+I’ve found that instead of having a single plan, I tend to have a few different HTML files for different parts/stages of the plan. For example, I may make an implementation plan in HTML and then do another file for exploration of UIs, and then finally make a HTML component that lists every design. I tend to keep these files around as references for the future, as well for use in verification.
+
+## Staying in the loop with Claude
+
+All of the above is to say that the real reason I use HTML instead of Markdown is that it helps me feel much more in the loop with Claude. As Claude takes on more, I'd noticed I was reading plans less closely, and I wanted a way to stay engaged with its choices rather than just hand them off. HTML turned out to be exactly that. I feel more in the loop now than I ever did before."
+
+Get started with [Claude Code](https://code.claude.com/docs/en/quickstart).
+
+*This article was written by Thariq Shihipar, member of technical staff, and expresses his personal opinions – and affinity – for using HTML files with Claude Code*.
+
+‍

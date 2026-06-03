@@ -7,10 +7,14 @@
 const CHINESE_CHAR_REGEX = /[\u4e00-\u9fff]/g;
 const ENGLISH_CHAR_REGEX = /[a-zA-Z]/g;
 
-/*-- GLM 翻译配置 --*/
-const GLM_API_KEY = process.env.GLM_API_KEY;
-const GLM_BASE_URL = process.env.GLM_BASE_URL || "https://open.bigmodel.cn/api/paas/v4";
-const GLM_MODEL = process.env.GLM_MODEL || "glm-4.5-air";
+/*-- GLM 翻译配置（延迟读取，确保 dotenv 已加载） --*/
+function getGlmConfig() {
+  return {
+    apiKey: process.env.GLM_API_KEY,
+    baseUrl: process.env.GLM_BASE_URL || "https://open.bigmodel.cn/api/paas/v4",
+    model: process.env.GLM_MODEL || "glm-4.5-air"
+  };
+}
 
 /*-- 英文 → 中文 的翻译 prompt：保留 HTML 标签、占位符、URL、代码块不翻译 --*/
 const TRANSLATE_SYSTEM_PROMPT_EN_TO_ZH = `你是一位专业的技术文章翻译者。请将以下技术文章翻译为中文（中文）。
@@ -139,7 +143,8 @@ export async function translateText(
   }
    
   // 检查 GLM API 配置
-  if (!GLM_API_KEY) {
+  const config = getGlmConfig();
+  if (!config.apiKey) {
     console.warn("[article-translation] GLM_API_KEY 未配置，使用占位翻译");
     // 占位符翻译逻辑（实际应用中应删除此部分并集成真实翻译API）
     if (sourceLang === 'zh' && targetLang === 'en') {
@@ -161,7 +166,7 @@ export async function translateText(
     const systemPrompt = pickTranslateSystemPrompt(sourceLang);
     
     // 将文本分割成段落以避免超出 API 限制
-    const TRANSLATE_BATCH_SIZE = 1500; // 与 fetch-articles.mjs 保持一致
+    const TRANSLATE_BATCH_SIZE = 800; // 减小批次大小以避免超时
     const segments = splitTextIntoSegments(text, TRANSLATE_BATCH_SIZE);
     const translatedSegments: string[] = [];
     
@@ -203,21 +208,28 @@ export async function translateText(
  */
 async function callGlmApi(text: string, systemPrompt: string): Promise<string | null> {
   try {
-    const resp = await fetch(`${GLM_BASE_URL}/chat/completions`, {
+    const config = getGlmConfig();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+    
+    const resp = await fetch(`${config.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${GLM_API_KEY}`,
+        Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: GLM_MODEL,
+        model: config.model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: text },
         ],
         temperature: 0.3,
       }),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeout);
 
     if (!resp.ok) {
       const errText = await resp.text();
