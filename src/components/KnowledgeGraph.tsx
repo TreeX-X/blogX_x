@@ -161,6 +161,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         enableNodeDrag={true}
         enableZoomInteraction={true}
         enablePanInteraction={true}
+        enableZoomPanInteraction={true}
         enablePointerInteraction={true}
         /*-- 动画 --*/
         cooldownTicks={150}

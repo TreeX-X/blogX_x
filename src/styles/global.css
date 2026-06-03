@@ -82,7 +82,7 @@ body::before {
       rgba(0,0,0,0.004) 4px
     );
   pointer-events: none;
-  z-index: 100;
+  z-index: -1;
 }
 
 /* Remove old dark theme elements */
@@ -321,9 +321,9 @@ a {
   border-radius: var(--radius-lg);
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(12px);
-  overflow: hidden;
   box-shadow: 0 0 40px rgba(192,132,252,0.06), inset 0 1px 0 rgba(255,255,255,0.04);
+  position: relative;
+  z-index: 1;
 }
 
 .hero-stats {
@@ -554,11 +554,16 @@ a {
   border-radius: var(--radius);
   padding: 0;
   background: var(--glass-bg);
-  backdrop-filter: blur(12px);
   min-height: 280px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 0 30px rgba(192,132,252,0.04), inset 0 1px 0 rgba(255,255,255,0.03);
+  position: relative;
+  z-index: 1;
+}
+.kg-panel .force-graph-container canvas {
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .kg-header {
