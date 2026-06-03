@@ -26,6 +26,69 @@ interface ArticleReaderProps {
   article: ArticleRecord;
 }
 
+/*-- 轻量 Markdown → HTML 转换（处理翻译管道输出的 Markdown 格式内容） --*/
+function markdownToHtml(md: string): string {
+  const lines = md.split("\n");
+  const out: string[] = [];
+  let inCodeBlock = false;
+  let inList = false;
+
+  const inline = (s: string) =>
+    s
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy" />')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  for (const line of lines) {
+    if (line.startsWith("```")) {
+      if (inCodeBlock) { out.push("</code></pre>"); inCodeBlock = false; }
+      else { out.push("<pre><code>"); inCodeBlock = true; }
+      continue;
+    }
+    if (inCodeBlock) { out.push(line); continue; }
+
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (inList) { out.push("</ul>"); inList = false; }
+      continue;
+    }
+
+    const hMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (hMatch) {
+      if (inList) { out.push("</ul>"); inList = false; }
+      const level = hMatch[1].length;
+      out.push(`<h${level}>${inline(hMatch[2])}</h${level}>`);
+      continue;
+    }
+
+    if (/^>\s?/.test(trimmed)) {
+      out.push(`<blockquote><p>${inline(trimmed.replace(/^>\s?/, ""))}</p></blockquote>`);
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(trimmed)) {
+      if (!inList) { out.push("<ul>"); inList = true; }
+      out.push(`<li>${inline(trimmed.replace(/^[-*]\s+/, ""))}</li>`);
+      continue;
+    }
+
+    if (inList) { out.push("</ul>"); inList = false; }
+    out.push(`<p>${inline(trimmed)}</p>`);
+  }
+  if (inList) out.push("</ul>");
+  if (inCodeBlock) out.push("</code></pre>");
+  return out.join("\n");
+}
+
+/*-- 检测内容是否为 Markdown（而非 HTML） --*/
+function isMarkdown(text: string): boolean {
+  const t = text.trim();
+  if (t.startsWith("<") && /<[a-z][\s\S]*>/i.test(t)) return false;
+  return /^#{1,6}\s/m.test(t) || /\*\*[^*]+\*\*/.test(t) || /!\[.*\]\(.*\)/.test(t);
+}
+
 /*-- 使用 DOMPurify 做 XSS 清理，保留安全的 HTML 标签和属性 --*/
 function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, {
@@ -74,8 +137,10 @@ export default function ArticleReader({ article }: ArticleReaderProps) {
     const raw = lang === "translated" && hasTranslation
       ? article.translatedContent
       : article.originalContent;
-    // 确保 raw 不是 undefined 或 null
-    return sanitizeHtml(raw || "");
+    if (!raw) return "";
+    /*-- 翻译管道输出 Markdown，需先转 HTML 再 sanitize --*/
+    const html = isMarkdown(raw) ? markdownToHtml(raw) : raw;
+    return sanitizeHtml(html);
   }, [lang, hasTranslation, article.originalContent, article.translatedContent]);
 
   /*-- 切换时淡入动画 --*/
