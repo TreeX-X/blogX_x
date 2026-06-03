@@ -60,12 +60,23 @@ const postsWithMeta = await Promise.all(
               ) : null}
               <div class="article-card-lang">
                 {article?.translatedContent ? (
-                  /*-- 双语文章：显示合并标识 --*/
-                  <span class="lang-badge lang-bilingual">EN/中</span>
+                  /*-- 双语文章：根据 originalLang 决定显示顺序 --*/
+                  <span class="lang-badge lang-bilingual">
+                    {article.originalLang === "zh" ? "中/EN" : "EN/中"}
+                  </span>
                 ) : (
                   <Fragment>
-                    <span class="lang-badge lang-available">EN</span>
-                    <span class="lang-badge lang-unavailable">中</span>
+                    {article?.originalLang === "zh" ? (
+                      <Fragment>
+                        <span class="lang-badge lang-available">中</span>
+                        <span class="lang-badge lang-unavailable">EN</span>
+                      </Fragment>
+                    ) : (
+                      <Fragment>
+                        <span class="lang-badge lang-available">EN</span>
+                        <span class="lang-badge lang-unavailable">中</span>
+                      </Fragment>
+                    )}
                   </Fragment>
                 )}
               </div>

@@ -66,7 +66,8 @@ function extractDomain(url: string): string {
 export default function ArticleReader({ article }: ArticleReaderProps) {
   const hasOriginal = Boolean(article.originalContent);
   const hasTranslation = Boolean(article.translatedContent);
-  const { lang, toggle } = useLanguage(hasTranslation ? "translated" : "original");
+  const originalLang = article.originalLang || "en";
+  const { lang, toggle } = useLanguage(hasTranslation ? "translated" : "original", originalLang);
 
   /*-- 根据当前语言选择内容 --*/
   const currentContent = useMemo(() => {
@@ -110,6 +111,7 @@ export default function ArticleReader({ article }: ArticleReaderProps) {
           hasTranslation={hasTranslation}
           lang={lang}
           onToggle={toggle}
+          originalLang={originalLang}
         />
       </div>
 

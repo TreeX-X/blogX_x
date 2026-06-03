@@ -65,13 +65,24 @@ const toc = headings.filter((item: any) => item.depth >= 2 && item.depth <= 4);
 
 /*-- SSR 语言感知 OG 标签：从 URL 参数读取语言，服务端条件渲染 --*/
 const lang = Astro.url.searchParams.get("lang");
+const ogOriginalLang = articleData?.originalLang || "en";
 const ogHasTranslation = hasArticleContent && Boolean(articleData?.translatedContent);
-const isZh = lang === "zh" || (!lang && ogHasTranslation);
-const ogTitle = (isZh && ogHasTranslation && articleData!.title) ? articleData!.title : title;
-/*-- 翻译后的中文描述（来自 LanceDB 文章翻译管道） --*/
-const ogDescription = (isZh && ogHasTranslation && articleData!.description)
-  ? articleData!.description
-  : (summary || "");
+/*-- 根据 originalLang 判断当前应显示中文还是英文内容 --*/
+const isZh = ogOriginalLang === "zh"
+  ? (lang !== "en")  /*-- 中文原文：默认中文，?lang=en 切英文翻译 --*/
+  : (lang === "zh" || (!lang && ogHasTranslation));  /*-- 英文原文：?lang=zh 或默认有翻译时中文 --*/
+/*-- 选择正确的 OG 标题/描述（区分原文语言方向） --*/
+let ogTitle: string;
+let ogDescription: string;
+if (ogOriginalLang === "zh") {
+  /*-- 中文原文：isZh 时用 frontmatter 中文标题，否则用翻译英文标题 --*/
+  ogTitle = isZh ? title : (ogHasTranslation ? articleData!.title : title);
+  ogDescription = isZh ? (summary || "") : (ogHasTranslation ? articleData!.description : (summary || ""));
+} else {
+  /*-- 英文原文：isZh 时用翻译中文标题，否则用 frontmatter 英文标题 --*/
+  ogTitle = (isZh && ogHasTranslation) ? articleData!.title : title;
+  ogDescription = (isZh && ogHasTranslation) ? articleData!.description : (summary || "");
+}
 
 /*-- 找到上一篇/下一篇 --*/
 const currentIndex = posts.findIndex((p) => getEntrySlug(p) === params.slug);
@@ -93,11 +104,19 @@ const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
         <meta property="og:article:translated_title" content={`${articleData!.title} | BlogX_x`} />
       </Fragment>
     )}
-    <script is:inline define:vars={{ ogTitle, ogHasTranslation, lang }}>
+    <script is:inline define:vars={{ ogTitle, ogHasTranslation, lang, ogOriginalLang }}>
       /*-- 客户端同步 document.title（OG 标签已由 SSR 正确渲染） --*/
       (function() {
-        /*-- 仅中文模式需要更新 document.title（SSR 默认已是英文标题） --*/
-        if (lang === "zh" && ogHasTranslation) {
+        /*-- 根据 originalLang 判断何时需要更新 document.title --*/
+        var needUpdate;
+        if (ogOriginalLang === "zh") {
+          /*-- 中文原文：SSR 默认已是中文标题，?lang=en 时不需要更新（英文翻译标题非默认） --*/
+          needUpdate = false;
+        } else {
+          /*-- 英文原文：SSR 默认是英文标题，?lang=zh 或有翻译默认中文时需更新 --*/
+          needUpdate = (lang === "zh" || (!lang && ogHasTranslation));
+        }
+        if (needUpdate && ogHasTranslation) {
           document.title = ogTitle + " | BlogX_x";
         }
       })();

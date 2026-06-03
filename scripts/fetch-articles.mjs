@@ -640,6 +640,8 @@ async function doTranslate(table, record, slug) {
   }
   if (usedFallback) {
     const plainText = record.originalContent
+      .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, '![$2]($1)')
+      .replace(/<img[^>]*src="([^"]*)"[^>]*/gi, '![]($1)')
       .replace(/<[^>]+>/g, "\n")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
