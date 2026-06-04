@@ -549,16 +549,26 @@ a {
 /* ===== Knowledge Graph Panel — Takram 暖纸风格 ===== */
 
 .kg-panel {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
   padding: 0;
-  background: var(--bg-card);
   min-height: 420px;
   display: flex;
   flex-direction: column;
+  background: transparent;
+  width: 100%;
+  height: 100%;
+}
+
+/* 独立使用时（sidebar）补上边框与圆角 */
+.home-sidebar .kg-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   box-shadow: var(--shadow-card);
-  transition: box-shadow var(--transition-base);
   overflow: hidden;
+}
+
+.hero-graph .kg-panel {
+  border: none;
+  border-radius: 0;
 }
 
 .kg-header {

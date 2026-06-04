@@ -344,7 +344,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         ref={svgRef}
         width={width}
         height={height - 36}
-        style={{ display: "block", cursor: "grab", touchAction: "none", userSelect: "none" }}
+        style={{ display: "block", width: "100%", cursor: "grab", touchAction: "none", userSelect: "none" }}
       >
         <g ref={wrapperGRef}>
           <g ref={linksGRef} />
