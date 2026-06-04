@@ -72,7 +72,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     const observer = new ResizeObserver((entries) => {
       const nextWidth = Math.max(280, Math.floor(entries[0].contentRect.width));
       setWidth(nextWidth);
-      setHeight(Math.max(360, Math.floor(nextWidth * 1.15)));
+      setHeight(Math.max(480, Math.floor(nextWidth * 1.35)));
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -172,8 +172,11 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .attr("stroke", "rgba(245,240,235,0.85)")
       .attr("stroke-width", 3);
 
-    /*-- 点击跳转 --*/
+    /*-- 点击跳转（仅在非拖拽时触发） --*/
+    let didDrag = false;
+
     nodeGroups.on("click", (_event: any, d: any) => {
+      if (didDrag) { didDrag = false; return; }
       if (!d?.url || d.url === "#") return;
       window.location.href = toAppUrl(d.url);
     });
@@ -207,12 +210,14 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     /*-- 拖拽节点 --*/
     let dragNode: Node | null = null;
     let dragStartPos = { x: 0, y: 0 };
+    let dragMoved = false;
 
     nodeGroups
       .on("mousedown.drag", function (event: MouseEvent, d: any) {
         event.stopPropagation();
         event.preventDefault();
         dragNode = d;
+        dragMoved = false;
         dragStartPos = { x: event.clientX, y: event.clientY };
         d.fx = d.x;
         d.fy = d.y;
@@ -225,6 +230,9 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       const t = select(svg).property("__zoom") || zoomIdentity;
       const dx = (event.clientX - dragStartPos.x) / t.k;
       const dy = (event.clientY - dragStartPos.y) / t.k;
+      if (Math.abs(event.clientX - dragStartPos.x) > 3 || Math.abs(event.clientY - dragStartPos.y) > 3) {
+        dragMoved = true;
+      }
       dragNode.fx = (dragNode.fx ?? dragNode.x!) + dx;
       dragNode.fy = (dragNode.fy ?? dragNode.y!) + dy;
       dragStartPos = { x: event.clientX, y: event.clientY };
@@ -232,6 +240,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
 
     const onMouseUp = () => {
       if (dragNode) {
+        if (dragMoved) didDrag = true;
         dragNode.fx = null;
         dragNode.fy = null;
         dragNode = null;

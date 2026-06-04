@@ -555,11 +555,12 @@ a {
   background: var(--glass-bg);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  min-height: 280px;
+  min-height: 380px;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-card);
   transition: box-shadow var(--transition-base);
+  overflow: hidden;
 }
 
 .kg-header {
