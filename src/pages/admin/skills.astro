@@ -20,6 +20,8 @@ const toBase = (path = "") => {
         <a href={toBase("admin/repos")}>仓库链接</a>
         <a href={toBase("admin/toolbox")}>工具箱</a>
         <a href={toBase("admin/skills")} class="active">Skills</a>
+        <a href={toBase("admin/messages")}>留言管理</a>
+        <a href={toBase("admin/ideas")}>意见箱</a>
       </nav>
       <div class="admin-sidebar-footer">
         <a href={toBase()}>← 返回首页</a>
@@ -29,18 +31,43 @@ const toBase = (path = "") => {
     <main class="admin-main">
       <div class="admin-page-head">
         <h1 class="admin-page-title">Skills</h1>
-        <button class="admin-btn admin-btn-primary" onclick="toggleForm()">+ 新增 Skill</button>
+        <div style="display:flex;gap:0.5rem;">
+          <button class="admin-btn" onclick="toggleImport()">导入文件夹</button>
+          <button class="admin-btn admin-btn-primary" onclick="toggleForm()">+ 新增 Skill</button>
+        </div>
       </div>
 
+      <!-- Import from folder path -->
+      <div id="importPanel" class="admin-inline-form">
+        <h3>导入 Skill 文件夹</h3>
+        <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.75rem;">
+          填入本地文件夹路径，将读取其中的 SKILL.md 并导入到 content 中
+        </p>
+        <div class="admin-form">
+          <div class="form-group">
+            <label>文件夹路径</label>
+            <div style="display:flex;gap:0.5rem;">
+              <input id="importPath" placeholder="C:\Users\you\my-skills\prompt-master" style="flex:1;" />
+              <button class="admin-btn admin-btn-primary" onclick="importFolder()">导入</button>
+            </div>
+          </div>
+          <div id="importResult" style="font-size:0.8rem;margin-top:0.4rem;"></div>
+        </div>
+        <div class="form-btns">
+          <button class="admin-btn" onclick="toggleImport()">关闭</button>
+        </div>
+      </div>
+
+      <!-- Create / Edit form -->
       <div id="addForm" class="admin-inline-form">
-        <h3>新增 Skill</h3>
+        <h3 id="formTitle">新增 Skill</h3>
         <div class="admin-form">
           <div class="form-row">
             <div class="form-group"><label>Slug</label><input id="f-slug" placeholder="my-skill" /></div>
-            <div class="form-group"><label>标题</label><input id="f-title" placeholder="Skill 名称" /></div>
+            <div class="form-group"><label>标题</label><input id="f-title" placeholder="Skill 显示名称" /></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label>Skill 目录名</label><input id="f-dir" placeholder="对应 .claude/skills/ 下的目录" /></div>
+            <div class="form-group"><label>Skill 目录名</label><input id="f-dir" placeholder="对应下载目录名" /></div>
             <div class="form-group"><label>版本</label><input id="f-ver" placeholder="1.0.0" /></div>
           </div>
           <div class="form-group"><label>描述</label><textarea id="f-desc" rows="2"></textarea></div>
@@ -62,7 +89,7 @@ const toBase = (path = "") => {
           <thead><tr><th>标题</th><th>目录</th><th>版本</th><th>作者</th><th>标签</th><th>操作</th></tr></thead>
           <tbody id="skillsBody"></tbody>
         </table>
-        <div id="emptyState" class="admin-empty" style="display:none;">暂无 Skills</div>
+        <div id="emptyState" class="admin-empty" style="display:none;">暂无 Skill，点击「新增」或「导入文件夹」</div>
       </div>
     </main>
   </div>
@@ -83,7 +110,7 @@ const toBase = (path = "") => {
       if (!skills.length) { body.innerHTML = ""; empty.style.display = ""; return; }
       empty.style.display = "none";
       body.innerHTML = skills.map((s, i) => `<tr>
-        <td><strong>${s.title || s.slug}</strong></td>
+        <td><strong>${escapeHtml(s.title || s.slug)}</strong></td>
         <td><code>${s.skillDir || "—"}</code></td>
         <td>${s.version || "—"}</td>
         <td>${s.author || "—"}</td>
@@ -99,6 +126,7 @@ const toBase = (path = "") => {
       const form = document.getElementById("addForm");
       form.classList.toggle("show");
       editing = null;
+      document.getElementById("formTitle").textContent = "新增 Skill";
       if (!form.classList.contains("show")) {
         ["f-slug","f-title","f-dir","f-ver","f-desc","f-author","f-license","f-tags","f-body"].forEach(id => document.getElementById(id).value = "");
         document.getElementById("f-slug").disabled = false;
@@ -108,6 +136,7 @@ const toBase = (path = "") => {
     function editSkill(i) {
       const s = skills[i];
       editing = i;
+      document.getElementById("formTitle").textContent = "编辑 Skill";
       document.getElementById("f-slug").value = s.slug;
       document.getElementById("f-slug").disabled = true;
       document.getElementById("f-title").value = s.title || "";
@@ -133,6 +162,7 @@ const toBase = (path = "") => {
         tags: document.getElementById("f-tags").value.split(",").map(s => s.trim()).filter(Boolean),
         body: document.getElementById("f-body").value.trim(),
       };
+      if (!data.slug) { alert("Slug 不能为空"); return; }
       const method = editing !== null ? "PUT" : "POST";
       await fetch("/api/admin/skills", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       toggleForm();
@@ -143,6 +173,54 @@ const toBase = (path = "") => {
       if (!confirm(`删除「${skills[i].title || skills[i].slug}」？`)) return;
       await fetch("/api/admin/skills", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: skills[i].slug }) });
       load();
+    }
+
+    // Import from folder path
+    function toggleImport() {
+      document.getElementById("importPanel").classList.toggle("show");
+      document.getElementById("importResult").textContent = "";
+    }
+
+    async function importFolder() {
+      const pathInput = document.getElementById("importPath");
+      const result = document.getElementById("importResult");
+      const path = pathInput.value.trim();
+      if (!path) { result.textContent = "请输入文件夹路径"; result.style.color = "#dc5050"; return; }
+
+      result.textContent = "导入中...";
+      result.style.color = "var(--text-muted)";
+
+      try {
+        const res = await fetch("/api/admin/skills", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          result.textContent = "导入成功: " + data.slug;
+          result.style.color = "var(--accent)";
+          pathInput.value = "";
+          load();
+        } else {
+          result.textContent = data.error || "导入失败";
+          result.style.color = "#dc5050";
+        }
+      } catch (e) {
+        result.textContent = "请求失败";
+        result.style.color = "#dc5050";
+      }
+    }
+
+    // Enter key to import
+    document.getElementById("importPath").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") importFolder();
+    });
+
+    function escapeHtml(t) {
+      const d = document.createElement("div");
+      d.textContent = t;
+      return d.innerHTML;
     }
 
     load();

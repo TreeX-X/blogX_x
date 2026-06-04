@@ -1,0 +1,125 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+---
+
+<BaseLayout title="留言管理 | Admin" description="管理留言栏">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-brand">BlogX_x</div>
+      <p class="admin-sidebar-sub">管理面板</p>
+      <nav class="admin-nav">
+        <a href={toBase("admin")}>仪表盘</a>
+        <a href={toBase("admin/posts")}>文章链接</a>
+        <a href={toBase("admin/repos")}>仓库链接</a>
+        <a href={toBase("admin/toolbox")}>工具箱</a>
+        <a href={toBase("admin/skills")}>Skills</a>
+        <a href={toBase("admin/messages")} class="active">留言管理</a>
+        <a href={toBase("admin/ideas")}>意见箱</a>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <a href={toBase()}>← 返回首页</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-page-head">
+        <h1 class="admin-page-title">留言管理</h1>
+        <div class="admin-filter-bar">
+          <button class="admin-btn admin-btn-sm active" data-filter="all" onclick="setFilter('all')">全部</button>
+          <button class="admin-btn admin-btn-sm" data-filter="approved" onclick="setFilter('approved')">已通过</button>
+          <button class="admin-btn admin-btn-sm" data-filter="rejected" onclick="setFilter('rejected')">已拒绝</button>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>昵称</th><th>内容</th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
+          <tbody id="msgBody"></tbody>
+        </table>
+        <div id="emptyState" class="admin-empty" style="display:none;">暂无留言</div>
+      </div>
+    </main>
+  </div>
+
+  <script is:inline>
+    let messages = [];
+    let filter = "all";
+
+    async function load() {
+      const res = await fetch("/api/admin/messages");
+      messages = await res.json();
+      render();
+    }
+
+    function setFilter(f) {
+      filter = f;
+      document.querySelectorAll("[data-filter]").forEach(b => {
+        b.classList.toggle("active", b.dataset.filter === f);
+      });
+      render();
+    }
+
+    function render() {
+      const body = document.getElementById("msgBody");
+      const empty = document.getElementById("emptyState");
+      const filtered = filter === "all" ? messages : messages.filter(m => m.status === filter);
+      if (!filtered.length) { body.innerHTML = ""; empty.style.display = ""; return; }
+      empty.style.display = "none";
+      body.innerHTML = filtered.map(m => {
+        const statusLabel = m.status === "approved" ? "已通过" : "已拒绝";
+        const statusClass = m.status === "approved" ? "admin-badge" : "admin-badge admin-badge-danger";
+        const time = new Date(m.createdAt).toLocaleString("zh-CN");
+        const approveBtn = m.status !== "approved"
+          ? `<button class="admin-btn admin-btn-sm admin-btn-primary" onclick="setStatus('${m.id}','approved')">通过</button>`
+          : "";
+        const rejectBtn = m.status !== "rejected"
+          ? `<button class="admin-btn admin-btn-sm admin-btn-warn" onclick="setStatus('${m.id}','rejected')">拒绝</button>`
+          : "";
+        return `<tr>
+          <td>${escapeHtml(m.name)}</td>
+          <td class="msg-content">${escapeHtml(m.content)}</td>
+          <td><span class="${statusClass}">${statusLabel}</span></td>
+          <td>${time}</td>
+          <td class="admin-actions">
+            ${approveBtn}${rejectBtn}
+            <button class="admin-btn admin-btn-sm admin-btn-danger" onclick="deleteMsg('${m.id}')">删除</button>
+          </td>
+        </tr>`;
+      }).join("");
+    }
+
+    async function setStatus(id, status) {
+      await fetch("/api/admin/messages", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      load();
+    }
+
+    async function deleteMsg(id) {
+      if (!confirm("删除这条留言？")) return;
+      await fetch("/api/admin/messages", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      load();
+    }
+
+    function escapeHtml(t) {
+      const d = document.createElement("div");
+      d.textContent = t;
+      return d.innerHTML;
+    }
+
+    load();
+  </script>
+</BaseLayout>

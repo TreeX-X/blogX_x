@@ -1941,6 +1941,82 @@ main {
   margin: 0 0 1rem;
 }
 
+/* Skill detail layout with TOC */
+.skill-detail-layout {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.skill-toc {
+  position: sticky;
+  top: 5rem;
+  min-width: 180px;
+  max-width: 220px;
+  flex-shrink: 0;
+  padding: 1rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-height: calc(100vh - 7rem);
+  overflow-y: auto;
+}
+
+.skill-toc-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.skill-toc-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.skill-toc-link {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+.skill-toc-link:hover {
+  color: var(--ink);
+  background: rgba(107, 143, 113, 0.05);
+}
+
+.skill-toc-link.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: rgba(107, 143, 113, 0.06);
+  font-weight: 500;
+}
+
+.skill-prose {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .skill-detail-layout {
+    flex-direction: column;
+  }
+  .skill-toc {
+    position: static;
+    min-width: unset;
+    max-width: unset;
+    max-height: unset;
+  }
+}
+
 .skill-meta-bar {
   display: flex;
   align-items: center;
@@ -2321,6 +2397,16 @@ main {
   border-color: #c0392b;
 }
 
+.admin-btn-warn {
+  color: var(--accent-warm);
+  border-color: rgba(192, 149, 110, 0.3);
+}
+
+.admin-btn-warn:hover {
+  background: rgba(192, 149, 110, 0.08);
+  border-color: var(--accent-warm);
+}
+
 .admin-btn-sm {
   padding: 0.3rem 0.65rem;
   font-size: 0.75rem;
@@ -2416,4 +2502,220 @@ main {
   padding: 3rem;
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+/* Badge variants */
+.admin-badge-danger {
+  background: rgba(220, 80, 80, 0.1);
+  color: #dc5050;
+}
+
+.admin-badge-warn {
+  background: rgba(192, 149, 110, 0.1);
+  color: var(--accent-warm);
+}
+
+/* Filter bar */
+.admin-filter-bar {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.admin-filter-bar .admin-btn-sm {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+}
+
+.admin-filter-bar .admin-btn-sm.active {
+  background: rgba(107, 143, 113, 0.15);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Messages table */
+.msg-content {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ideas grid */
+.ideas-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.idea-card {
+  padding: 1rem 1.25rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.idea-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 12px rgba(107, 143, 113, 0.08);
+}
+
+.idea-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.idea-card-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.idea-card-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0 0 0.4rem;
+  line-height: 1.5;
+}
+
+.idea-card-foot {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.idea-card-note {
+  opacity: 0.7;
+}
+
+/* Admin modal */
+.admin-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.admin-modal-content {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  max-width: 480px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.admin-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.admin-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.admin-modal-close:hover {
+  color: var(--ink);
+}
+
+.admin-modal-body {
+  padding: 1.25rem;
+}
+
+.admin-modal-body p {
+  margin: 0.3rem 0;
+  font-size: 0.85rem;
+}
+
+.admin-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.admin-modal-actions .admin-btn {
+  flex: 1;
+  min-width: 100px;
+  justify-content: center;
+}
+
+/* Skills scan grid */
+.skills-section-title {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 1.5rem 0 0.75rem;
+  font-weight: 500;
+}
+
+.skills-scan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.skill-scan-card {
+  padding: 1rem 1.25rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  transition: border-color 0.2s;
+}
+
+.skill-scan-card:hover {
+  border-color: var(--accent);
+}
+
+.skill-scan-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.skill-scan-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.skill-scan-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.skill-scan-meta {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
 }

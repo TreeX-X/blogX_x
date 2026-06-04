@@ -500,6 +500,68 @@ export async function reviewIdea(
   }
 }
 
+/**
+ * Update a fun message's status
+ */
+export async function updateFunMessageStatus(
+  messageId: string,
+  status: "approved" | "rejected"
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const data = await redisGet("fun-messages:list");
+    if (!data) return { success: false, message: "留言不存在" };
+    const messages = parseMessageList<FunMessage>(data);
+    const index = messages.findIndex((m) => m.id === messageId);
+    if (index === -1) return { success: false, message: "留言不存在" };
+    messages[index].status = status;
+    await redisSet("fun-messages:list", JSON.stringify(messages));
+    return { success: true, message: status === "approved" ? "已通过" : "已拒绝" };
+  } catch (error) {
+    console.error("Update fun message status error:", error);
+    return { success: false, message: "操作失败" };
+  }
+}
+
+/**
+ * Delete a fun message
+ */
+export async function deleteFunMessage(
+  messageId: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const data = await redisGet("fun-messages:list");
+    if (!data) return { success: false, message: "留言不存在" };
+    const messages = parseMessageList<FunMessage>(data);
+    const filtered = messages.filter((m) => m.id !== messageId);
+    if (filtered.length === messages.length) return { success: false, message: "留言不存在" };
+    await redisSet("fun-messages:list", JSON.stringify(filtered));
+    return { success: true, message: "已删除" };
+  } catch (error) {
+    console.error("Delete fun message error:", error);
+    return { success: false, message: "删除失败" };
+  }
+}
+
+/**
+ * Delete an idea
+ */
+export async function deleteIdea(
+  ideaId: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const data = await redisGet("ideas:list");
+    if (!data) return { success: false, message: "点子不存在" };
+    const ideas = parseMessageList<Idea>(data);
+    const filtered = ideas.filter((i) => i.id !== ideaId);
+    if (filtered.length === ideas.length) return { success: false, message: "点子不存在" };
+    await redisSet("ideas:list", JSON.stringify(filtered));
+    return { success: true, message: "已删除" };
+  } catch (error) {
+    console.error("Delete idea error:", error);
+    return { success: false, message: "删除失败" };
+  }
+}
+
 export async function pingRedis(): Promise<{
   ok: boolean;
   provider: string;

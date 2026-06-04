@@ -7,539 +7,164 @@ const toBase = (path = "") => {
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
   return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
 };
-
-const adminLoginApi = toBase("api/admin/login");
-const adminLogoutApi = toBase("api/admin/logout");
-const ideasAdminApi = toBase("api/ideas/admin");
 ---
 
-<BaseLayout title="BlogX_x | 点子管理" description="管理留言和点子审核。">
-  <section>
-    <h1 class="section-title">点子管理后台</h1>
+<BaseLayout title="意见箱 | Admin" description="管理用户提交的点子">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-brand">BlogX_x</div>
+      <p class="admin-sidebar-sub">管理面板</p>
+      <nav class="admin-nav">
+        <a href={toBase("admin")}>仪表盘</a>
+        <a href={toBase("admin/posts")}>文章链接</a>
+        <a href={toBase("admin/repos")}>仓库链接</a>
+        <a href={toBase("admin/toolbox")}>工具箱</a>
+        <a href={toBase("admin/skills")}>Skills</a>
+        <a href={toBase("admin/messages")}>留言管理</a>
+        <a href={toBase("admin/ideas")} class="active">意见箱</a>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <a href={toBase()}>← 返回首页</a>
+      </div>
+    </aside>
 
-    <div class="admin-container">
-      <div id="auth-panel" class="admin-auth">
-        <h2>管理员登录</h2>
-        <p class="meta">输入后台密码后访问审核功能，密码不会暴露到浏览器脚本。</p>
-        <div class="admin-login-form">
-          <input id="admin-password" type="password" placeholder="管理员密码" />
-          <button id="admin-login-btn" type="button">登录</button>
-          <button id="admin-logout-btn" type="button" class="logout-btn">退出</button>
+    <main class="admin-main">
+      <div class="admin-page-head">
+        <h1 class="admin-page-title">意见箱</h1>
+        <div class="admin-filter-bar">
+          <button class="admin-btn admin-btn-sm active" data-filter="all" onclick="setFilter('all')">全部</button>
+          <button class="admin-btn admin-btn-sm" data-filter="pending" onclick="setFilter('pending')">待审核</button>
+          <button class="admin-btn admin-btn-sm" data-filter="approved" onclick="setFilter('approved')">已通过</button>
+          <button class="admin-btn admin-btn-sm" data-filter="rejected" onclick="setFilter('rejected')">已拒绝</button>
         </div>
-        <p id="auth-status" class="status-text"></p>
       </div>
 
-      <div id="admin-panel" style="display: none;">
-        <div class="admin-header">
-          <h2>待审核点子</h2>
-          <p class="meta">审核用户提交的点子，设置实现状态</p>
-        </div>
+      <div id="ideasList" class="ideas-grid"></div>
+      <div id="emptyState" class="admin-empty" style="display:none;">暂无点子</div>
 
-        <div id="ideas-list" class="ideas-list">
-          <p class="meta">加载中...</p>
-        </div>
-
-        <div id="review-modal" class="modal" style="display: none;">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h3>审核点子</h3>
-              <button class="close-btn" onclick="closeModal()">×</button>
+      <!-- Review modal -->
+      <div id="reviewModal" class="admin-modal" style="display:none;">
+        <div class="admin-modal-content">
+          <div class="admin-modal-header">
+            <h3 id="modalTitle">审核点子</h3>
+            <button class="admin-modal-close" onclick="closeModal()">&times;</button>
+          </div>
+          <div class="admin-modal-body">
+            <div id="modalDetails"></div>
+            <div class="admin-form" style="margin-top:1rem;">
+              <div class="form-group">
+                <label>管理员备注</label>
+                <input id="adminNote" placeholder="可选：填写说明" />
+              </div>
             </div>
-            <div class="modal-body">
-              <div id="idea-details"></div>
-              <div class="review-actions">
-                <button onclick="approveIdea(true)" class="btn-approve">通过并已实现</button>
-                <button onclick="approveIdea(false)" class="btn-pending">通过但待实现</button>
-                <button onclick="rejectIdea()" class="btn-reject">拒绝</button>
-              </div>
-              <div class="admin-note">
-                <label>管理员备注（可选）：</label>
-                <input type="text" id="admin-note" placeholder="填写拒绝原因或其他说明" />
-              </div>
+            <div class="admin-modal-actions">
+              <button class="admin-btn admin-btn-primary" onclick="review('approve', true)">通过 · 已实现</button>
+              <button class="admin-btn admin-btn-warn" onclick="review('approve', false)">通过 · 待实现</button>
+              <button class="admin-btn admin-btn-danger" onclick="review('reject')">拒绝</button>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
+    </main>
+  </div>
 
-  <style>
-    .admin-container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 2rem;
+  <script is:inline>
+    let ideas = [];
+    let filter = "all";
+    let currentId = null;
+
+    async function load() {
+      const res = await fetch("/api/admin/ideas");
+      ideas = await res.json();
+      render();
     }
 
-    .admin-auth {
-      border: 1px solid rgba(167, 139, 250, 0.12);
-      border-radius: 12px;
-      padding: 1.5rem;
-      background: rgba(15, 12, 24, 0.5);
-      backdrop-filter: blur(12px);
-      margin-bottom: 2rem;
-    }
-
-    .admin-login-form {
-      display: flex;
-      gap: 0.75rem;
-      margin-top: 1rem;
-    }
-
-    .admin-login-form input {
-      flex: 1;
-      padding: 0.8rem;
-      border: 1px solid rgba(167, 139, 250, 0.12);
-      border-radius: 8px;
-      background: rgba(15, 12, 24, 0.5);
-      color: var(--text);
-    }
-
-    .admin-login-form input:focus {
-      outline: none;
-      border-color: rgba(167, 139, 250, 0.4);
-      box-shadow: 0 0 12px rgba(167, 139, 250, 0.1);
-    }
-
-    .admin-login-form button {
-      padding: 0.8rem 1rem;
-      border: 1px solid rgba(167, 139, 250, 0.3);
-      border-radius: 8px;
-      background: linear-gradient(135deg, rgba(167, 139, 250, 0.2), rgba(96, 165, 250, 0.15));
-      color: #a78bfa;
-      cursor: pointer;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
-
-    .admin-login-form button:hover {
-      background: linear-gradient(135deg, rgba(167, 139, 250, 0.3), rgba(96, 165, 250, 0.25));
-      box-shadow: 0 0 16px rgba(167, 139, 250, 0.12);
-    }
-
-    .logout-btn {
-      background: transparent !important;
-      color: var(--text-muted) !important;
-      border: 1px solid rgba(167, 139, 250, 0.12) !important;
-    }
-
-    .admin-header {
-      margin-bottom: 2rem;
-      text-align: center;
-    }
-
-    .ideas-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .idea-card {
-      padding: 1.5rem;
-      border: 1px solid rgba(167, 139, 250, 0.12);
-      border-radius: 8px;
-      background: rgba(15, 12, 24, 0.5);
-      backdrop-filter: blur(12px);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .idea-card:hover {
-      border-color: rgba(167, 139, 250, 0.3);
-      box-shadow: 0 0 20px rgba(167, 139, 250, 0.08), 0 4px 16px rgba(0, 0, 0, 0.4);
-    }
-
-    .idea-card.pending {
-      border-left: 4px solid #fbbf24;
-    }
-
-    .idea-card.approved {
-      border-left: 4px solid #34d399;
-    }
-
-    .idea-card.rejected {
-      border-left: 4px solid #f87171;
-      opacity: 0.7;
-    }
-
-    .idea-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-
-    .idea-title {
-      font-weight: 500;
-      font-size: 1.1rem;
-    }
-
-    .idea-status {
-      font-size: 0.85rem;
-      padding: 0.2rem 0.6rem;
-      border-radius: 12px;
-      background: rgba(167, 139, 250, 0.08);
-    }
-
-    .idea-status.pending {
-      color: #fbbf24;
-    }
-
-    .idea-status.approved {
-      color: #34d399;
-    }
-
-    .idea-status.rejected {
-      color: #f87171;
-    }
-
-    .idea-content {
-      margin-bottom: 0.8rem;
-      line-height: 1.5;
-    }
-
-    .idea-meta {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-
-    .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(7, 5, 13, 0.8);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-
-    .modal-content {
-      background: rgba(15, 12, 24, 0.85);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(167, 139, 250, 0.15);
-      border-radius: 12px;
-      max-width: 500px;
-      width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1.5rem;
-      border-bottom: 1px solid rgba(167, 139, 250, 0.1);
-    }
-
-    .modal-header h3 {
-      margin: 0;
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 1.5rem;
-      cursor: pointer;
-      color: var(--text-muted);
-      transition: color 0.2s;
-    }
-
-    .close-btn:hover {
-      color: #a78bfa;
-    }
-
-    .modal-body {
-      padding: 1.5rem;
-    }
-
-    .review-actions {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .btn-approve,
-    .btn-pending,
-    .btn-reject {
-      flex: 1;
-      padding: 0.8rem;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      min-width: 120px;
-      font-weight: 600;
-    }
-
-    .btn-approve {
-      background: rgba(52, 211, 153, 0.15);
-      color: #34d399;
-      border: 1px solid rgba(52, 211, 153, 0.3);
-    }
-
-    .btn-approve:hover {
-      background: rgba(52, 211, 153, 0.25);
-      box-shadow: 0 0 12px rgba(52, 211, 153, 0.15);
-    }
-
-    .btn-pending {
-      background: rgba(251, 191, 36, 0.15);
-      color: #fbbf24;
-      border: 1px solid rgba(251, 191, 36, 0.3);
-    }
-
-    .btn-pending:hover {
-      background: rgba(251, 191, 36, 0.25);
-      box-shadow: 0 0 12px rgba(251, 191, 36, 0.15);
-    }
-
-    .btn-reject {
-      background: rgba(248, 113, 113, 0.15);
-      color: #f87171;
-      border: 1px solid rgba(248, 113, 113, 0.3);
-    }
-
-    .btn-reject:hover {
-      background: rgba(248, 113, 113, 0.25);
-      box-shadow: 0 0 12px rgba(248, 113, 113, 0.15);
-    }
-
-    .admin-note {
-      margin-top: 1rem;
-    }
-
-    .admin-note input {
-      width: 100%;
-      padding: 0.6rem;
-      border: 1px solid rgba(167, 139, 250, 0.12);
-      border-radius: 6px;
-      background: rgba(15, 12, 24, 0.5);
-      color: var(--text);
-    }
-
-    .admin-note input:focus {
-      outline: none;
-      border-color: rgba(167, 139, 250, 0.4);
-    }
-
-    @media (max-width: 600px) {
-      .admin-container {
-        padding: 1rem;
-      }
-
-      .admin-login-form,
-      .review-actions {
-        flex-direction: column;
-      }
-
-      .modal-content {
-        width: 95%;
-      }
-    }
-  </style>
-
-  <script is:inline define:vars={{ adminLoginApi, adminLogoutApi, ideasAdminApi }}>
-    let currentIdeaId = null;
-
-    async function fetchWithAuth(url, options = {}) {
-      return fetch(url, {
-        ...options,
-        credentials: "include"
+    function setFilter(f) {
+      filter = f;
+      document.querySelectorAll("[data-filter]").forEach(b => {
+        b.classList.toggle("active", b.dataset.filter === f);
       });
+      render();
     }
 
-    async function loginAdmin() {
-      const password = document.getElementById("admin-password").value;
-      const status = document.getElementById("auth-status");
-
-      status.textContent = "登录中...";
-
-      try {
-        const response = await fetchWithAuth(adminLoginApi, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password })
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-          status.textContent = data.error || "登录失败";
-          return;
-        }
-
-        document.getElementById("auth-panel").style.display = "none";
-        document.getElementById("admin-panel").style.display = "block";
-        await loadIdeas();
-      } catch (error) {
-        status.textContent = "登录失败，请稍后重试";
-      }
-    }
-
-    async function logoutAdmin() {
-      await fetchWithAuth(adminLogoutApi, { method: "POST" });
-      document.getElementById("admin-panel").style.display = "none";
-      document.getElementById("auth-panel").style.display = "block";
-      document.getElementById("auth-status").textContent = "已退出登录";
-    }
-
-    async function loadIdeas() {
-      try {
-        const response = await fetchWithAuth(ideasAdminApi);
-
-        if (!response.ok) {
-          throw new Error("获取点子列表失败");
-        }
-
-        const data = await response.json();
-        displayIdeas(data.ideas || []);
-      } catch (error) {
-        console.error("Load ideas error:", error);
-        document.getElementById("ideas-list").innerHTML =
-          '<p class="meta" style="color: #f87171;">加载失败，请重新登录或检查服务端配置</p>';
-      }
-    }
-
-    function displayIdeas(ideas) {
-      const container = document.getElementById("ideas-list");
-
-      if (ideas.length === 0) {
-        container.innerHTML = "<p class='meta'>暂无待审核点子</p>";
-        return;
-      }
-
-      container.innerHTML = ideas.map(idea => {
-        const statusClass = idea.status;
-        const statusText = idea.status === 'pending' ? '待审核' :
-                          idea.status === 'approved' ? '已通过' : '已拒绝';
-        const implementedText = idea.implemented ? '✓ 已实现' : '○ 待实现';
-
-        return `
-          <div class="idea-card ${statusClass}" onclick="openModal('${idea.id}')">
-            <div class="idea-header">
-              <span class="idea-title">${escapeHtml(idea.idea)}</span>
-              <span class="idea-status ${statusClass}">${statusText}</span>
-            </div>
-            <div class="idea-content">
-              提交者：${escapeHtml(idea.name)} | ${formatTime(idea.createdAt)}
-              ${idea.implemented !== undefined ? `<br>${implementedText}` : ''}
-              ${idea.adminNote ? `<br><br><small style="color: color-mix(in srgb, var(--text) 60%, transparent)">备注：${escapeHtml(idea.adminNote)}</small>` : ''}
-            </div>
+    function render() {
+      const container = document.getElementById("ideasList");
+      const empty = document.getElementById("emptyState");
+      const filtered = filter === "all" ? ideas : ideas.filter(i => i.status === filter);
+      if (!filtered.length) { container.innerHTML = ""; empty.style.display = ""; return; }
+      empty.style.display = "none";
+      container.innerHTML = filtered.map(i => {
+        const statusMap = { pending: "待审核", approved: "已通过", rejected: "已拒绝" };
+        const badgeClass = { pending: "admin-badge-warn", approved: "admin-badge", rejected: "admin-badge-danger" };
+        const time = new Date(i.createdAt).toLocaleString("zh-CN");
+        const implLabel = i.status === "approved" ? (i.implemented ? " · 已实现" : " · 待实现") : "";
+        return `<div class="idea-card" onclick="openModal('${i.id}')">
+          <div class="idea-card-head">
+            <span class="idea-card-name">${escapeHtml(i.name)}</span>
+            <span class="admin-badge ${badgeClass[i.status] || ''}">${statusMap[i.status] || i.status}${implLabel}</span>
           </div>
-        `;
+          <p class="idea-card-text">${escapeHtml(i.idea)}</p>
+          <div class="idea-card-foot">
+            <span>${time}</span>
+            ${i.adminNote ? `<span class="idea-card-note">备注：${escapeHtml(i.adminNote)}</span>` : ""}
+          </div>
+        </div>`;
       }).join("");
     }
 
-    async function openModal(ideaId) {
-      currentIdeaId = ideaId;
-
-      try {
-        const response = await fetchWithAuth(ideasAdminApi);
-        const data = await response.json();
-        const idea = (data.ideas || []).find(i => i.id === ideaId);
-        if (idea) {
-          document.getElementById("idea-details").innerHTML = `
-            <h4>${escapeHtml(idea.idea)}</h4>
-            <p><strong>提交者：</strong>${escapeHtml(idea.name)}</p>
-            <p><strong>提交时间：</strong>${formatTime(idea.createdAt)}</p>
-            ${idea.adminNote ? `<p><strong>当前备注：</strong>${escapeHtml(idea.adminNote)}</p>` : ''}
-          `;
-          document.getElementById("admin-note").value = "";
-          document.getElementById("review-modal").style.display = "flex";
-        }
-      } catch (error) {
-        alert("加载点子详情失败");
-      }
+    function openModal(id) {
+      currentId = id;
+      const idea = ideas.find(i => i.id === id);
+      if (!idea) return;
+      document.getElementById("modalTitle").textContent = "审核点子";
+      document.getElementById("modalDetails").innerHTML = `
+        <p><strong>提交者：</strong>${escapeHtml(idea.name)}</p>
+        <p><strong>内容：</strong>${escapeHtml(idea.idea)}</p>
+        <p><strong>时间：</strong>${new Date(idea.createdAt).toLocaleString("zh-CN")}</p>
+        ${idea.adminNote ? `<p><strong>当前备注：</strong>${escapeHtml(idea.adminNote)}</p>` : ""}
+      `;
+      document.getElementById("adminNote").value = "";
+      document.getElementById("reviewModal").style.display = "flex";
     }
 
     function closeModal() {
-      document.getElementById("review-modal").style.display = "none";
-      currentIdeaId = null;
+      document.getElementById("reviewModal").style.display = "none";
+      currentId = null;
     }
 
-    async function approveIdea(implemented) {
-      if (!currentIdeaId) return;
-
-      const adminNote = document.getElementById("admin-note").value.trim();
-
-      const response = await fetchWithAuth(ideasAdminApi, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          id: currentIdeaId,
-          action: "approve",
-          implemented: implemented,
-          adminNote: adminNote
-        })
+    async function review(action, implemented) {
+      if (!currentId) return;
+      const adminNote = document.getElementById("adminNote").value.trim();
+      await fetch("/api/admin/ideas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: currentId, action, implemented: !!implemented, adminNote }),
       });
-
-      const data = await response.json();
-      if (data.success) {
-        closeModal();
-        loadIdeas();
-      } else {
-        alert("操作失败：" + (data.message || "未知错误"));
-      }
+      closeModal();
+      load();
     }
 
-    async function rejectIdea() {
-      if (!currentIdeaId) return;
-
-      const adminNote = document.getElementById("admin-note").value.trim();
-
-      const response = await fetchWithAuth(ideasAdminApi, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          id: currentIdeaId,
-          action: "reject",
-          adminNote: adminNote
-        })
+    async function deleteIdea(id) {
+      if (!confirm("删除这条点子？")) return;
+      await fetch("/api/admin/ideas", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
       });
-
-      const data = await response.json();
-      if (data.success) {
-        closeModal();
-        loadIdeas();
-      } else {
-        alert("操作失败：" + (data.message || "未知错误"));
-      }
+      load();
     }
 
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+    function escapeHtml(t) {
+      const d = document.createElement("div");
+      d.textContent = t;
+      return d.innerHTML;
     }
 
-    function formatTime(timestamp) {
-      const date = new Date(timestamp);
-      return date.toLocaleString('zh-CN');
-    }
-
-    document.getElementById("admin-login-btn").addEventListener("click", loginAdmin);
-    document.getElementById("admin-logout-btn").addEventListener("click", logoutAdmin);
-    document.getElementById("admin-password").addEventListener("keydown", (event) => {
-      if (event.key === "Enter") loginAdmin();
+    // Close modal on backdrop click
+    document.getElementById("reviewModal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeModal();
     });
 
-    window.closeModal = closeModal;
-    window.openModal = openModal;
-
-    window.onclick = function(event) {
-      const modal = document.getElementById("review-modal");
-      if (event.target === modal) {
-        closeModal();
-      }
-    };
+    load();
   </script>
 </BaseLayout>

@@ -1,9 +1,7 @@
 ---
-title: "razorX"
+name: razorX
+author: TreeX
 description: "代码审美框架：用优雅（最短到达路径）与减法（最低认知负荷）两条原则审视代码。审查模式逐条给出可执行改法，生成模式让审美内化为代码直觉。当用户提到代码质量、重构、简化、优化、优化代码结构、code review、代码审查、代码整洁、clean code、冗余代码、重复代码、DRY、可读性、readability、技术债、tech debt、代码太复杂、设计模式、消除重复、写代码、生成代码时触发。即使用户只是随口抱怨"这代码好乱"也应该激活。"
-skillDir: "razorX"
-tags: []
-author: "TreeX"
 ---
 
 # razorX

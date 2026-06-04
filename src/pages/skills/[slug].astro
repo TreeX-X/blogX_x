@@ -39,53 +39,101 @@ const downloadUrl = `${base.endsWith("/") ? base : base + "/"}skills-download/${
     <span>{getContentTitle(skill)}</span>
   </nav>
 
-  <article class="prose-wrap skill-prose">
-    <header class="skill-detail-head">
-      <h1 style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 0.6rem;">
-        {getContentTitle(skill)}
-      </h1>
-      <p class="skill-detail-desc">{skill.data.description}</p>
+  <div class="skill-detail-layout">
+    <!-- TOC sidebar (populated by JS) -->
+    <aside class="skill-toc" id="skillToc">
+      <div class="skill-toc-title">目录</div>
+      <nav class="skill-toc-nav" id="skillTocNav"></nav>
+    </aside>
 
-      <div class="skill-meta-bar">
-        {skill.data.version ? (
-          <span class="skill-meta-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            v{skill.data.version}
-          </span>
-        ) : null}
-        {skill.data.author ? (
-          <span class="skill-meta-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            {skill.data.author}
-          </span>
-        ) : null}
-        {skill.data.license ? (
-          <span class="skill-meta-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            {skill.data.license}
-          </span>
-        ) : null}
-        {skill.data.tags?.length ? (
-          <div class="skill-meta-tags">
-            {skill.data.tags.map((tag) => (
-              <span class="tag">#{tag}</span>
-            ))}
-          </div>
-        ) : null}
+    <article class="prose-wrap skill-prose">
+      <header class="skill-detail-head">
+        <h1 style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 0.6rem;">
+          {getContentTitle(skill)}
+        </h1>
+        <p class="skill-detail-desc">{skill.data.description}</p>
+
+        <div class="skill-meta-bar">
+          {skill.data.version ? (
+            <span class="skill-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              v{skill.data.version}
+            </span>
+          ) : null}
+          {skill.data.author ? (
+            <span class="skill-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              {skill.data.author}
+            </span>
+          ) : null}
+          {skill.data.license ? (
+            <span class="skill-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              {skill.data.license}
+            </span>
+          ) : null}
+          {skill.data.tags?.length ? (
+            <div class="skill-meta-tags">
+              {skill.data.tags.map((tag) => (
+                <span class="tag">#{tag}</span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <a class="skill-download-btn" href={downloadUrl} download>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          下载 Skill 包 (.zip)
+        </a>
+      </header>
+
+      <div class="skill-content" id="skillContent">
+        <Content />
       </div>
+    </article>
+  </div>
 
-      <a class="skill-download-btn" href={downloadUrl} download>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-        下载 Skill 包 (.zip)
-      </a>
-    </header>
+  <script is:inline>
+    // Build TOC from h2 headings in the skill content
+    (function() {
+      const content = document.getElementById("skillContent");
+      const tocNav = document.getElementById("skillTocNav");
+      const toc = document.getElementById("skillToc");
+      if (!content || !tocNav || !toc) return;
 
-    <div class="skill-content">
-      <Content />
-    </div>
-  </article>
+      const headings = content.querySelectorAll("h2");
+      if (headings.length < 2) {
+        toc.style.display = "none";
+        return;
+      }
+
+      headings.forEach((h, i) => {
+        const id = "skill-h2-" + i;
+        h.id = id;
+        const link = document.createElement("a");
+        link.href = "#" + id;
+        link.textContent = h.textContent;
+        link.className = "skill-toc-link";
+        tocNav.appendChild(link);
+      });
+
+      // Highlight active TOC item on scroll
+      const links = tocNav.querySelectorAll(".skill-toc-link");
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            links.forEach((l) => l.classList.remove("active"));
+            const active = tocNav.querySelector('a[href="#' + entry.target.id + '"]');
+            if (active) active.classList.add("active");
+          }
+        });
+      }, { rootMargin: "-80px 0px -70% 0px" });
+
+      headings.forEach((h) => observer.observe(h));
+    })();
+  </script>
 </BaseLayout>
