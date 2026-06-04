@@ -1,0 +1,68 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+
+const sections = [
+  { key: "posts", label: "文章链接", desc: "管理外链文章的收录与分类", icon: "📄" },
+  { key: "repos", label: "仓库链接", desc: "管理精选开源代码仓库", icon: "📦" },
+  { key: "toolbox", label: "工具箱", desc: "管理在线工具与网址导航", icon: "🧰" },
+  { key: "skills", label: "Skills", desc: "管理 Claude Code Skill 技能包", icon: "⚡" },
+];
+---
+
+<BaseLayout title="BlogX_x | 管理面板" description="本地内容管理面板">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-brand">BlogX_x</div>
+      <p class="admin-sidebar-sub">管理面板</p>
+      <nav class="admin-nav">
+        <a href={toBase("admin")} class="active">仪表盘</a>
+        <a href={toBase("admin/posts")}>文章链接</a>
+        <a href={toBase("admin/repos")}>仓库链接</a>
+        <a href={toBase("admin/toolbox")}>工具箱</a>
+        <a href={toBase("admin/skills")}>Skills</a>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <a href={toBase()}>← 返回首页</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-page-head">
+        <h1 class="admin-page-title">仪表盘</h1>
+      </div>
+
+      <div class="admin-stats" id="statsGrid">
+        {sections.map((s) => (
+          <a class="admin-stat-card" href={toBase(`admin/${s.key}`)}>
+            <div class="admin-stat-icon">{s.icon}</div>
+            <div class="admin-stat-count" data-section={s.key}>—</div>
+            <div class="admin-stat-label">{s.label}</div>
+            <p class="admin-stat-desc">{s.desc}</p>
+          </a>
+        ))}
+      </div>
+    </main>
+  </div>
+
+  <script is:inline>
+    async function loadStats() {
+      const apis = { posts: "/api/admin/posts", repos: "/api/admin/repos", toolbox: "/api/admin/toolbox", skills: "/api/admin/skills" };
+      for (const [key, url] of Object.entries(apis)) {
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          const el = document.querySelector(`[data-section="${key}"]`);
+          if (el) el.textContent = Array.isArray(data) ? data.length : 0;
+        } catch {}
+      }
+    }
+    loadStats();
+  </script>
+</BaseLayout>

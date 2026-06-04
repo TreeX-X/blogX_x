@@ -1,0 +1,131 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+---
+
+<BaseLayout title="工具箱管理 | Admin" description="管理在线工具">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-brand">BlogX_x</div>
+      <p class="admin-sidebar-sub">管理面板</p>
+      <nav class="admin-nav">
+        <a href={toBase("admin")}>仪表盘</a>
+        <a href={toBase("admin/posts")}>文章链接</a>
+        <a href={toBase("admin/repos")}>仓库链接</a>
+        <a href={toBase("admin/toolbox")} class="active">工具箱</a>
+        <a href={toBase("admin/skills")}>Skills</a>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <a href={toBase()}>← 返回首页</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-page-head">
+        <h1 class="admin-page-title">工具箱</h1>
+        <button class="admin-btn admin-btn-primary" onclick="toggleForm()">+ 新增工具</button>
+      </div>
+
+      <div id="addForm" class="admin-inline-form">
+        <h3>新增工具</h3>
+        <div class="admin-form">
+          <div class="form-row">
+            <div class="form-group"><label>名称</label><input id="f-name" placeholder="工具名" /></div>
+            <div class="form-group"><label>分类</label><input id="f-cat" placeholder="开发工具" /></div>
+          </div>
+          <div class="form-group"><label>链接</label><input id="f-url" placeholder="https://..." /></div>
+          <div class="form-group"><label>简介</label><textarea id="f-summary" rows="2"></textarea></div>
+          <div class="form-btns">
+            <button class="admin-btn admin-btn-primary" onclick="saveItem()">保存</button>
+            <button class="admin-btn" onclick="toggleForm()">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>名称</th><th>分类</th><th>链接</th><th>简介</th><th>操作</th></tr></thead>
+          <tbody id="tbBody"></tbody>
+        </table>
+        <div id="emptyState" class="admin-empty" style="display:none;">暂无工具</div>
+      </div>
+    </main>
+  </div>
+
+  <script is:inline>
+    let items = [];
+    let editing = null;
+
+    async function load() {
+      const res = await fetch("/api/admin/toolbox");
+      items = await res.json();
+      render();
+    }
+
+    function render() {
+      const body = document.getElementById("tbBody");
+      const empty = document.getElementById("emptyState");
+      if (!items.length) { body.innerHTML = ""; empty.style.display = ""; return; }
+      empty.style.display = "none";
+      body.innerHTML = items.map((t, i) => `<tr>
+        <td><strong>${t.name}</strong></td>
+        <td><span class="admin-badge">${t.category}</span></td>
+        <td><a href="${t.url}" target="_blank" class="admin-link">${t.url.slice(0, 40)}...</a></td>
+        <td>${(t.summary || "").slice(0, 60)}</td>
+        <td class="admin-actions">
+          <button class="admin-btn admin-btn-sm" onclick="editItem(${i})">编辑</button>
+          <button class="admin-btn admin-btn-sm admin-btn-danger" onclick="deleteItem(${i})">删除</button>
+        </td>
+      </tr>`).join("");
+    }
+
+    function toggleForm() {
+      const form = document.getElementById("addForm");
+      form.classList.toggle("show");
+      editing = null;
+      if (!form.classList.contains("show")) {
+        ["f-name","f-cat","f-url","f-summary"].forEach(id => document.getElementById(id).value = "");
+      }
+    }
+
+    function editItem(i) {
+      const t = items[i];
+      editing = i;
+      document.getElementById("f-name").value = t.name;
+      document.getElementById("f-cat").value = t.category;
+      document.getElementById("f-url").value = t.url;
+      document.getElementById("f-summary").value = t.summary;
+      document.getElementById("addForm").classList.add("show");
+    }
+
+    async function saveItem() {
+      const data = {
+        name: document.getElementById("f-name").value.trim(),
+        category: document.getElementById("f-cat").value.trim(),
+        url: document.getElementById("f-url").value.trim(),
+        summary: document.getElementById("f-summary").value.trim(),
+      };
+      if (editing !== null) {
+        await fetch("/api/admin/toolbox", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ index: editing, ...data }) });
+      } else {
+        await fetch("/api/admin/toolbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      }
+      toggleForm();
+      load();
+    }
+
+    async function deleteItem(i) {
+      if (!confirm(`删除「${items[i].name}」？`)) return;
+      await fetch("/api/admin/toolbox", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ index: i }) });
+      load();
+    }
+
+    load();
+  </script>
+</BaseLayout>

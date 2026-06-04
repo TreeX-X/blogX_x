@@ -1,0 +1,150 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+---
+
+<BaseLayout title="Skills 管理 | Admin" description="管理 Claude Code Skills">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-brand">BlogX_x</div>
+      <p class="admin-sidebar-sub">管理面板</p>
+      <nav class="admin-nav">
+        <a href={toBase("admin")}>仪表盘</a>
+        <a href={toBase("admin/posts")}>文章链接</a>
+        <a href={toBase("admin/repos")}>仓库链接</a>
+        <a href={toBase("admin/toolbox")}>工具箱</a>
+        <a href={toBase("admin/skills")} class="active">Skills</a>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <a href={toBase()}>← 返回首页</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-page-head">
+        <h1 class="admin-page-title">Skills</h1>
+        <button class="admin-btn admin-btn-primary" onclick="toggleForm()">+ 新增 Skill</button>
+      </div>
+
+      <div id="addForm" class="admin-inline-form">
+        <h3>新增 Skill</h3>
+        <div class="admin-form">
+          <div class="form-row">
+            <div class="form-group"><label>Slug</label><input id="f-slug" placeholder="my-skill" /></div>
+            <div class="form-group"><label>标题</label><input id="f-title" placeholder="Skill 名称" /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Skill 目录名</label><input id="f-dir" placeholder="对应 .claude/skills/ 下的目录" /></div>
+            <div class="form-group"><label>版本</label><input id="f-ver" placeholder="1.0.0" /></div>
+          </div>
+          <div class="form-group"><label>描述</label><textarea id="f-desc" rows="2"></textarea></div>
+          <div class="form-row">
+            <div class="form-group"><label>作者</label><input id="f-author" placeholder="作者" /></div>
+            <div class="form-group"><label>许可证</label><input id="f-license" placeholder="MIT" /></div>
+          </div>
+          <div class="form-group"><label>标签（逗号分隔）</label><input id="f-tags" placeholder="ai, workflow" /></div>
+          <div class="form-group"><label>正文内容（Markdown）</label><textarea id="f-body" rows="6" placeholder="## 简介&#10;..."></textarea></div>
+          <div class="form-btns">
+            <button class="admin-btn admin-btn-primary" onclick="saveSkill()">保存</button>
+            <button class="admin-btn" onclick="toggleForm()">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>标题</th><th>目录</th><th>版本</th><th>作者</th><th>标签</th><th>操作</th></tr></thead>
+          <tbody id="skillsBody"></tbody>
+        </table>
+        <div id="emptyState" class="admin-empty" style="display:none;">暂无 Skills</div>
+      </div>
+    </main>
+  </div>
+
+  <script is:inline>
+    let skills = [];
+    let editing = null;
+
+    async function load() {
+      const res = await fetch("/api/admin/skills");
+      skills = await res.json();
+      render();
+    }
+
+    function render() {
+      const body = document.getElementById("skillsBody");
+      const empty = document.getElementById("emptyState");
+      if (!skills.length) { body.innerHTML = ""; empty.style.display = ""; return; }
+      empty.style.display = "none";
+      body.innerHTML = skills.map((s, i) => `<tr>
+        <td><strong>${s.title || s.slug}</strong></td>
+        <td><code>${s.skillDir || "—"}</code></td>
+        <td>${s.version || "—"}</td>
+        <td>${s.author || "—"}</td>
+        <td>${(s.tags || []).map(t => `<span class="admin-badge">${t}</span>`).join(" ")}</td>
+        <td class="admin-actions">
+          <button class="admin-btn admin-btn-sm" onclick="editSkill(${i})">编辑</button>
+          <button class="admin-btn admin-btn-sm admin-btn-danger" onclick="deleteSkill(${i})">删除</button>
+        </td>
+      </tr>`).join("");
+    }
+
+    function toggleForm() {
+      const form = document.getElementById("addForm");
+      form.classList.toggle("show");
+      editing = null;
+      if (!form.classList.contains("show")) {
+        ["f-slug","f-title","f-dir","f-ver","f-desc","f-author","f-license","f-tags","f-body"].forEach(id => document.getElementById(id).value = "");
+        document.getElementById("f-slug").disabled = false;
+      }
+    }
+
+    function editSkill(i) {
+      const s = skills[i];
+      editing = i;
+      document.getElementById("f-slug").value = s.slug;
+      document.getElementById("f-slug").disabled = true;
+      document.getElementById("f-title").value = s.title || "";
+      document.getElementById("f-dir").value = s.skillDir || "";
+      document.getElementById("f-ver").value = s.version || "";
+      document.getElementById("f-desc").value = s.description || "";
+      document.getElementById("f-author").value = s.author || "";
+      document.getElementById("f-license").value = s.license || "";
+      document.getElementById("f-tags").value = (s.tags || []).join(", ");
+      document.getElementById("f-body").value = s.body || "";
+      document.getElementById("addForm").classList.add("show");
+    }
+
+    async function saveSkill() {
+      const data = {
+        slug: document.getElementById("f-slug").value.trim(),
+        title: document.getElementById("f-title").value.trim(),
+        skillDir: document.getElementById("f-dir").value.trim(),
+        version: document.getElementById("f-ver").value.trim(),
+        description: document.getElementById("f-desc").value.trim(),
+        author: document.getElementById("f-author").value.trim(),
+        license: document.getElementById("f-license").value.trim(),
+        tags: document.getElementById("f-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+        body: document.getElementById("f-body").value.trim(),
+      };
+      const method = editing !== null ? "PUT" : "POST";
+      await fetch("/api/admin/skills", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      toggleForm();
+      load();
+    }
+
+    async function deleteSkill(i) {
+      if (!confirm(`删除「${skills[i].title || skills[i].slug}」？`)) return;
+      await fetch("/api/admin/skills", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: skills[i].slug }) });
+      load();
+    }
+
+    load();
+  </script>
+</BaseLayout>

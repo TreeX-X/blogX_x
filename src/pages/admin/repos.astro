@@ -1,0 +1,142 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+---
+
+<BaseLayout title="仓库链接管理 | Admin" description="管理精选仓库">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-brand">BlogX_x</div>
+      <p class="admin-sidebar-sub">管理面板</p>
+      <nav class="admin-nav">
+        <a href={toBase("admin")}>仪表盘</a>
+        <a href={toBase("admin/posts")}>文章链接</a>
+        <a href={toBase("admin/repos")} class="active">仓库链接</a>
+        <a href={toBase("admin/toolbox")}>工具箱</a>
+        <a href={toBase("admin/skills")}>Skills</a>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <a href={toBase()}>← 返回首页</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-page-head">
+        <h1 class="admin-page-title">仓库链接</h1>
+        <button class="admin-btn admin-btn-primary" onclick="toggleForm()">+ 新增仓库</button>
+      </div>
+
+      <div id="addForm" class="admin-inline-form">
+        <h3>新增仓库</h3>
+        <div class="admin-form">
+          <div class="form-row">
+            <div class="form-group"><label>Slug</label><input id="f-slug" placeholder="repo-name" /></div>
+            <div class="form-group"><label>标题</label><input id="f-title" placeholder="仓库名" /></div>
+          </div>
+          <div class="form-group"><label>仓库链接</label><input id="f-url" placeholder="https://github.com/..." /></div>
+          <div class="form-group"><label>描述</label><textarea id="f-desc" rows="2"></textarea></div>
+          <div class="form-row">
+            <div class="form-group"><label>语言</label><input id="f-lang" placeholder="TypeScript" /></div>
+            <div class="form-group"><label>Stars</label><input id="f-stars" type="number" placeholder="0" /></div>
+          </div>
+          <div class="form-group"><label>标签（逗号分隔）</label><input id="f-tags" placeholder="ai, agent" /></div>
+          <div class="form-btns">
+            <button class="admin-btn admin-btn-primary" onclick="saveRepo()">保存</button>
+            <button class="admin-btn" onclick="toggleForm()">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>标题</th><th>链接</th><th>语言</th><th>Stars</th><th>标签</th><th>操作</th></tr></thead>
+          <tbody id="reposBody"></tbody>
+        </table>
+        <div id="emptyState" class="admin-empty" style="display:none;">暂无仓库</div>
+      </div>
+    </main>
+  </div>
+
+  <script is:inline>
+    let repos = [];
+    let editing = null;
+
+    async function load() {
+      const res = await fetch("/api/admin/repos");
+      repos = await res.json();
+      render();
+    }
+
+    function render() {
+      const body = document.getElementById("reposBody");
+      const empty = document.getElementById("emptyState");
+      if (!repos.length) { body.innerHTML = ""; empty.style.display = ""; return; }
+      empty.style.display = "none";
+      body.innerHTML = repos.map((r, i) => `<tr>
+        <td><strong>${r.title || r.slug}</strong></td>
+        <td><a href="${r.repoUrl}" target="_blank" class="admin-link">${(r.repoUrl || "").slice(0, 40)}...</a></td>
+        <td>${r.language || "—"}</td>
+        <td>${r.stars || "—"}</td>
+        <td>${(r.tags || []).map(t => `<span class="admin-badge">${t}</span>`).join(" ")}</td>
+        <td class="admin-actions">
+          <button class="admin-btn admin-btn-sm" onclick="editRepo(${i})">编辑</button>
+          <button class="admin-btn admin-btn-sm admin-btn-danger" onclick="deleteRepo(${i})">删除</button>
+        </td>
+      </tr>`).join("");
+    }
+
+    function toggleForm() {
+      const form = document.getElementById("addForm");
+      form.classList.toggle("show");
+      editing = null;
+      if (!form.classList.contains("show")) {
+        ["f-slug","f-title","f-url","f-desc","f-lang","f-stars","f-tags"].forEach(id => document.getElementById(id).value = "");
+        document.getElementById("f-slug").disabled = false;
+      }
+    }
+
+    function editRepo(i) {
+      const r = repos[i];
+      editing = i;
+      document.getElementById("f-slug").value = r.slug;
+      document.getElementById("f-slug").disabled = true;
+      document.getElementById("f-title").value = r.title || "";
+      document.getElementById("f-url").value = r.repoUrl || "";
+      document.getElementById("f-desc").value = r.description || "";
+      document.getElementById("f-lang").value = r.language || "";
+      document.getElementById("f-stars").value = r.stars || "";
+      document.getElementById("f-tags").value = (r.tags || []).join(", ");
+      document.getElementById("addForm").classList.add("show");
+    }
+
+    async function saveRepo() {
+      const data = {
+        slug: document.getElementById("f-slug").value.trim(),
+        title: document.getElementById("f-title").value.trim(),
+        repoUrl: document.getElementById("f-url").value.trim(),
+        description: document.getElementById("f-desc").value.trim(),
+        language: document.getElementById("f-lang").value.trim(),
+        stars: parseInt(document.getElementById("f-stars").value) || 0,
+        tags: document.getElementById("f-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+      };
+      const method = editing !== null ? "PUT" : "POST";
+      await fetch("/api/admin/repos", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      toggleForm();
+      load();
+    }
+
+    async function deleteRepo(i) {
+      if (!confirm(`删除「${repos[i].title || repos[i].slug}」？`)) return;
+      await fetch("/api/admin/repos", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: repos[i].slug }) });
+      load();
+    }
+
+    load();
+  </script>
+</BaseLayout>

@@ -1,0 +1,141 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+---
+
+<BaseLayout title="文章链接管理 | Admin" description="管理外链文章">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-brand">BlogX_x</div>
+      <p class="admin-sidebar-sub">管理面板</p>
+      <nav class="admin-nav">
+        <a href={toBase("admin")}>仪表盘</a>
+        <a href={toBase("admin/posts")} class="active">文章链接</a>
+        <a href={toBase("admin/repos")}>仓库链接</a>
+        <a href={toBase("admin/toolbox")}>工具箱</a>
+        <a href={toBase("admin/skills")}>Skills</a>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <a href={toBase()}>← 返回首页</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-page-head">
+        <h1 class="admin-page-title">文章链接</h1>
+        <button class="admin-btn admin-btn-primary" onclick="toggleForm()">+ 新增文章</button>
+      </div>
+
+      <div id="addForm" class="admin-inline-form">
+        <h3>新增文章</h3>
+        <div class="admin-form">
+          <div class="form-row">
+            <div class="form-group"><label>Slug</label><input id="f-slug" placeholder="article-slug" /></div>
+            <div class="form-group"><label>标题</label><input id="f-title" placeholder="文章标题" /></div>
+          </div>
+          <div class="form-group"><label>原文链接</label><input id="f-url" placeholder="https://..." /></div>
+          <div class="form-group"><label>描述</label><textarea id="f-desc" rows="2"></textarea></div>
+          <div class="form-group"><label>标签（逗号分隔）</label><input id="f-tags" placeholder="ai, agent, coding" /></div>
+          <div class="form-group"><label>作者</label><input id="f-author" placeholder="原作者" /></div>
+          <div class="form-btns">
+            <button class="admin-btn admin-btn-primary" onclick="savePost()">保存</button>
+            <button class="admin-btn" onclick="toggleForm()">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>标题</th><th>链接</th><th>描述</th><th>标签</th><th>操作</th></tr></thead>
+          <tbody id="postsBody"></tbody>
+        </table>
+        <div id="emptyState" class="admin-empty" style="display:none;">暂无文章</div>
+      </div>
+    </main>
+  </div>
+
+  <script is:inline>
+    let posts = [];
+    let editing = null;
+
+    async function load() {
+      const res = await fetch("/api/admin/posts");
+      posts = await res.json();
+      render();
+    }
+
+    function render() {
+      const body = document.getElementById("postsBody");
+      const empty = document.getElementById("emptyState");
+      if (!posts.length) { body.innerHTML = ""; empty.style.display = ""; return; }
+      empty.style.display = "none";
+      body.innerHTML = posts.map((p, i) => `<tr>
+        <td><strong>${p.title || p.slug}</strong></td>
+        <td>${p.sourceUrl ? `<a href="${p.sourceUrl}" target="_blank" class="admin-link">${p.sourceUrl.slice(0, 40)}...</a>` : "—"}</td>
+        <td>${(p.description || "").slice(0, 60)}</td>
+        <td>${(p.tags || []).map(t => `<span class="admin-badge">${t}</span>`).join(" ")}</td>
+        <td class="admin-actions">
+          <button class="admin-btn admin-btn-sm" onclick="editPost(${i})">编辑</button>
+          <button class="admin-btn admin-btn-sm admin-btn-danger" onclick="deletePost(${i})">删除</button>
+        </td>
+      </tr>`).join("");
+    }
+
+    function toggleForm() {
+      const form = document.getElementById("addForm");
+      form.classList.toggle("show");
+      editing = null;
+      if (!form.classList.contains("show")) clearForm();
+    }
+
+    function clearForm() {
+      ["f-slug","f-title","f-url","f-desc","f-tags","f-author"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+    }
+
+    function editPost(i) {
+      const p = posts[i];
+      editing = i;
+      document.getElementById("f-slug").value = p.slug;
+      document.getElementById("f-slug").disabled = true;
+      document.getElementById("f-title").value = p.title || "";
+      document.getElementById("f-url").value = p.sourceUrl || "";
+      document.getElementById("f-desc").value = p.description || "";
+      document.getElementById("f-tags").value = (p.tags || []).join(", ");
+      document.getElementById("f-author").value = p.originalAuthor || "";
+      document.getElementById("addForm").classList.add("show");
+    }
+
+    async function savePost() {
+      const slug = document.getElementById("f-slug").value.trim();
+      const data = {
+        slug,
+        title: document.getElementById("f-title").value.trim(),
+        sourceUrl: document.getElementById("f-url").value.trim(),
+        description: document.getElementById("f-desc").value.trim(),
+        tags: document.getElementById("f-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+        originalAuthor: document.getElementById("f-author").value.trim(),
+      };
+      const method = editing !== null ? "PUT" : "POST";
+      await fetch("/api/admin/posts", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      toggleForm();
+      document.getElementById("f-slug").disabled = false;
+      load();
+    }
+
+    async function deletePost(i) {
+      if (!confirm(`删除「${posts[i].title || posts[i].slug}」？`)) return;
+      await fetch("/api/admin/posts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: posts[i].slug }) });
+      load();
+    }
+
+    load();
+  </script>
+</BaseLayout>
