@@ -123,17 +123,6 @@ a {
   gap: 1rem;
 }
 
-.site-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 48px;
-  height: 1px;
-  background: var(--line);
-}
-
 .brand {
   font-family: var(--font-serif);
   font-weight: 400;
@@ -224,13 +213,6 @@ a {
   background-repeat: no-repeat;
   background-position: left bottom;
   padding-bottom: 8px;
-}
-
-.hairline {
-  width: 48px;
-  height: 1px;
-  background: var(--line);
-  margin: 2rem 0;
 }
 
 .hero-subtitle {
