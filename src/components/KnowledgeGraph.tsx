@@ -59,8 +59,8 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
   const nodesGRef = useRef<SVGGElement | null>(null);
   const linksGRef = useRef<SVGGElement | null>(null);
   const simRef = useRef<any>(null);
-  const [width, setWidth] = useState(320);
-  const [height, setHeight] = useState(430);
+  const [width, setWidth] = useState(360);
+  const [height, setHeight] = useState(500);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [payload, setPayload] = useState<Payload>({ nodes: [], links: [], nodeCount: 0, linkCount: 0 });
@@ -172,13 +172,15 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .attr("stroke", "rgba(245,240,235,0.85)")
       .attr("stroke-width", 3);
 
-    /*-- 点击跳转（仅在非拖拽时触发） --*/
-    let didDrag = false;
+    /*-- 点击跳转（拖拽结束后短路） --*/
+    let suppressClick = false;
 
-    nodeGroups.on("click", (_event: any, d: any) => {
-      if (didDrag) { didDrag = false; return; }
+    nodeGroups.on("click", (event: any, d: any) => {
+      if (suppressClick) { suppressClick = false; return; }
+      event.stopPropagation();
       if (!d?.url || d.url === "#") return;
-      window.location.href = toAppUrl(d.url);
+      const url = toAppUrl(d.url);
+      if (url && url !== "#") window.location.href = url;
     });
 
     /*-- 缩放 + 平移：transform 只作用于 wrapperG --*/
@@ -230,7 +232,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       const t = select(svg).property("__zoom") || zoomIdentity;
       const dx = (event.clientX - dragStartPos.x) / t.k;
       const dy = (event.clientY - dragStartPos.y) / t.k;
-      if (Math.abs(event.clientX - dragStartPos.x) > 3 || Math.abs(event.clientY - dragStartPos.y) > 3) {
+      if (Math.abs(event.clientX - dragStartPos.x) > 4 || Math.abs(event.clientY - dragStartPos.y) > 4) {
         dragMoved = true;
       }
       dragNode.fx = (dragNode.fx ?? dragNode.x!) + dx;
@@ -240,7 +242,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
 
     const onMouseUp = () => {
       if (dragNode) {
-        if (dragMoved) didDrag = true;
+        if (dragMoved) suppressClick = true;
         dragNode.fx = null;
         dragNode.fy = null;
         dragNode = null;

@@ -181,7 +181,7 @@ a {
 .hero {
   padding: 6rem 0 4rem;
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 1fr 400px;
   gap: 4rem;
   align-items: center;
   min-height: 60vh;
@@ -316,12 +316,12 @@ a {
 }
 
 .hero-graph {
-  width: 340px;
-  height: 380px;
+  width: 400px;
+  height: 480px;
   border-radius: var(--radius-lg);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 0 40px rgba(192,132,252,0.06), inset 0 1px 0 rgba(255,255,255,0.04);
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -532,7 +532,7 @@ a {
 
 .home-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 2rem;
   align-items: start;
 }
@@ -552,10 +552,8 @@ a {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 0;
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  min-height: 380px;
+  background: var(--bg-card);
+  min-height: 420px;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-card);
