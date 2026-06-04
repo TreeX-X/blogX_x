@@ -127,6 +127,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     /*-- 创建 SVG 元素 --*/
     select(linksG).selectAll("*").remove();
     select(nodesG).selectAll("*").remove();
+    wrapperG.style.opacity = "0";
 
     const linkEls = select(linksG)
       .selectAll("line")
@@ -290,6 +291,8 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       const ty = (height - 36) / 2 - k * cy;
       const initialTransform = zoomIdentity.translate(tx, ty).scale(k);
       select(svg).call(zoomBehavior.transform, initialTransform);
+      wrapperG.style.transition = "opacity 0.6s ease";
+      wrapperG.style.opacity = "1";
     }, 800);
 
     return () => {
