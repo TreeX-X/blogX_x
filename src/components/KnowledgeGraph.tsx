@@ -34,11 +34,11 @@ type Props = {
   apiUrl: string;
 };
 
-/*-- 配色：posts 温紫, knowledge-base 冷青, wiki 暖琥珀 --*/
+/*-- 配色：Takram 暖纸风格 -- posts 鼠尾草绿, knowledge-base 暖赭, wiki 暖灰 --*/
 const NODE_COLORS: Record<string, { core: string; glow: string; text: string }> = {
-  posts:            { core: "#c084fc", glow: "rgba(192,132,252,0.35)", text: "#e8d5ff" },
-  "knowledge-base": { core: "#38bdf8", glow: "rgba(56,189,248,0.30)", text: "#bae6fd" },
-  wiki:             { core: "#fbbf24", glow: "rgba(251,191,36,0.28)", text: "#fef3c7" },
+  posts:            { core: "#6B8F71", glow: "rgba(107,143,113,0.20)", text: "#2D3436" },
+  "knowledge-base": { core: "#C0956E", glow: "rgba(192,149,110,0.18)", text: "#2D3436" },
+  wiki:             { core: "#A3967E", glow: "rgba(163,150,126,0.16)", text: "#2D3436" },
 };
 
 function getNodeStyle(collection: string) {
@@ -132,7 +132,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .selectAll("line")
       .data(links)
       .join("line")
-      .attr("stroke", "rgba(148,163,184,0.18)")
+      .attr("stroke", "rgba(200,194,182,0.35)")
       .attr("stroke-width", (d: any) => Math.max(0.6, Math.min(2.0, (d.similarity || 0) * 3.5)));
 
     const nodeGroups = select(nodesG)
@@ -142,34 +142,34 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .attr("data-node", "true")
       .style("cursor", "pointer");
 
-    /*-- 光晕 --*/
+    /*-- 柔和光晕 --*/
     nodeGroups
       .append("circle")
-      .attr("r", 12)
+      .attr("r", 14)
       .attr("fill", (d: any) => getNodeStyle(d.collection).glow)
-      .attr("opacity", 0.5);
+      .attr("opacity", 0.6);
 
     /*-- 核心节点 --*/
     nodeGroups
       .append("circle")
-      .attr("r", 6)
+      .attr("r", 5)
       .attr("fill", (d: any) => getNodeStyle(d.collection).core)
-      .attr("stroke", "rgba(255,255,255,0.25)")
-      .attr("stroke-width", 0.8);
+      .attr("stroke", "rgba(255,255,255,0.6)")
+      .attr("stroke-width", 1);
 
     /*-- 文字标签 --*/
     nodeGroups
       .append("text")
       .text((d: any) => (d.title.length > 18 ? d.title.slice(0, 18) + "…" : d.title))
-      .attr("x", 11)
+      .attr("x", 10)
       .attr("y", 1)
       .attr("dy", "0.35em")
-      .attr("font-size", 12)
+      .attr("font-size", 11)
       .attr("font-weight", 500)
-      .attr("font-family", '"IBM Plex Sans", -apple-system, sans-serif')
+      .attr("font-family", '"IBM Plex Sans", "Noto Sans SC", -apple-system, sans-serif')
       .attr("fill", (d: any) => getNodeStyle(d.collection).text)
       .attr("paint-order", "stroke")
-      .attr("stroke", "rgba(0,0,0,0.7)")
+      .attr("stroke", "rgba(245,240,235,0.85)")
       .attr("stroke-width", 3);
 
     /*-- 点击跳转 --*/

@@ -30,7 +30,19 @@ const knowledgeBase = defineCollection({
   }),
 });
 
+const wiki = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/wiki' }),
+  schema: z.object({
+    title: z.string().optional(),
+    date: z.coerce.date().optional(),
+    description: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    isDraft: z.boolean().default(false),
+  }),
+});
+
 export const collections = {
   posts,
   knowledgeBase,
+  wiki,
 };

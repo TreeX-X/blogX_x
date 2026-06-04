@@ -1,0 +1,62 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { render } from "astro:content";
+import {
+  getWikiEntries,
+  getContentDate,
+  getContentSummary,
+  getContentTitle,
+  getEntryPath,
+  formatDate,
+} from "../../lib/content";
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const entries = await getWikiEntries();
+  return entries.map((entry) => ({
+    params: { slug: getEntryPath(entry) },
+  }));
+}
+
+const paramSlug = String(Astro.params.slug ?? "");
+const entries = await getWikiEntries();
+const entry = entries.find((item) => getEntryPath(item) === paramSlug);
+
+if (!entry) throw new Error(`Wiki entry not found: ${paramSlug}`);
+const { Content, headings } = await render(entry);
+const toc = (headings ?? []).filter((item) => item.depth >= 2 && item.depth <= 4);
+---
+
+<BaseLayout
+  title={`${getContentTitle(entry)} | Wiki | BlogX_x`}
+  description={getContentSummary(entry, 120)}
+>
+  <div class="article-layout">
+    <article class="prose-wrap kb-prose">
+      <header class="post-head">
+        <p class="meta">{formatDate(getContentDate(entry))}</p>
+        <h1
+          style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;"
+        >
+          {getContentTitle(entry)}
+        </h1>
+        <p class="meta" style="margin-bottom: 0.85rem;">Wiki 笔记</p>
+      </header>
+      <Content />
+    </article>
+
+    {toc.length > 0 ? (
+      <aside class="toc-panel" aria-label="Wiki 目录">
+        <p class="toc-title">快速跳转</p>
+        <nav class="toc-list">
+          {toc.map((item) => (
+            <a class={`toc-item depth-${item.depth}`} href={`#${item.slug}`}>
+              {item.text}
+            </a>
+          ))}
+        </nav>
+      </aside>
+    ) : null}
+  </div>
+</BaseLayout>

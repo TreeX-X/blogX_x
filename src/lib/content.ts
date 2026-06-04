@@ -10,6 +10,11 @@ export async function getKnowledgeBaseEntries() {
   return entries.sort((a, b) => getContentDate(b).getTime() - getContentDate(a).getTime());
 }
 
+export async function getWikiEntries() {
+  const entries = await getCollection('wiki', ({ data }) => !data.isDraft);
+  return entries.sort((a, b) => getContentDate(b).getTime() - getContentDate(a).getTime());
+}
+
 export function getEntryPath(entry: { slug?: string; id: string }) {
   if (entry.slug && entry.slug.length > 0) return entry.slug;
   return entry.id.replace(/\\/g, '/').replace(/\.mdx?$/, '');
