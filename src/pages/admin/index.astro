@@ -11,6 +11,7 @@ const toBase = (path = "") => {
 const sections = [
   { key: "posts", label: "文章链接", desc: "管理外链文章的收录与分类", icon: "📄" },
   { key: "repos", label: "仓库链接", desc: "管理精选开源代码仓库", icon: "📦" },
+  { key: "projects", label: "项目展示", desc: "管理关于页面的作者项目展示", icon: "🚀" },
   { key: "toolbox", label: "工具箱", desc: "管理在线工具与网址导航", icon: "🧰" },
   { key: "skills", label: "Skills", desc: "管理 Claude Code Skill 技能包", icon: "⚡" },
   { key: "messages", label: "留言管理", desc: "管理留言栏内容与审核", icon: "💬" },
@@ -27,6 +28,7 @@ const sections = [
         <a href={toBase("admin")} class="active">仪表盘</a>
         <a href={toBase("admin/posts")}>文章链接</a>
         <a href={toBase("admin/repos")}>仓库链接</a>
+        <a href={toBase("admin/projects")}>项目展示</a>
         <a href={toBase("admin/toolbox")}>工具箱</a>
         <a href={toBase("admin/skills")}>Skills</a>
         <a href={toBase("admin/messages")}>留言管理</a>
@@ -57,7 +59,7 @@ const sections = [
 
   <script is:inline>
     async function loadStats() {
-      const apis = { posts: "/api/admin/posts", repos: "/api/admin/repos", toolbox: "/api/admin/toolbox", skills: "/api/admin/skills", messages: "/api/admin/messages", ideas: "/api/admin/ideas" };
+      const apis = { posts: "/api/admin/posts", repos: "/api/admin/repos", projects: "/api/admin/projects", toolbox: "/api/admin/toolbox", skills: "/api/admin/skills", messages: "/api/admin/messages", ideas: "/api/admin/ideas" };
       for (const [key, url] of Object.entries(apis)) {
         try {
           const res = await fetch(url);

@@ -1,0 +1,137 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+---
+
+<BaseLayout title="项目展示管理 | Admin" description="管理作者项目展示">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-brand">BlogX_x</div>
+      <p class="admin-sidebar-sub">管理面板</p>
+      <nav class="admin-nav">
+        <a href={toBase("admin")}>仪表盘</a>
+        <a href={toBase("admin/posts")}>文章链接</a>
+        <a href={toBase("admin/repos")}>仓库链接</a>
+        <a href={toBase("admin/projects")} class="active">项目展示</a>
+        <a href={toBase("admin/toolbox")}>工具箱</a>
+        <a href={toBase("admin/skills")}>Skills</a>
+        <a href={toBase("admin/messages")}>留言管理</a>
+        <a href={toBase("admin/ideas")}>意见箱</a>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <a href={toBase()}>← 返回首页</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-page-head">
+        <h1 class="admin-page-title">项目展示</h1>
+        <button class="admin-btn admin-btn-primary" onclick="toggleForm()">+ 新增项目</button>
+      </div>
+
+      <div id="addForm" class="admin-inline-form">
+        <h3>新增项目</h3>
+        <div class="admin-form">
+          <div class="form-row">
+            <div class="form-group"><label>Slug</label><input id="f-slug" placeholder="my-project" /></div>
+            <div class="form-group"><label>标题</label><input id="f-title" placeholder="项目名称" /></div>
+          </div>
+          <div class="form-group"><label>GitHub 链接</label><input id="f-url" placeholder="https://github.com/TreeX-X/..." /></div>
+          <div class="form-group"><label>描述</label><textarea id="f-desc" rows="2"></textarea></div>
+          <div class="form-group"><label>标签（逗号分隔）</label><input id="f-tags" placeholder="ai, tool, agent" /></div>
+          <div class="form-btns">
+            <button class="admin-btn admin-btn-primary" onclick="saveProject()">保存</button>
+            <button class="admin-btn" onclick="toggleForm()">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>标题</th><th>GitHub 链接</th><th>描述</th><th>标签</th><th>操作</th></tr></thead>
+          <tbody id="projectsBody"></tbody>
+        </table>
+        <div id="emptyState" class="admin-empty" style="display:none;">暂无项目，点击「新增项目」添加</div>
+      </div>
+    </main>
+  </div>
+
+  <script is:inline>
+    let projects = [];
+    let editing = null;
+
+    async function load() {
+      const res = await fetch("/api/admin/projects");
+      projects = await res.json();
+      render();
+    }
+
+    function render() {
+      const body = document.getElementById("projectsBody");
+      const empty = document.getElementById("emptyState");
+      if (!projects.length) { body.innerHTML = ""; empty.style.display = ""; return; }
+      empty.style.display = "none";
+      body.innerHTML = projects.map((p, i) => `<tr>
+        <td><strong>${p.title || p.slug}</strong></td>
+        <td><a href="${p.repoUrl}" target="_blank" class="admin-link">${(p.repoUrl || "").replace("https://github.com/", "")}</a></td>
+        <td>${(p.description || "").slice(0, 50)}${(p.description || "").length > 50 ? "..." : ""}</td>
+        <td>${(p.tags || []).map(t => `<span class="admin-badge">${t}</span>`).join(" ")}</td>
+        <td class="admin-actions">
+          <button class="admin-btn admin-btn-sm" onclick="editProject(${i})">编辑</button>
+          <button class="admin-btn admin-btn-sm admin-btn-danger" onclick="deleteProject(${i})">删除</button>
+        </td>
+      </tr>`).join("");
+    }
+
+    function toggleForm() {
+      const form = document.getElementById("addForm");
+      form.classList.toggle("show");
+      editing = null;
+      if (!form.classList.contains("show")) {
+        ["f-slug","f-title","f-url","f-desc","f-tags"].forEach(id => document.getElementById(id).value = "");
+        document.getElementById("f-slug").disabled = false;
+      }
+    }
+
+    function editProject(i) {
+      const p = projects[i];
+      editing = i;
+      document.getElementById("f-slug").value = p.slug;
+      document.getElementById("f-slug").disabled = true;
+      document.getElementById("f-title").value = p.title || "";
+      document.getElementById("f-url").value = p.repoUrl || "";
+      document.getElementById("f-desc").value = p.description || "";
+      document.getElementById("f-tags").value = (p.tags || []).join(", ");
+      document.getElementById("addForm").classList.add("show");
+    }
+
+    async function saveProject() {
+      const data = {
+        slug: document.getElementById("f-slug").value.trim(),
+        title: document.getElementById("f-title").value.trim(),
+        repoUrl: document.getElementById("f-url").value.trim(),
+        description: document.getElementById("f-desc").value.trim(),
+        tags: document.getElementById("f-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+      };
+      if (!data.slug) { alert("Slug 不能为空"); return; }
+      const method = editing !== null ? "PUT" : "POST";
+      await fetch("/api/admin/projects", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      toggleForm();
+      load();
+    }
+
+    async function deleteProject(i) {
+      if (!confirm(`删除「${projects[i].title || projects[i].slug}」？`)) return;
+      await fetch("/api/admin/projects", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: projects[i].slug }) });
+      load();
+    }
+
+    load();
+  </script>
+</BaseLayout>
