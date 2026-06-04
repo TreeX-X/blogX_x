@@ -41,8 +41,22 @@ const wiki = defineCollection({
   }),
 });
 
+const repos = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/repos' }),
+  schema: z.object({
+    title: z.string(),
+    repoUrl: z.string().url(),
+    description: z.string(),
+    language: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    stars: z.number().optional(),
+    isDraft: z.boolean().default(false),
+  }),
+});
+
 export const collections = {
   posts,
   knowledgeBase,
   wiki,
+  repos,
 };
