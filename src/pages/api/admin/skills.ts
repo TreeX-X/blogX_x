@@ -166,18 +166,18 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // Create new entry from form data
-  const { slug, ...data } = body;
+  const { slug, body: mdBody2, ...formData } = body;
   if (!slug) return new Response(JSON.stringify({ error: "slug 或 path 必填" }), { status: 400 });
-  await writeFile(join(SKILLS_DIR, `${slug}.md`), toFrontmatter(data, data.body || ""), "utf-8");
+  await writeFile(join(SKILLS_DIR, `${slug}.md`), toFrontmatter(formData, mdBody2 || ""), "utf-8");
   return new Response(JSON.stringify({ ok: true, slug }));
 };
 
 /** PUT — update existing content entry */
 export const PUT: APIRoute = async ({ request }) => {
   await ensureDir();
-  const { slug, ...data } = await request.json();
+  const { slug, body: mdBody, ...formData } = await request.json();
   if (!slug) return new Response(JSON.stringify({ error: "slug required" }), { status: 400 });
-  await writeFile(join(SKILLS_DIR, `${slug}.md`), toFrontmatter(data, data.body || ""), "utf-8");
+  await writeFile(join(SKILLS_DIR, `${slug}.md`), toFrontmatter(formData, mdBody || ""), "utf-8");
   return new Response(JSON.stringify({ ok: true }));
 };
 
