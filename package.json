@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "astro dev",
+    "prebuild": "node scripts/pack-skills.mjs",
     "build": "node scripts/init-db.mjs && node scripts/fetch-articles.mjs --translate && astro build",
     "preview": "astro preview",
     "astro": "astro",
@@ -49,6 +50,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.8",
+    "archiver": "^8.0.0",
     "typescript": "^5.9.3"
   }
 }

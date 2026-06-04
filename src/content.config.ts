@@ -54,9 +54,24 @@ const repos = defineCollection({
   }),
 });
 
+const skills = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/skills' }),
+  schema: z.object({
+    title: z.string(),
+    description: z.string(),
+    skillDir: z.string(),
+    tags: z.array(z.string()).optional(),
+    version: z.string().optional(),
+    author: z.string().optional(),
+    license: z.string().optional(),
+    isDraft: z.boolean().default(false),
+  }),
+});
+
 export const collections = {
   posts,
   knowledgeBase,
   wiki,
   repos,
+  skills,
 };

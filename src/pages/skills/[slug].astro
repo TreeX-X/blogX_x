@@ -1,0 +1,91 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { render } from "astro:content";
+import { getSkills, getEntryPath, getContentTitle, getContentSummary } from "../../lib/content";
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const skills = await getSkills();
+  return skills.map((skill) => ({
+    params: { slug: getEntryPath(skill) },
+  }));
+}
+
+const paramSlug = String(Astro.params.slug ?? "");
+const skills = await getSkills();
+const skill = skills.find((item) => getEntryPath(item) === paramSlug);
+
+if (!skill) throw new Error(`Skill not found: ${paramSlug}`);
+const { Content } = await render(skill);
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+
+const downloadUrl = `${base.endsWith("/") ? base : base + "/"}skills-download/${skill.data.skillDir}.zip`;
+---
+
+<BaseLayout
+  title={`${getContentTitle(skill)} | Skills | BlogX_x`}
+  description={getContentSummary(skill, 120)}
+>
+  <nav class="breadcrumb">
+    <a href={toBase("skills")}>Skills</a>
+    <span class="breadcrumb-sep">/</span>
+    <span>{getContentTitle(skill)}</span>
+  </nav>
+
+  <article class="prose-wrap skill-prose">
+    <header class="skill-detail-head">
+      <h1 style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 0.6rem;">
+        {getContentTitle(skill)}
+      </h1>
+      <p class="skill-detail-desc">{skill.data.description}</p>
+
+      <div class="skill-meta-bar">
+        {skill.data.version ? (
+          <span class="skill-meta-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            v{skill.data.version}
+          </span>
+        ) : null}
+        {skill.data.author ? (
+          <span class="skill-meta-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            {skill.data.author}
+          </span>
+        ) : null}
+        {skill.data.license ? (
+          <span class="skill-meta-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            {skill.data.license}
+          </span>
+        ) : null}
+        {skill.data.tags?.length ? (
+          <div class="skill-meta-tags">
+            {skill.data.tags.map((tag) => (
+              <span class="tag">#{tag}</span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <a class="skill-download-btn" href={downloadUrl} download>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        下载 Skill 包 (.zip)
+      </a>
+    </header>
+
+    <div class="skill-content">
+      <Content />
+    </div>
+  </article>
+</BaseLayout>

@@ -1820,3 +1820,242 @@ main {
   overflow-wrap: break-word;
   word-break: break-word;
 }
+
+/* ===== Skills Grid ===== */
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.skill-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.4rem;
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.skill-card:hover {
+  border-color: var(--accent-warm);
+  box-shadow: var(--shadow-card);
+}
+
+.skill-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.skill-icon {
+  color: var(--accent-warm);
+  display: flex;
+  align-items: center;
+}
+
+.skill-name {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent-warm);
+}
+
+.skill-version {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: rgba(192, 149, 110, 0.1);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.skill-desc {
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  margin: 0 0 0.8rem;
+  flex: 1;
+}
+
+.skill-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.skill-author {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.skill-tags {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+/* ===== Skill Detail Page ===== */
+
+.breadcrumb {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb-sep {
+  margin: 0 0.4rem;
+  opacity: 0.4;
+}
+
+.skill-prose {
+  max-width: 780px;
+}
+
+.skill-detail-head {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.skill-detail-desc {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin: 0 0 1rem;
+}
+
+.skill-meta-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+}
+
+.skill-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.skill-meta-tags {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.skill-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.2rem;
+  background: var(--accent-warm);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background var(--transition-base), transform var(--transition-base);
+}
+
+.skill-download-btn:hover {
+  background: #a8844e;
+  transform: translateY(-1px);
+}
+
+.skill-content h2 {
+  font-size: 1.3rem;
+  margin-top: 2rem;
+  margin-bottom: 0.6rem;
+}
+
+.skill-content h3 {
+  font-size: 1.1rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.skill-content p {
+  line-height: 1.8;
+  margin-bottom: 0.8rem;
+}
+
+.skill-content ul,
+.skill-content ol {
+  padding-left: 1.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.skill-content li {
+  line-height: 1.7;
+  margin-bottom: 0.3rem;
+}
+
+.skill-content code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: rgba(107, 143, 113, 0.08);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+}
+
+.skill-content pre {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.skill-content pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.82rem;
+}
+
+.skill-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.skill-content th,
+.skill-content td {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.skill-content th {
+  background: rgba(107, 143, 113, 0.06);
+  font-weight: 600;
+}
+
+.skill-content blockquote {
+  border-left: 3px solid var(--accent-warm);
+  padding-left: 1rem;
+  margin-left: 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}

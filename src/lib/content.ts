@@ -19,6 +19,10 @@ export async function getRepos() {
   return getCollection('repos', ({ data }) => !data.isDraft);
 }
 
+export async function getSkills() {
+  return getCollection('skills', ({ data }) => !data.isDraft);
+}
+
 export function getEntryPath(entry: { slug?: string; id: string }) {
   if (entry.slug && entry.slug.length > 0) return entry.slug;
   return entry.id.replace(/\\/g, '/').replace(/\.mdx?$/, '');
