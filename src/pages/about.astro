@@ -98,62 +98,41 @@ const projectStatus = "Temporary Lab";
       </div>
       <div class="project-showcase-grid stagger">
         {projects.map((p, index) => {
-          const tags = p.data.tags?.slice(0, 4) ?? [];
-          const phase = index === 0 ? "Active Draft" : "Archived Note";
+          const tags = (p.data.tags ?? [])
+            .flatMap((tag) => tag.split(/[,，]/))
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+            .slice(0, 4);
+          const repoHost = new URL(p.data.repoUrl).hostname.replace(/^www\./, "");
+          const displayTags = tags.length ? tags : ["AI workflow", "Open source"];
 
           return (
             <a class="project-preview-card" href={p.data.repoUrl} target="_blank" rel="noreferrer">
-              <div class="project-preview-main">
-                <div class="project-kicker">
-                  <span>{projectStatus}</span>
-                  <span>{phase}</span>
-                </div>
-                <div class="project-title-row">
-                  <span class="project-mark" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+              <div class="project-card-top">
+                <span class="project-mark" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                <div class="project-title-group">
+                  <div class="project-kicker">
+                    <span>{projectStatus}</span>
+                    <span>{repoHost}</span>
+                  </div>
                   <h3>{p.data.title}</h3>
                 </div>
-                <p class="project-preview-desc">{p.data.description}</p>
-                <div class="project-signal-row" aria-label="项目组成">
-                  <span>Prompt</span>
-                  <span>Spec</span>
-                  <span>Agent</span>
-                  <span>Review</span>
-                </div>
-                {tags.length ? (
-                  <div class="project-tags">
-                    {tags.map((tag) => (
-                      <span class="tag">#{tag}</span>
-                    ))}
-                  </div>
-                ) : null}
               </div>
-              <div class="project-preview-visual" aria-hidden="true">
-                <div class="project-visual-head">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-                <div class="project-flow-map">
-                  <span class="flow-node node-a"></span>
-                  <span class="flow-node node-b"></span>
-                  <span class="flow-node node-c"></span>
-                  <span class="flow-node node-d"></span>
-                  <span class="flow-line line-a"></span>
-                  <span class="flow-line line-b"></span>
-                  <span class="flow-line line-c"></span>
-                </div>
-                <div class="project-visual-notes">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
+              <p class="project-preview-desc">{p.data.description}</p>
+              <div class="project-tags" aria-label="项目标签">
+                {displayTags.map((tag) => (
+                  <span class="tag">#{tag}</span>
+                ))}
               </div>
-              <div class="project-preview-foot">
-                <span>View repository</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M7 17 17 7" />
-                  <path d="M7 7h10v10" />
-                </svg>
+              <div class="project-card-foot">
+                <span>Requirement -> Agent -> Review</span>
+                <span class="project-open-row">
+                  Open repository
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M7 17 17 7" />
+                    <path d="M7 7h10v10" />
+                  </svg>
+                </span>
               </div>
             </a>
           );
