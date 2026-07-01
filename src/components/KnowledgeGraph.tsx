@@ -34,11 +34,11 @@ type Props = {
   apiUrl: string;
 };
 
-/*-- 配色：Takram 暖纸风格 -- posts 鼠尾草绿, knowledge-base 暖赭, wiki 暖灰 --*/
+/*-- 配色：Claude Design -- posts 橙色, knowledge-base 暖橙, wiki 暖灰 --*/
 const NODE_COLORS: Record<string, { core: string; glow: string; text: string }> = {
-  posts:            { core: "#6B8F71", glow: "rgba(107,143,113,0.20)", text: "#2D3436" },
-  "knowledge-base": { core: "#C0956E", glow: "rgba(192,149,110,0.18)", text: "#2D3436" },
-  wiki:             { core: "#A3967E", glow: "rgba(163,150,126,0.16)", text: "#2D3436" },
+  posts:            { core: "#E87040", glow: "rgba(232,112,64,0.20)", text: "#1A1A1A" },
+  "knowledge-base": { core: "#D46030", glow: "rgba(212,96,48,0.18)", text: "#1A1A1A" },
+  wiki:             { core: "#999999", glow: "rgba(153,153,153,0.16)", text: "#1A1A1A" },
 };
 
 function getNodeStyle(collection: string) {

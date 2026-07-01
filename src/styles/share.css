@@ -1,5 +1,5 @@
 /*-- 分享栏样式 --*/
-/*-- 与现有设计系统保持一致：glass morphism、sage green 强调色、圆角 --*/
+/*-- 与 Claude Design 系统保持一致 --*/
 
 .share-bar {
   display: flex;
@@ -25,27 +25,26 @@
   gap: 0.35rem;
   padding: 0.35rem 0.7rem;
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--glass-bg);
+  border-radius: 6px;
+  background: var(--bg-card);
   color: var(--text-muted);
   font-size: 0.82rem;
   font-family: inherit;
   cursor: pointer;
   transition: all var(--transition-fast);
-  backdrop-filter: blur(8px);
 }
 
 .share-btn:hover,
 .share-btn:focus-visible {
   color: var(--accent);
-  border-color: rgba(107, 143, 113, 0.3);
-  background: rgba(107, 143, 113, 0.06);
+  border-color: rgba(232, 112, 64, 0.3);
+  background: rgba(232, 112, 64, 0.05);
   transform: translateY(-1px);
 }
 
 /*-- 键盘焦点样式 --*/
 .share-btn:focus-visible {
-  outline: 2px solid rgba(107, 143, 113, 0.25);
+  outline: 2px solid rgba(232, 112, 64, 0.2);
   outline-offset: 1px;
 }
 
@@ -60,8 +59,8 @@
 /*-- 复制成功状态 --*/
 .share-btn-copy.copied {
   color: var(--accent);
-  border-color: rgba(107, 143, 113, 0.3);
-  background: rgba(107, 143, 113, 0.08);
+  border-color: rgba(232, 112, 64, 0.3);
+  background: rgba(232, 112, 64, 0.08);
 }
 
 /*-- 社交媒体图标按钮（仅图标，无文字） --*/
@@ -88,10 +87,10 @@
 .share-toast {
   font-size: 0.78rem;
   color: var(--accent);
-  background: rgba(107, 143, 113, 0.08);
+  background: rgba(232, 112, 64, 0.08);
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  border: 1px solid rgba(107, 143, 113, 0.15);
+  border: 1px solid rgba(232, 112, 64, 0.15);
   white-space: nowrap;
   transition: opacity 200ms ease-out;
 }
