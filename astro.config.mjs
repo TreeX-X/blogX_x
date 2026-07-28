@@ -8,6 +8,9 @@ export default defineConfig({
   adapter: vercel(),
   integrations: [react()],
   vite: {
+    optimizeDeps: {
+      include: ["react-dom/client", "react-dom", "react"],
+    },
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),
