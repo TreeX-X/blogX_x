@@ -3063,11 +3063,12 @@ main {
 
 .hero-title-pixel {
   line-height: 1;
+  margin-bottom: 0.75rem;
 }
 
 .pixel-wave-title {
   display: block;
-  height: clamp(2.8rem, 2rem + 4.2vw, 4.5rem);
+  height: clamp(3.4rem, 2.6rem + 5.2vw, 5.8rem);
   width: auto;
   max-width: 100%;
   image-rendering: pixelated;

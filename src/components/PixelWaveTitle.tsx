@@ -3,17 +3,17 @@ import { useEffect, useRef } from "react";
 interface Props {
   text?: string;
   className?: string;
-  cell?: number; // 显示画布每格像素（块大小）
-  sampleCell?: number; // 采样画布每格像素（采样分辨率）
-  fontPx?: number; // 采样时字号
+  cell?: number; // 显示画布每格逻辑像素
+  sampleCell?: number; // 采样画布每格像素（越小分辨率越高）
+  fontPx?: number; // 采样字号
 }
 
 export default function PixelWaveTitle({
   text = "树码空间",
   className,
-  cell = 10,
-  sampleCell = 18,
-  fontPx = 240,
+  cell = 9,
+  sampleCell = 15,
+  fontPx = 260,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -25,10 +25,8 @@ export default function PixelWaveTitle({
     let cols = 0;
     let rows = 0;
 
-    // 读取主题 accent（与全局 --accent 同步），回退 #b93b28
     const cs = getComputedStyle(canvas);
-    const color =
-      cs.getPropertyValue("--accent").trim() || "#b93b28";
+    const color = cs.getPropertyValue("--accent").trim() || "#b93b28";
 
     const sample = () => {
       const sc = document.createElement("canvas");
@@ -38,7 +36,7 @@ export default function PixelWaveTitle({
       sctx.font = font;
       const w = sctx.measureText(text).width;
       cols = Math.ceil(w / sampleCell) + 2;
-      rows = Math.ceil((fontPx * 1.25) / sampleCell);
+      rows = Math.ceil((fontPx * 1.2) / sampleCell);
       sc.width = cols * sampleCell;
       sc.height = rows * sampleCell;
       // canvas 尺寸变更后上下文状态被重置，需重设 font
@@ -58,24 +56,38 @@ export default function PixelWaveTitle({
         }
         grid.push(row);
       }
-      canvas.width = cols * cell;
-      canvas.height = rows * cell;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(cols * cell * dpr);
+      canvas.height = Math.round(rows * cell * dpr);
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.imageSmoothingEnabled = false;
+      }
     };
 
     const draw = (t: number) => {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const W = cols * cell;
+      const H = rows * cell;
+      ctx.clearRect(0, 0, W, H);
+      // 横向扫描线增亮带位置（在 cols 之外循环，留缓冲）
+      const sweepCenter = (t * 0.06) % (cols + 14) - 7;
       for (let y = 0; y < rows; y++) {
         for (let x = 0; x < cols; x++) {
           if (!grid[y]?.[x]) continue;
-          // 对角正弦行波：x、y 方向同相位线性叠加，t 控制时间轴
+          // 对角行波：明暗起伏
           const phase = 0.22 * x + 0.22 * y - 0.003 * t;
           const s = 0.5 + 0.5 * Math.sin(phase); // 0..1
-          const alpha = 0.4 + 0.6 * s; // 0.4..1.0（最低 0.4 保证字形常显）
-          const size = cell * (0.78 + 0.22 * s); // 方块随波微缩放
+          // 扫描线增亮
+          const sweep = Math.max(0, 1 - Math.abs(x - sweepCenter) / 6); // 0..1
+          // 垂直微浮
+          const bob = Math.sin(0.18 * y + 0.004 * t) * 0.1; // -0.1..0.1
+          const alpha = Math.min(1, 0.32 + 0.45 * s + 0.28 * sweep);
+          const size = cell * (0.68 + 0.2 * s + 0.12 * sweep);
           const cx = x * cell + cell / 2;
-          const cy = y * cell + cell / 2;
+          const cy = y * cell + cell / 2 + bob * cell;
           ctx.globalAlpha = alpha;
           ctx.fillStyle = color;
           ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
@@ -88,23 +100,23 @@ export default function PixelWaveTitle({
     const start = () => {
       const begin = () => {
         sample();
-        // 兜底：若采样网格全空（字体异常），直接在显示画布上画出文字，避免空白
         const hasOn = grid.some((row) => row.some((v) => v));
         if (!hasOn) {
+          // 兜底：网格全空时静态绘制文字（用逻辑尺寸，dpr transform 下也正确）
           const ctx = canvas.getContext("2d");
           if (ctx) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const logicalH = rows * cell || canvas.height;
+            ctx.clearRect(0, 0, cols * cell, logicalH);
             ctx.fillStyle = color;
             ctx.textBaseline = "middle";
             ctx.textAlign = "left";
-            ctx.font = `600 ${canvas.height * 0.82}px "Noto Sans SC", "PingFang SC", system-ui, sans-serif`;
-            ctx.fillText(text, 0, canvas.height / 2);
+            ctx.font = `600 ${logicalH * 0.82}px "Noto Sans SC", "PingFang SC", system-ui, sans-serif`;
+            ctx.fillText(text, 0, logicalH / 2);
           }
-          return; // 不启动 rAF 波动（兜底静态显示）
+          return;
         }
         raf = requestAnimationFrame(draw);
       };
-      // 显式加载所需中文字体后再采样，确保字形可用
       if (document.fonts && document.fonts.load) {
         Promise.all([
           document.fonts.load(`600 ${fontPx}px "Noto Sans SC"`),
