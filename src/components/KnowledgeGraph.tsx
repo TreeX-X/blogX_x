@@ -34,10 +34,10 @@ type Props = {
   apiUrl: string;
 };
 
-/*-- 配色：ljj.world light — 暗红主色 + 蓝图蓝辅色 --*/
+/*-- 配色：ljj.world light — 暗红主色 + 暖赭石辅色 --*/
 const NODE_COLORS: Record<string, { core: string; glow: string; text: string }> = {
   posts:            { core: "#b93b28", glow: "rgba(185,59,40,0.20)", text: "#151613" },
-  "knowledge-base": { core: "#1d39f5", glow: "rgba(29,57,245,0.18)", text: "#151613" },
+  "knowledge-base": { core: "#a87530", glow: "rgba(168,117,48,0.18)", text: "#151613" },
   wiki:             { core: "#8A8780", glow: "rgba(138,135,128,0.16)", text: "#151613" },
 };
 
@@ -146,6 +146,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     /*-- 柔和光晕 --*/
     nodeGroups
       .append("circle")
+      .attr("class", "kg-glow")
       .attr("r", 14)
       .attr("fill", (d: any) => getNodeStyle(d.collection).glow)
       .attr("opacity", 0.6);
@@ -153,6 +154,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     /*-- 核心节点 --*/
     nodeGroups
       .append("circle")
+      .attr("class", "kg-core")
       .attr("r", 5)
       .attr("fill", (d: any) => getNodeStyle(d.collection).core)
       .attr("stroke", "rgba(255,255,255,0.6)")
@@ -161,6 +163,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     /*-- 文字标签 --*/
     nodeGroups
       .append("text")
+      .attr("class", "kg-label")
       .text((d: any) => (d.title.length > 18 ? d.title.slice(0, 18) + "…" : d.title))
       .attr("x", 10)
       .attr("y", 1)
@@ -183,6 +186,65 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       const url = toAppUrl(d.url);
       if (url && url !== "#") window.location.href = url;
     });
+
+    /*-- 邻接表 + 悬停高亮 --*/
+    const idOf = (x: string | Node) => (typeof x === "string" ? x : x.id);
+    const neighbors = new Map<string, Set<string>>();
+    links.forEach((l) => {
+      const s = idOf(l.source);
+      const t = idOf(l.target);
+      if (!neighbors.has(s)) neighbors.set(s, new Set());
+      if (!neighbors.has(t)) neighbors.set(t, new Set());
+      neighbors.get(s)!.add(t);
+      neighbors.get(t)!.add(s);
+    });
+
+    const highlight = (node: any | null) => {
+      const id = node?.id ?? null;
+      const nset = id ? neighbors.get(id) : null;
+      const edgeColor = node ? getNodeStyle(node.collection).core : null;
+      nodeGroups
+        .transition()
+        .duration(160)
+        .style("opacity", (d: any) => {
+          if (!id) return 1;
+          if (d.id === id) return 1;
+          return nset?.has(d.id) ? 1 : 0.12;
+        });
+      linkEls
+        .transition()
+        .duration(160)
+        .attr("stroke", (l: any) => {
+          if (!id) return "rgba(21,22,19,0.35)";
+          const s = idOf(l.source);
+          const t = idOf(l.target);
+          return s === id || t === id
+            ? edgeColor || "rgba(21,22,19,0.7)"
+            : "rgba(21,22,19,0.12)";
+        })
+        .style("opacity", (l: any) => {
+          if (!id) return 1;
+          const s = idOf(l.source);
+          const t = idOf(l.target);
+          return s === id || t === id ? 0.95 : 0.06;
+        });
+    };
+
+    nodeGroups
+      .on("mouseenter", function (event: any, d: any) {
+        highlight(d);
+        const g = select(event.currentTarget);
+        g.select(".kg-core").transition().duration(160).attr("r", 7);
+        g.select(".kg-glow").transition().duration(160).attr("r", 19).attr("opacity", 0.85);
+        g.select(".kg-label").transition().duration(160).attr("font-size", 12);
+      })
+      .on("mouseleave", function (event: any) {
+        highlight(null);
+        const g = select(event.currentTarget);
+        g.select(".kg-core").transition().duration(160).attr("r", 5);
+        g.select(".kg-glow").transition().duration(160).attr("r", 14).attr("opacity", 0.6);
+        g.select(".kg-label").transition().duration(160).attr("font-size", 11);
+      });
 
     /*-- 缩放 + 平移：transform 只作用于 wrapperG --*/
     const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
