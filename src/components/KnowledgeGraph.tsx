@@ -34,11 +34,11 @@ type Props = {
   apiUrl: string;
 };
 
-/*-- 配色：Claude Design -- posts 橙色, knowledge-base 暖橙, wiki 暖灰 --*/
+/*-- 配色：ljj.world light — 暗红主色 + 蓝图蓝辅色 --*/
 const NODE_COLORS: Record<string, { core: string; glow: string; text: string }> = {
-  posts:            { core: "#E87040", glow: "rgba(232,112,64,0.20)", text: "#1A1A1A" },
-  "knowledge-base": { core: "#D46030", glow: "rgba(212,96,48,0.18)", text: "#1A1A1A" },
-  wiki:             { core: "#999999", glow: "rgba(153,153,153,0.16)", text: "#1A1A1A" },
+  posts:            { core: "#b93b28", glow: "rgba(185,59,40,0.20)", text: "#151613" },
+  "knowledge-base": { core: "#1d39f5", glow: "rgba(29,57,245,0.18)", text: "#151613" },
+  wiki:             { core: "#8A8780", glow: "rgba(138,135,128,0.16)", text: "#151613" },
 };
 
 function getNodeStyle(collection: string) {
@@ -133,7 +133,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .selectAll("line")
       .data(links)
       .join("line")
-      .attr("stroke", "rgba(200,194,182,0.35)")
+      .attr("stroke", "rgba(21,22,19,0.35)")
       .attr("stroke-width", (d: any) => Math.max(0.6, Math.min(2.0, (d.similarity || 0) * 3.5)));
 
     const nodeGroups = select(nodesG)

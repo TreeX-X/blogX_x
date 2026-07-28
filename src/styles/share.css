@@ -37,14 +37,14 @@
 .share-btn:hover,
 .share-btn:focus-visible {
   color: var(--accent);
-  border-color: rgba(232, 112, 64, 0.3);
-  background: rgba(232, 112, 64, 0.05);
+  border-color: rgba(185, 59, 40,0.3);
+  background: rgba(185, 59, 40,0.05);
   transform: translateY(-1px);
 }
 
 /*-- 键盘焦点样式 --*/
 .share-btn:focus-visible {
-  outline: 2px solid rgba(232, 112, 64, 0.2);
+  outline: 2px solid rgba(185, 59, 40,0.2);
   outline-offset: 1px;
 }
 
@@ -59,8 +59,8 @@
 /*-- 复制成功状态 --*/
 .share-btn-copy.copied {
   color: var(--accent);
-  border-color: rgba(232, 112, 64, 0.3);
-  background: rgba(232, 112, 64, 0.08);
+  border-color: rgba(185, 59, 40,0.3);
+  background: rgba(185, 59, 40,0.08);
 }
 
 /*-- 社交媒体图标按钮（仅图标，无文字） --*/
@@ -80,17 +80,17 @@
   gap: 0.35rem;
   margin-left: 0.3rem;
   padding-left: 0.6rem;
-  border-left: 1px solid rgba(0, 0, 0, 0.06);
+  border-left: 1px solid rgba(21, 22, 19, 0.35);
 }
 
 /*-- 复制成功提示 --*/
 .share-toast {
   font-size: 0.78rem;
   color: var(--accent);
-  background: rgba(232, 112, 64, 0.08);
+  background: rgba(185, 59, 40,0.08);
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  border: 1px solid rgba(232, 112, 64, 0.15);
+  border: 1px solid rgba(185, 59, 40,0.15);
   white-space: nowrap;
   transition: opacity 200ms ease-out;
 }

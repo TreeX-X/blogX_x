@@ -1,45 +1,63 @@
 @import "tailwindcss";
 
-/* ===== Claude Design System ===== */
-/* Clean, modern, and focused on readability */
+/* ===== Warm Paper + Dark Red — ref. ljj.world (light only) ===== */
+/* Single light theme; oxblood accent on warm paper background + blueprint grid */
 
 :root {
-  /* Claude Design Colors */
-  --bg: #FAFAFA;
-  --bg-soft: #F5F5F5;
-  --bg-card: rgba(255, 255, 255, 0.9);
-  --text: #1A1A1A;
-  --text-secondary: #666666;
-  --text-muted: #999999;
-  --line: #E5E5E5;
+  /* === Warm Paper + Dark Red (light only, ref. ljj.world) === */
+  --bg: #f3f4f1;
+  --bg-soft: #ebeae4;
+  --bg-card: rgba(243, 244, 241, 0.7);
+  --surface: #e9eae6;
+  --surface-raised: #f8f9f6;
+  --surface-deep: #d9dad5;
 
-  /* Accent: Claude Orange */
-  --accent: #E87040;
-  --accent-light: #F09060;
-  --accent-warm: #D46030;
+  --text: #151613;
+  --text-secondary: #383a35;
+  --text-muted: #696b64;
+  --muted-strong: #383a35;
 
-  /* Spacing */
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 16px;
+  --line: #15161329;        /* 1px alpha line, ljj 风格 */
+  --line-strong: #15161375;
 
-  /* Glass - Simplified for Claude Design */
-  --glass-bg: rgba(255, 255, 255, 0.95);
-  --glass-border: rgba(0, 0, 0, 0.06);
-  --glass-border-hover: rgba(0, 0, 0, 0.12);
+  /* Accent: ljj 暗红/牛血红 — 真正主色 */
+  --accent: #b93b28;
+  --accent-hover: #9f2f1f;
+  --accent-light: #f3d8d0;
+  --accent-warm: #7a2418;   /* 深牛血，渐变暗端 */
+  --accent-soft: #f3d8d0;   /* 淡粉填充 */
+  --accent-ink: #f8f9f6;    /* accent 上的浅色文字 */
 
-  /* Shadows - Cleaner for Claude Design */
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* Radius: 小圆角（用户决策 4-6px） */
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-lg: 8px;
 
-  /* Transitions */
-  --transition-fast: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-base: 350ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* Glass — 按 new bg 重调暖偏 */
+  --glass-bg: rgba(243, 244, 241, 0.95);
+  --glass-border: rgba(21, 22, 19, 0.12);
+  --glass-border-hover: rgba(21, 22, 19, 0.22);
 
-  /* Typography - Claude Design uses clean sans-serif */
-  --font-sans: 'Inter', 'Noto Sans SC', 'PingFang SC', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+  /* Shadows — 暖灰、低强度 */
+  --shadow-card: 0 1px 3px rgba(21, 22, 19, 0.08);
+  --shadow-card-hover: 0 4px 12px rgba(21, 22, 19, 0.14);
+
+  /* Transitions — 对齐 ljj expo-out 缓动 */
+  --transition-fast: 200ms cubic-bezier(.16, 1, .3, 1);
+  --transition-base: 350ms cubic-bezier(.16, 1, .3, 1);
+  --transition-slow: 500ms cubic-bezier(.16, 1, .3, 1);
+
+  /* Typography — Geist 正文/UI + Manrope 标题(display) + Geist Mono 等宽 */
+  --font-sans: 'Geist', 'Noto Sans SC', 'PingFang SC', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Manrope', 'Geist', 'Noto Sans SC', sans-serif;   /* 标题 → Manrope，保留 var 名以最小化改动 */
+  --font-mono: 'Geist Mono', 'SFMono-Regular', Consolas, monospace;
+  --font-display: 'Manrope', 'Geist', 'Noto Sans SC', sans-serif;
+
+  /* === 蓝图网格背景 token === */
+  --grid-line: rgba(0, 0, 0, 0.022);        /* 细网格线 ~2.2% */
+  --grid-line-strong: rgba(0, 0, 0, 0.045); /* 主网格线 ~4.5% */
+  --grid-size: 40px;
+  --grid-size-major: 200px;
 }
 
 html {
@@ -47,9 +65,26 @@ html {
   scroll-behavior: smooth;
 }
 
+::selection {
+  background-color: rgba(185, 59, 40, 0.4);
+  color: inherit;
+}
+
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid-line-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line-strong) 1px, transparent 1px),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size:
+    var(--grid-size-major) var(--grid-size-major),
+    var(--grid-size-major) var(--grid-size-major),
+    var(--grid-size) var(--grid-size),
+    var(--grid-size) var(--grid-size);
+  background-position: 0 0;
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-sans);
   line-height: 1.6;
@@ -86,7 +121,7 @@ a {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(250, 250, 250, 0.95);
+  background: rgba(243, 244, 241, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
@@ -198,14 +233,14 @@ a {
   gap: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--bg-card);
+  background: transparent;
   padding: 0.3rem 0.3rem 0.3rem 1.2rem;
   transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 .hero-search-container:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(232, 112, 64, 0.08);
+  box-shadow: 0 0 0 3px rgba(185, 59, 40,0.08);
 }
 
 .hero-search-container input {
@@ -227,10 +262,10 @@ a {
 
 .hero-search-btn {
   padding: 0.55rem 1.4rem;
-  border: none;
+  border: 1px solid var(--accent);
   border-radius: 6px;
-  background: var(--accent);
-  color: #fff;
+  background: transparent;
+  color: var(--accent);
   font-weight: 500;
   font-size: 0.82rem;
   font-family: inherit;
@@ -240,7 +275,9 @@ a {
 }
 
 .hero-search-btn:hover {
-  background: var(--accent-light);
+  background: rgba(185, 59, 40, 0.06);
+  color: var(--accent-hover);
+  border-color: var(--accent-hover);
   transform: translateY(-1px);
 }
 
@@ -318,7 +355,7 @@ a {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(232, 112, 64, 0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgba(185, 59, 40,0.2), transparent);
   opacity: 0;
   transition: opacity var(--transition-base);
 }
@@ -342,7 +379,7 @@ a {
   justify-content: center;
   margin-bottom: 1rem;
   border: 1px solid var(--glass-border);
-  background: rgba(232, 112, 64, 0.05);
+  background: rgba(185, 59, 40,0.05);
   color: var(--accent);
 }
 
@@ -459,15 +496,15 @@ a {
   font-size: 0.7rem;
   line-height: 1.5;
   border-radius: 4px;
-  border: 1px solid rgba(232, 112, 64, 0.2);
+  border: 1px solid rgba(185, 59, 40,0.2);
   color: var(--accent);
-  background: rgba(232, 112, 64, 0.05);
+  background: rgba(185, 59, 40,0.05);
   transition: all var(--transition-fast);
 }
 
 .tag:hover {
-  border-color: rgba(232, 112, 64, 0.4);
-  background: rgba(232, 112, 64, 0.1);
+  border-color: rgba(185, 59, 40,0.4);
+  background: rgba(185, 59, 40,0.1);
 }
 
 /* ===== Repos Grid ===== */
@@ -606,7 +643,7 @@ a {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(232, 112, 64, 0.05), transparent 42%);
+  background: linear-gradient(90deg, rgba(185, 59, 40,0.05), transparent 42%);
   opacity: 0.68;
 }
 
@@ -658,9 +695,9 @@ a {
   width: 2.15rem;
   height: 2.15rem;
   color: var(--accent);
-  border: 1px solid rgba(232, 112, 64, 0.2);
+  border: 1px solid rgba(185, 59, 40,0.2);
   border-radius: 8px;
-  background: rgba(232, 112, 64, 0.05);
+  background: rgba(185, 59, 40,0.05);
   font-family: var(--font-mono);
   font-size: 0.78rem;
   line-height: 1;
@@ -781,7 +818,7 @@ a {
   height: 6px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 4px rgba(232, 112, 64, 0.3);
+  box-shadow: 0 0 4px rgba(185, 59, 40,0.3);
 }
 
 .kg-sep {
@@ -889,22 +926,24 @@ a {
 
 .ai-search-container input:focus-visible,
 .ai-search-container button:focus-visible {
-  outline: 2px solid rgba(232, 112, 64, 0.2);
+  outline: 2px solid rgba(185, 59, 40,0.2);
   outline-offset: 1px;
   border-color: var(--accent);
 }
 
 .ai-search-container button {
   cursor: pointer;
-  background: var(--accent);
+  background: transparent;
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent);
   font-weight: 500;
   transition: all var(--transition-fast);
 }
 
 .ai-search-container button:hover {
-  background: var(--accent-light);
+  background: rgba(185, 59, 40, 0.06);
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
   transform: translateY(-1px);
 }
 
@@ -981,9 +1020,9 @@ a {
 }
 
 .clear-chat-btn:hover {
-  background: rgba(232, 112, 64, 0.05);
+  background: rgba(185, 59, 40,0.05);
   color: var(--accent);
-  border-color: rgba(232, 112, 64, 0.3);
+  border-color: rgba(185, 59, 40,0.3);
 }
 
 .chat-messages {
@@ -1003,9 +1042,9 @@ a {
 }
 
 .chat-message.user {
-  background: rgba(232, 112, 64, 0.05);
+  background: rgba(185, 59, 40,0.05);
   margin-left: 1rem;
-  border: 1px solid rgba(232, 112, 64, 0.1);
+  border: 1px solid rgba(185, 59, 40,0.1);
 }
 
 .chat-message.ai {
@@ -1090,7 +1129,7 @@ a {
 .footer-bottom {
   margin-top: 2rem;
   padding-top: 1.25rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  border-top: 1px solid rgba(21, 22, 19,0.25);
   color: var(--text-muted);
   font-size: 0.75rem;
   display: flex;
@@ -1115,10 +1154,10 @@ main {
   align-items: center;
   gap: 0.5rem;
   padding: 0.7rem 1.5rem;
-  border: none;
+  border: 1px solid var(--accent);
   border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
+  background: transparent;
+  color: var(--accent);
   font-weight: 500;
   font-size: 0.9rem;
   font-family: inherit;
@@ -1127,7 +1166,9 @@ main {
 }
 
 .btn-primary:hover {
-  background: var(--accent-light);
+  background: rgba(185, 59, 40, 0.06);
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
   transform: translateY(-1px);
 }
 
@@ -1150,7 +1191,7 @@ main {
 .btn-secondary:hover {
   color: var(--text);
   border-color: var(--accent);
-  background: rgba(232, 112, 64, 0.04);
+  background: rgba(185, 59, 40,0.04);
   transform: translateY(-1px);
 }
 
@@ -1204,7 +1245,7 @@ main {
 .toc-item:hover,
 .toc-item:focus-visible {
   color: var(--accent);
-  border-left-color: rgba(232, 112, 64, 0.4);
+  border-left-color: rgba(185, 59, 40,0.4);
 }
 
 .toc-item.depth-3 { padding-left: 0.9rem; font-size: 0.82rem; }
@@ -1247,7 +1288,7 @@ main {
   border-left: 2px solid var(--accent);
   padding: 0.15rem 0 0.15rem 0.85rem;
   color: var(--text-muted);
-  background: rgba(232, 112, 64, 0.03);
+  background: rgba(185, 59, 40,0.03);
   border-radius: 4px;
 }
 
@@ -1366,7 +1407,7 @@ main {
 .kb-sidebar-link:hover,
 .kb-sidebar-link:focus-visible {
   color: var(--accent);
-  background: rgba(232, 112, 64, 0.05);
+  background: rgba(185, 59, 40,0.05);
 }
 
 .kb-sidebar-count {
@@ -1418,7 +1459,7 @@ main {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: rgba(232, 112, 64, 0.12);
+  background: rgba(185, 59, 40,0.12);
 }
 
 .toolbox-name { margin: 0; font-size: 0.95rem; }
@@ -1471,7 +1512,7 @@ main {
   top: 50%;
   transform: translateY(-50%);
   border-radius: 50%;
-  border: 1px solid rgba(232, 112, 64, 0.2);
+  border: 1px solid rgba(185, 59, 40,0.2);
   opacity: 0.7;
   animation: githubPulse 2.2s ease-in-out infinite;
 }
@@ -1508,7 +1549,7 @@ main {
 .github-entry:focus-visible {
   transform: translateY(-2px);
   border-color: var(--accent);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 16px rgba(21, 22, 19,0.06);
 }
 
 .github-entry:hover .github-entry-text,
@@ -1578,13 +1619,13 @@ main {
 
 .lang-btn:hover:not(:disabled) {
   color: var(--accent);
-  border-color: rgba(232, 112, 64, 0.3);
+  border-color: rgba(185, 59, 40,0.3);
 }
 
 .lang-btn.active {
   color: var(--accent);
-  background: rgba(232, 112, 64, 0.05);
-  border-color: rgba(232, 112, 64, 0.3);
+  background: rgba(185, 59, 40,0.05);
+  border-color: rgba(185, 59, 40,0.3);
 }
 
 .lang-btn:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -1667,8 +1708,8 @@ main {
 /*-- 语言可用性标识: 可用、不可用、双语 --*/
 .lang-badge.lang-available {
   color: var(--accent);
-  border-color: rgba(232, 112, 64, 0.25);
-  background: rgba(232, 112, 64, 0.05);
+  border-color: rgba(185, 59, 40,0.25);
+  background: rgba(185, 59, 40,0.05);
 }
 
 .lang-badge.lang-unavailable {
@@ -1678,8 +1719,8 @@ main {
 
 .lang-badge.lang-bilingual {
   color: var(--accent);
-  border-color: rgba(232, 112, 64, 0.3);
-  background: rgba(232, 112, 64, 0.08);
+  border-color: rgba(185, 59, 40,0.3);
+  background: rgba(185, 59, 40,0.08);
   font-weight: 600;
 }
 
@@ -1763,11 +1804,11 @@ main {
 }
 
 .message-bubble {
-  background: rgba(232, 112, 64, 0.05);
+  background: rgba(185, 59, 40,0.05);
   padding: 0.4rem 0.85rem;
   border-radius: 20px;
-  border: 1px solid rgba(232, 112, 64, 0.1);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(185, 59, 40,0.1);
+  box-shadow: 0 1px 4px rgba(21, 22, 19,0.04);
   max-width: min(280px, calc(100vw - 4rem));
   display: inline-block;
   overflow: hidden;
@@ -1812,17 +1853,17 @@ main {
 .form-row input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(232, 112, 64, 0.1);
+  box-shadow: 0 0 0 2px rgba(185, 59, 40,0.1);
 }
 
 .form-row input.content-input { flex: 2; }
 
 .form-row button {
   padding: 0.5rem 1.25rem;
-  border: 1px solid rgba(232, 112, 64, 0.2);
+  border: 1px solid var(--accent);
   border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
+  background: transparent;
+  color: var(--accent);
   font-size: 0.88rem;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -1831,7 +1872,9 @@ main {
 }
 
 .form-row button:hover:not(:disabled) {
-  background: var(--accent-light);
+  background: rgba(185, 59, 40, 0.06);
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
   transform: translateY(-1px);
 }
 
@@ -1921,22 +1964,24 @@ main {
 
 .search-form input:focus-visible,
 .search-form button:focus-visible {
-  outline: 2px solid rgba(232, 112, 64, 0.15);
+  outline: 2px solid rgba(185, 59, 40,0.15);
   outline-offset: 1px;
   border-color: var(--accent);
 }
 
 .search-form button {
   cursor: pointer;
-  background: var(--accent);
+  background: transparent;
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent);
   font-weight: 500;
   transition: all var(--transition-fast);
 }
 
 .search-form button:hover {
-  background: var(--accent-light);
+  background: rgba(185, 59, 40, 0.06);
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
   transform: translateY(-1px);
 }
 
@@ -1996,7 +2041,7 @@ main {
   margin-left: auto;
   font-size: 0.72rem;
   color: var(--text-muted);
-  background: rgba(232, 112, 64, 0.1);
+  background: rgba(185, 59, 40,0.1);
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
   font-family: var(--font-mono);
@@ -2116,13 +2161,13 @@ main {
 
 .skill-toc-link:hover {
   color: var(--text);
-  background: rgba(232, 112, 64, 0.05);
+  background: rgba(185, 59, 40,0.05);
 }
 
 .skill-toc-link.active {
   color: var(--accent);
   border-left-color: var(--accent);
-  background: rgba(232, 112, 64, 0.05);
+  background: rgba(185, 59, 40,0.05);
   font-weight: 500;
 }
 
@@ -2170,17 +2215,20 @@ main {
   align-items: center;
   gap: 0.5rem;
   padding: 0.55rem 1.2rem;
-  background: var(--accent);
-  color: #fff;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
   border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 500;
   text-decoration: none;
-  transition: background var(--transition-base), transform var(--transition-base);
+  transition: background var(--transition-base), transform var(--transition-base), border-color var(--transition-base), color var(--transition-base);
 }
 
 .skill-download-btn:hover {
-  background: var(--accent-warm);
+  background: rgba(185, 59, 40, 0.06);
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
   transform: translateY(-1px);
 }
 
@@ -2317,12 +2365,12 @@ main {
 }
 
 .admin-nav a:hover {
-  background: rgba(232, 112, 64, 0.05);
+  background: rgba(185, 59, 40,0.05);
   color: var(--text);
 }
 
 .admin-nav a.active {
-  background: rgba(232, 112, 64, 0.08);
+  background: rgba(185, 59, 40,0.08);
   color: var(--accent);
   font-weight: 500;
 }
@@ -2438,13 +2486,13 @@ main {
 
 .admin-table td {
   padding: 0.6rem 0.8rem;
-  border-bottom: 1px solid rgba(200, 194, 182, 0.4);
+  border-bottom: 1px solid rgba(21, 22, 19,0.4);
   color: var(--text);
   vertical-align: top;
 }
 
 .admin-table tr:hover td {
-  background: rgba(232, 112, 64, 0.03);
+  background: rgba(185, 59, 40,0.03);
 }
 
 .admin-table strong {
@@ -2473,7 +2521,7 @@ main {
   display: inline-block;
   font-size: 0.7rem;
   padding: 0.15rem 0.5rem;
-  background: rgba(232, 112, 64, 0.08);
+  background: rgba(185, 59, 40,0.08);
   color: var(--accent);
   border-radius: 999px;
   white-space: nowrap;
@@ -2503,14 +2551,15 @@ main {
 }
 
 .admin-btn-primary {
-  background: var(--accent);
+  background: transparent;
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent);
 }
 
 .admin-btn-primary:hover {
-  background: var(--accent-light);
-  border-color: var(--accent-light);
+  background: rgba(185, 59, 40, 0.06);
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
 }
 
 .admin-btn-danger {
@@ -2525,11 +2574,11 @@ main {
 
 .admin-btn-warn {
   color: var(--accent-warm);
-  border-color: rgba(212, 96, 48, 0.3);
+  border-color: rgba(185, 59, 40, 0.3);
 }
 
 .admin-btn-warn:hover {
-  background: rgba(212, 96, 48, 0.08);
+  background: rgba(185, 59, 40, 0.08);
   border-color: var(--accent-warm);
 }
 
@@ -2591,7 +2640,7 @@ main {
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(243, 244, 241, 0.6);
   color: var(--text);
   font-family: inherit;
   font-size: 0.85rem;
@@ -2603,7 +2652,7 @@ main {
 .admin-form textarea:focus,
 .admin-form select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(232, 112, 64, 0.1);
+  box-shadow: 0 0 0 3px rgba(185, 59, 40,0.1);
 }
 
 .admin-form input:disabled {
@@ -2637,7 +2686,7 @@ main {
 }
 
 .admin-badge-warn {
-  background: rgba(212, 96, 48, 0.08);
+  background: rgba(185, 59, 40, 0.08);
   color: var(--accent-warm);
 }
 
@@ -2653,7 +2702,7 @@ main {
 }
 
 .admin-filter-bar .admin-btn-sm.active {
-  background: rgba(232, 112, 64, 0.1);
+  background: rgba(185, 59, 40,0.1);
   color: var(--accent);
   border-color: var(--accent);
 }
@@ -2684,7 +2733,7 @@ main {
 
 .idea-card:hover {
   border-color: var(--accent);
-  box-shadow: 0 2px 12px rgba(232, 112, 64, 0.08);
+  box-shadow: 0 2px 12px rgba(185, 59, 40,0.08);
 }
 
 .idea-card-head {
@@ -2858,7 +2907,7 @@ main {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(135deg, rgba(232, 112, 64, 0.05), transparent 36%);
+  background: linear-gradient(135deg, rgba(185, 59, 40,0.05), transparent 36%);
   opacity: 0.8;
 }
 
@@ -2878,7 +2927,7 @@ main {
   overflow: hidden;
   flex: 0 0 auto;
   background: var(--bg-soft);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 12px rgba(21, 22, 19,0.06);
 }
 
 .about-avatar img {
@@ -2971,13 +3020,13 @@ main {
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(21, 22, 19,0.3);
 }
 
-.github-contrib-dot.level-0 { background: rgba(232, 112, 64, 0.08); }
-.github-contrib-dot.level-1 { background: rgba(232, 112, 64, 0.25); }
-.github-contrib-dot.level-2 { background: rgba(232, 112, 64, 0.5); }
-.github-contrib-dot.level-3 { background: rgba(232, 112, 64, 0.8); }
+.github-contrib-dot.level-0 { background: rgba(185, 59, 40,0.08); }
+.github-contrib-dot.level-1 { background: rgba(185, 59, 40,0.25); }
+.github-contrib-dot.level-2 { background: rgba(185, 59, 40,0.5); }
+.github-contrib-dot.level-3 { background: rgba(185, 59, 40,0.8); }
 
 @media (max-width: 768px) {
   .about-profile-head {
@@ -2997,4 +3046,30 @@ main {
     min-height: 96px;
     padding: 0.6rem;
   }
+}
+
+/* ===== Pixel Wave Title ===== */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.hero-title-pixel {
+  line-height: 1;
+}
+
+.pixel-wave-title {
+  display: block;
+  height: clamp(2.8rem, 2rem + 4.2vw, 4.5rem);
+  width: auto;
+  max-width: 100%;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 7px rgba(185, 59, 40, 0.32));
 }
