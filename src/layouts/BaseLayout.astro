@@ -1,6 +1,6 @@
 ---
 import "../styles/global.css";
-import PixelBrand from "../components/PixelBrand";
+import PixelWaveTitle from "../components/PixelWaveTitle";
 
 interface Props {
   title: string;
@@ -38,7 +38,19 @@ const toBase = (path = "") => {
       <div class="container inner">
         <a class="brand" href={toBase()} aria-label="BlogX_x 首页" data-home={isHome ? "true" : "false"}>
           <span class="brand-text">BlogX_x</span>
-          <PixelBrand />
+          <span class="brand-lockup" aria-hidden="true">
+            <PixelWaveTitle
+              text="BlogX_x"
+              className="brand-wave"
+              cell={6}
+              sampleCell={26}
+              fontPx={260}
+              fontFamily={`"Geist Mono", "JetBrains Mono", monospace`}
+              waveScale={1}
+              animated={false}
+              client:load
+            />
+          </span>
         </a>
         <button
           id="menuToggle"
@@ -107,20 +119,16 @@ const toBase = (path = "") => {
         });
       }
 
-      // 顶栏品牌标记滚动形变：首页顶部态 → 滚过 Hero 后 compact 态。
-      // 仅首页启用 hero 态；内页始终 compact。
-      const header = document.querySelector(".site-header");
+      // 首页前 320px 将品牌从展示态连续收束为导航态；内页直接使用导航态。
+      const header = document.querySelector<HTMLElement>(".site-header");
       const isHome = header?.getAttribute("data-brand-state") === "hero";
       if (header && isHome) {
-        const hero = document.querySelector(".hero");
         let ticking = false;
         const update = () => {
-          // Hero 视口下沿低于 96px 视为"滚出"，顶栏切入 compact 态
-          const threshold = 96;
-          const passed = hero
-            ? hero.getBoundingClientRect().bottom < threshold
-            : window.scrollY > 240;
-          header.setAttribute("data-brand-state", passed ? "compact" : "hero");
+          const progress = Math.min(1, Math.max(0, window.scrollY / 320));
+          header.style.setProperty("--brand-progress", progress.toFixed(3));
+          header.setAttribute("data-brand-state", progress > 0.96 ? "compact" : "hero");
+          window.dispatchEvent(new CustomEvent("brand-progress", { detail: progress }));
           ticking = false;
         };
         const onScroll = () => {

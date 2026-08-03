@@ -1,92 +1,134 @@
-﻿# 📝 BlogX_x 项目需求文档 (PRD)
+# 📝 BlogX_x 产品需求文档 (PRD)
+
+> **版本**: v2.0（已根据当前工程实现更新）
+> **更新日期**: 2026-07-29
+> **说明**: 本文档为产品总览。工程细节以 `wiki/`（仓库根 `wiki/` 目录）为当前真相源，不以下文为准。
 
 ## 1. 🎯 项目概述 (The Vibe)
+
 - **项目名称**: BlogX_x
-- **核心目标**: 构建一个极速、现代的个人数字花园，用于沉淀长篇技术文章与碎片化学习笔记。
-- **设计基调 (Design Vibe)**: 极简主义、黑白主题为主、排版优雅。注重阅读体验，类似 Notion 或 Vercel 的设计语言。
-- **技术栈**: Astro (核心框架) + TailwindCSS (样式) + MDX (内容) + TypeScript (类型约束)。
+- **核心目标**: 构建一个极速、现代的个人数字花园，沉淀长篇技术文章、碎片化学习笔记与本地知识库，并以 AI 检索 + 知识图谱作为内容的发现层。
+- **设计基调 (Design Vibe)**: 暖纸 (warm paper) + 牛血红 (oxblood red) 主题，参考 ljj.world；蓝图网格背景、玻璃面板、小圆角 (4–8px)；首页「树码空间」像素波动标题 (`PixelWaveTitle`)。light-only，强排版、低干扰阅读。> 历史版本的「极简黑白」基调已被产品方向更新取代。
+- **技术栈**: Astro 6（`output: "server"`，`@astrojs/vercel` 适配器）+ React 19（交互岛屿）+ TypeScript + Tailwind CSS 4 + `astro:content` 内容集合。
+- **Node**: `>= 22.12.0`
+- **部署**: Vercel。
 
 ## 2. 🧱 核心功能规范 (The Spec)
 
-### 2.1 页面路由结构
-- `/` - 首页 (个人简介 + 最近的 3 篇文章 + 最近的 3 条笔记)
-- `/posts` - 博客文章列表页 (按时间倒序，支持简单的分页)
-- `/posts/[slug]` - 博客文章详情页
-- `/notes` - 碎片化笔记列表页 (类似时间轴的形式展示)
-- `/about` - 关于我,可以设置头像
+### 2.1 页面路由结构（公开页）
 
-### 2.2 核心特性要求
-- **深色模式支持**: 必须支持系统的 Dark/Light 模式无缝切换。
-- **响应式设计**: 移动端优先，在手机上导航栏需收起为汉堡菜单。
-- **SEO 与 Meta**: 每个页面必须有独立的 `<title>` 和 `<meta name="description">`。
-- **代码高亮**: 文章内的代码块需支持语法高亮（推荐 Astro 默认的 Shiki）。
+| 路由 | 说明 |
+|------|------|
+| `/` | 首页：Hero + AI 搜索 + 最近文章/知识库 + 知识图谱（仅桌面） |
+| `/posts` | 文章列表页（按收录日期倒序） |
+| `/posts/[slug]` | 文章详情页（多为外链收藏 + 中英翻译） |
+| `/knowledge-base` | 知识库列表页（分类侧栏 + 锚点跳转） |
+| `/knowledge-base/[...slug]` | 知识库详情页（嵌套路径，由 Obsidian 同步） |
+| `/wiki/[...slug]` | 站点内容 wiki（`src/content/wiki`，区别于工程 wiki） |
+| `/repos` | 仓库目录 |
+| `/skills` / `/skills/[slug]` | Skills 列表与详情（含下载） |
+| `/toolbox` | 外部工具导航页 |
+| `/about` | 关于页 + 趣味留言墙 + 点子收集箱 |
 
-### 2.3 页面效果
-- **鼠标移动效果**：鼠标移动，网页背景会有泛白的圆形光点跟随，增加交互感。
-- **文章列表**：每篇文章以卡片形式展示，包含标题、发布日期、描述和标签。卡片悬停时有轻微的放大和阴影效果。
-- **文章详情**：文章内容以 Markdown 格式渲染，支持标题、段落、图片、代码块等。文章顶部显示标题、发布日期和标签。
+### 2.2 管理后台
 
-### blog logo
-- **博客 Logo**: 在网页标签页显示logo：/public/logo/treeXLogo.png
+`/admin`（hub）及其子页：`ideas`、`messages`、`posts`、`projects`、`repos`、`skills`、`toolbox`。认证见 `src/lib/admin-auth.ts`。
 
+### 2.3 核心特性
 
-### Vercel 部署 和 LanceDB 接入
+- **AI 搜索**: 基于 LanceDB 向量检索 + GLM（如 GLM-4.5-AIR）生成回答与结果卡片；`/api/ai-search` 支持 `site`（默认）与 `toolbox` 两种 scope；按 IP 内存限频。
+- **知识图谱**: 由向量相似度生成节点/边；`react-force-graph-2d` + d3-force 渲染；**仅桌面端**，移动端隐藏。阈值由 `KG_*` 环境变量控制。
+- **文章外链采集 + 翻译**: posts 以 `sourceUrl` 为中心；构建时 `fetch-articles.mjs` 抓取正文并 LLM 全文翻译，存入 LanceDB `articles` 表；详情页支持中英切换。详见 `docs/content-layout-prd.md` Part A。
+- **Obsidian 同步**: `scripts/sync-obsidian-kb.mjs` 将本地 Obsidian vault 同步到 `src/content/knowledge-base`；`pre-commit`/`pre-push` 钩子保证一致性。
+- **留言 / 点子**: 关于页互动模块（趣味留言墙 + 点子收集箱），`@vercel/kv` 持久化，AI 审核 + 管理员审核。详见 `docs/message-prd.md`。
+- **工具箱**: 静态维护的外部工具导航，复用 AI 搜索。详见 `docs/toolBox-prd.md`。
+- **MCP**: 暴露本地 MCP server（stdio / HTTP）供 Agent 访问知识库/wiki。详见 `docs/mcp-knowledge-base.md`。
+- **响应式设计**: 移动端优先，断点 `≤700px` / `701–1024px` / `≥1025px`；导航在移动端收起。
+- **SEO 与 Meta**: 每页独立 `<title>` 与 `<meta name="description">`。
+- **代码高亮**: 文章内代码块支持语法高亮。
 
-- **部署**: 项目完成后需部署到 Vercel，确保生产环境无错误。
-- **LanceDB 接入**: 未来计划将文章和笔记数据同步
-到 LanceDB，便于后续的 AI 搜索和推荐功能开发
-- **数据同步**: 需要设计一个简单的脚本或 API 接口，将 Markdown 文件中的内容同步到 LanceDB，确保数据的一致性和实时更新.
+### 2.4 页面效果
 
-### 知识图谱功能
+- 鼠标移动时背景有泛白圆形光点跟随，增加交互感。
+- 文章列表卡片含标题、日期、描述、标签；悬停轻微放大与阴影。
+- 文章详情支持标题、段落、图片、代码块等。
 
-库：react-force-graph
-利用 LanceDB 的向量检索功能，寻找与它最相似的 3~5 篇文章或笔记，构建一个简单的知识图谱，展示它们之间的关系和相似度。
-设置相似度阈值，或者限制每篇文章最多只连 5 条线
-响应式兼容：手机端加载直接隐藏图谱的显示
-知识图谱显示在主页的侧边栏
+### 2.5 博客 Logo
 
+网页标签页 logo：`/public/logo/treeXLogo.png`。
 
-### AI搜索框功能
-在.env 设置我的GLM的API KEY和模型为glm-4.5-air
-API KEY:由我填写
-将目前的搜索框修改为一个可以对话的AI搜索框，用户输入关键词后，AI会基于LanceDB中的数据进行检索，并返回相关的文章或笔记链接
-搜索结果以列表卡片的形式展示，包含标题、发布日期和简短描述。点击结果跳转到对应的文章或笔记详情页
-注意设计保护：设置搜索频率限制，防止滥用API，确保系统稳定性
+## 3. 🗄️ 数据结构定义 (Content Collections)
 
+> 真相源：`src/content.config.ts`；读取助手：`src/lib/content.ts`。下为摘要，字段以源码为准。
 
-## 3. 🗄️ 数据结构定义 (Data Spec - Content Collections)
-*这是给 AI 编写代码时最重要的约束规范。*
+| 集合 | 路径 | 列表/详情路由 |
+|------|------|---------------|
+| `posts` | `src/content/posts/**` | `/posts`、`/posts/[slug]` |
+| `knowledgeBase` | `src/content/knowledge-base/**` | `/knowledge-base`、`/knowledge-base/[...slug]` |
+| `wiki` | `src/content/wiki/**` | `/wiki/[...slug]` |
+| `repos` | `src/content/repos/**` | `/repos` |
+| `skills` | `src/content/skills/**` | `/skills`、`/skills/[slug]` |
+| `projects` | `src/content/projects/**` | admin + 目录 |
 
-### 3.1 博客文章 (`src/content/posts/`)
-Frontmatter (YAML) 数据验证模型需包含：
-- `title` (String, 必填): 文章标题
-- `date` (Date, 必填): 发布日期
-- `description` (String, 必填): SEO 描述与列表页摘要
-- `tags` (Array<String>, 可选): 标签，如 `['astro', '前端']`
-- `coverImage` (String, 可选): 封面图相对路径
-- `isDraft` (Boolean, 默认 false): 是否为草稿（草稿不应在生产环境展示）
+### 3.1 posts（外链文章）
 
-### 3.2 碎片笔记 (`src/content/notes/`)
-Frontmatter (YAML) 数据验证模型需包含：
-- `date` (Date, 必填): 记录时间
-- `mood` (String, 可选): 心情/状态图标，如 `💡`, `🐛`, `🎉`
-- (注意：笔记不需要标题，直接渲染正文即可)
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `sourceUrl` | ✅ | 原文链接 |
+| `title` | 可选 | 缺省自动抓取 |
+| `date` | 可选 | 缺省从 id 解析或当天 |
+| `description` | 可选 | SEO / 卡片 |
+| `tags` | 可选 | string[] |
+| `coverImage` | 可选 | |
+| `originalAuthor` | 可选 | |
+| `originalLang` | 默认 `en` | |
+| `isDraft` | 默认 `false` | 公开列表过滤草稿 |
 
-## 4. 🚀 开发里程碑 (Milestones)
-*用于指导 AI 一步一步完成构建，避免一次性生成太多导致失控。*
+构建时可经 `fetch-articles.mjs` 抓取/翻译。
 
-- [ ] **Phase 1: 基础设施建设**
-  - 初始化 TailwindCSS。
-  - 配置 `src/content/config.ts` 以满足上述数据结构约束。
-  - 创建全局 Layout (`src/layouts/BaseLayout.astro`)，包含基础的 Header 和 Footer。
-- [ ] **Phase 2: 内容渲染机制**
-  - 在 `src/content/posts` 下创建两篇测试 Markdown。
-  - 完成文章列表页 (`/posts`) 的数据获取和 UI 渲染。
-  - 完成文章详情页 (`/posts/[slug]`) 的动态路由与 Markdown 解析。
-- [ ] **Phase 3: 首页与视觉优化 (Vibe Polish)**
-  - 完善首页 (`/`) 的布局，拉取文章和笔记的聚合数据。
-  - 调整字体排版 (Typography)、间距，添加微交互动画。
-- [ ] **Phase 4: 部署与上线**
-  - 检查所有内部链接。
-  - 部署到 github 发布 gh-pages。
-  - 在 README.md 中添加部署后的访问链接。
+### 3.2 knowledgeBase / wiki
+
+可选：`title`、`date`、`description`、`tags`、`isDraft`（默认 false）。知识库主要由 Obsidian 同步填充。
+
+### 3.3 repos / skills / projects
+
+- `repos`：必填 `title`、`repoUrl`、`description`；可选 `language`、`tags`、`stars`、`isDraft`。
+- `skills`：必填 `title`、`description`、`skillDir`；可选 `tags`、`version`、`author`、`license`、`isDraft`；压缩包位于 `public/skills-download/`，由 `pack-skills.mjs` 打包。
+- `projects`：必填 `title`、`repoUrl`、`description`；可选 `tags`、`isDraft`。
+
+## 4. 🚀 构建流水线 (npm scripts)
+
+| Script | 作用 |
+|--------|------|
+| `dev` | `astro dev` |
+| `prebuild` | `pack-skills.mjs` |
+| `build` | `init-db` → `fetch-articles --translate` → `astro build` |
+| `sync-kb` / `sync-kb:stage` / `sync-kb:check` | Obsidian → content |
+| `init-db` | 重建向量索引 |
+| `mcp:kb` / `mcp:kb:http` | MCP server |
+| `fetch-articles[:translate]` | 抓取/翻译外链文章 |
+| `maintenance[:status\|:fix\|:verify]` | 运维助手 |
+| `test:kg` | 知识图谱冒烟测试 |
+
+CI（`.github/workflows/vector-sync.yml`）在内容/脚本/依赖变更时重建云端向量索引。
+
+## 5. 📚 文档索引
+
+| 文档 | 覆盖范围 |
+|------|---------|
+| `docs/content-layout-prd.md` | 文章外链采集与翻译 + 布局与知识库阅读体验 |
+| `docs/message-prd.md` | 留言 / 点子互动模块 |
+| `docs/toolBox-prd.md` | 工具箱导航页 |
+| `docs/mcp-knowledge-base.md` | 知识库 MCP server |
+| `docs/ljj-world-design-extraction.md` | 主题设计提取（独立维护） |
+| `wiki/*.md` | 工程上下文 wiki（当前真相源） |
+
+## 6. 🧭 开发里程碑 (历史)
+
+- ✅ Phase 1: 基础设施（Tailwind、content config、BaseLayout）
+- ✅ Phase 2: 内容渲染机制（文章列表/详情）
+- ✅ Phase 3: 首页与视觉优化
+- ✅ Phase 4: 部署上线
+- ✅ Phase 5: AI 搜索 + 知识图谱 + LanceDB
+- ✅ Phase 6: 文章外链采集 + 翻译 + 布局/知识库优化
+- ✅ Phase 7: 留言/点子模块 + 管理后台套件 + 工具箱 + MCP + Obsidian 同步

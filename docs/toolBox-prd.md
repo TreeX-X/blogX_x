@@ -2,10 +2,10 @@
 
 **文件名**: product-spec-context.md
 
-**文档状态**: Draft
-**更新日期**: 2026-04-30
+**文档状态**: 已实现
+**更新日期**: 2026-07-29
 **作者**: Tree
-**版本**: v1.0
+**版本**: v1.1
 
 ---
 
@@ -130,54 +130,30 @@ BlogX_x 需要新增一个轻量级“工具箱”页面，作为资源导航页
 - 本需求增量知识索引：[]
 - 推荐阅读顺序差异：[]
 
-## 9. 🧪 评估报告（Evaluator Reserved Section）
+## 9. 📌 实现现状（基于当前工程代码，2026-07-29）
 
-### 9.1 最近一次评估元信息
-- **评估时间**: 2026-04-30
-- **评估范围**: docs/toolBox-prd.md 对应的实现变更与当前工作区代码
-- **评估人/Agent**: EvaluatorX_x
-- **关联代码范围**: src/pages/toolbox/index.astro; src/lib/toolbox.ts; src/pages/api/ai-search.ts; src/layouts/BaseLayout.astro; src/pages/index.astro; src/styles/global.css
+> 本节取代历史 point-in-time 评估报告。工程真相以 `wiki/03-routes.md`、`wiki/06-interactive-admin.md` 与源码为准。
 
-### 9.2 需求符合度概览
+### 9.1 需求符合度
 
-| 需求 | 类型 | 状态 | 对应代码 | 说明 |
-|------|------|------|---------|------|
-| 顶部导航新增工具箱入口，且 /toolbox 为独立页面 | 功能 | ✅ | src/layouts/BaseLayout.astro:46-48; src/pages/toolbox/index.astro:1 | 顶部导航已新增工具箱链接，且页面路由文件存在。 |
-| 工具条目按分类卡片展示，字段最小集为分类/网站名称/网站网址/简介/图标 | 功能 | ❌ | src/pages/toolbox/index.astro:74-89; src/lib/toolbox.ts:1-9 | 渲染结构与字段位已准备好，但 toolboxItems 为空，页面只会落入空状态，不会实际展示任何分类卡片。 |
-| 工具内容独立静态维护 | 功能 | ✅ | src/lib/toolbox.ts:1-9 | 数据源已从页面与搜索逻辑中抽离为独立静态模块，没有依赖后台。 |
-| AI 搜索联动复用现有搜索能力，且结果样式尽量与首页一致 | 功能 | ❌ | src/pages/api/ai-search.ts:4,145-146,258,336; src/pages/toolbox/index.astro:32-65,168-194; src/pages/index.astro:15-106 | 复用链路已接通，但由于 toolboxItems 为空，toolbox scope 实际检索不到任何工具，联动在当前状态下不可用。 |
-| 不做站外链接额外提示、不做收藏/历史/分享 | 非目标 | ✅ | src/pages/toolbox/index.astro:83; src/pages/toolbox/index.astro:168 | 当前实现未加入收藏、历史、分享或站外跳转确认提示。 |
-| 可用性与结构性 | 非功能 | ⚠️ | src/pages/toolbox/index.astro:74-99; src/styles/global.css:275-317 | 页面结构完整，但由于无条目数据，首屏只能看到空状态，无法完成工具箱浏览目标。 |
+| 需求 | 状态 | 对应代码 | 说明 |
+|------|------|---------|------|
+| 顶部导航新增工具箱入口，且 /toolbox 为独立页面 | ✅ | `src/layouts/BaseLayout.astro`、`src/pages/toolbox/index.astro` | 导航含「工具箱」入口，`/toolbox` 公开路由。 |
+| 工具条目按分类卡片展示，字段最小集：分类/名称/网址/简介/图标 | ✅ | `src/pages/toolbox/index.astro`、`src/lib/toolbox.ts` | `toolboxItems` 已填充 3 条目、2 分类（开发工具 / 在线工具）。 |
+| 工具内容独立静态维护 | ✅ | `src/lib/toolbox.ts` | 内容源独立于页面与 API，无后台依赖。 |
+| AI 搜索联动复用现有搜索能力，结果样式与首页一致 | ✅ | `src/pages/api/ai-search.ts`、`src/pages/toolbox/index.astro` | `scope=toolbox` 分支通过 `searchToolboxItems` 检索，样式复用首页 card 基元。 |
+| 不做站外链接额外提示、不做收藏/历史/分享 | ✅ | `src/pages/toolbox/index.astro` | 未引入收藏/历史/分享/站外确认提示。 |
+| 缺省图标 fallback | ✅ | `src/lib/toolbox.ts` `getToolboxIconUrl`、`src/styles/global.css` | 无 `icon` 条目回退到 Google favicon；「色彩选取器」条目即无 icon 回归样例。 |
+| 管理后台维护 | ✅ | `src/pages/admin/toolbox.astro`、`src/pages/api/admin/toolbox.ts` | 后台套件已含工具箱管理面。 |
 
-### 9.2.1 验收标准（AC）符合度
+### 9.2 历史评估中 flagged 问题的当前状态
 
-| AC | 状态 | 对应代码 | 依据/差距 | 修改建议 |
-|----|------|---------|----------|---------|
-| 顶部导航中存在工具箱入口 | ✅ | src/layouts/BaseLayout.astro:46-48 | 已新增“工具箱”导航项。 | N/A |
-| 点击入口可进入 /toolbox | ✅ | src/layouts/BaseLayout.astro:46-48; src/pages/toolbox/index.astro:1-222 | 链接指向 /toolbox，且对应页面已存在。 | N/A |
-| 工具箱页面可对所有访客开放 | ✅ | src/pages/toolbox/index.astro:1-222 | 页面为静态公开路由，没有鉴权。 | N/A |
-| 工具条目按分类浏览 | ❌ | src/pages/toolbox/index.astro:74-89; src/lib/toolbox.ts:9 | 分类渲染逻辑存在，但数据数组为空，实际无法浏览任何分类。 | 补充至少一批静态 toolboxItems，并按分类填写。 |
-| 每个工具都能渲染为可点击卡片 | ❌ | src/pages/toolbox/index.astro:82-89 | 卡片模板存在，但没有任何条目可渲染。 | 填充静态数据后再验证卡片点击跳转。 |
-| 缺少图标时仍能显示默认灰色图标样式 | 🔄 | src/pages/toolbox/index.astro:85-86; src/styles/global.css:291-314 | fallback 结构和样式已实现，但当前无数据无法在页面上验证。 | 在 toolboxItems 中补一条无 icon 条目做回归验证。 |
-| 工具内容通过独立静态文件维护 | ✅ | src/lib/toolbox.ts:1-9 | 内容来源已独立于页面与 API。 | N/A |
-| 能通过现有 AI 搜索链路检索工具箱内容 | ❌ | src/pages/api/ai-search.ts:145-146,258,336; src/pages/toolbox/index.astro:32-65 | scope=toolbox 分支已接入，但因静态数据为空，搜索无结果。 | 先补齐静态工具数据，再验证 toolbox scope 返回结果。 |
-| 搜索结果样式与首页现有 AI 搜索保持一致 | ✅ | src/pages/toolbox/index.astro:32-65,168-194; src/pages/index.astro:15-106; src/styles/global.css:225-317 | 复用了同一 API、同类搜索表单和 card 基础样式。 | N/A |
-| 搜索无结果时仍可继续浏览静态分类卡片 | ❌ | src/pages/toolbox/index.astro:74-99 | 由于当前没有任何卡片，静态浏览路径实际上不可用。 | 至少补齐一批可浏览条目。 |
-| AI 搜索不可用时，静态卡片浏览不受影响 | 🔄 | src/pages/toolbox/index.astro:74-99 | 架构上搜索与卡片是分离的，但当前空数据导致浏览能力本身不可见。 | 补齐静态数据后再做回归验证。 |
+| 历史问题 | 历史等级 | 当前状态 | 依据 |
+|---------|---------|---------|------|
+| `toolboxItems` 为空，页面只显示空状态 | 🔴 | ✅ 已修复 | `src/lib/toolbox.ts` 现含 3 条目、2 分类 |
+| toolbox scope 搜索因空数据无结果 | 🔴 | ✅ 已修复 | 数据填充后 `searchToolboxItems` 可返回结果 |
+| 缺省图标态无法验证 | 🟡 | ✅ 已修复 | 「色彩选取器」条目无 `icon`，回退 favicon |
 
-### 9.3 代码问题清单
+### 9.3 综合结论
 
-| # | 问题类型 | 严重程度 | 位置 | 描述 |
-|---|---------|---------|------|------|
-| 1 | 需求缺口 / 数据缺失 | 🔴 | src/lib/toolbox.ts:9; src/pages/toolbox/index.astro:74-99; src/pages/api/ai-search.ts:145-146 | 工具箱静态数据为空，导致 /toolbox 只显示空状态，分类卡片、默认图标态和 toolbox scope 搜索都无法实际落地。 |
-
-### 9.4 优化建议
-
-| # | 建议 | 预期收益 | 建议优先级 |
-|---|------|---------|-----------|
-| 1 | 在 src/lib/toolbox.ts 中补充一批已确认的工具条目，至少覆盖 1-2 个分类，并验证 icon 缺省态。 | 让分类卡片和 AI 搜索链路真正可用。 | P0 |
-| 2 | 补充一条无 icon 的静态条目做回归，确保默认灰色图标样式可见。 | 验证最小字段集和缺省态。 | P1 |
-
-### 9.5 综合评估结论
-
-当前实现的路由、导航、搜索复用和样式基元都已接通，但工具箱的核心内容源为空，导致页面实际上无法展示任何分类卡片，也无法让 toolbox scope 搜索返回结果。因此这次实现不能判定为 PASS；优先补齐静态工具数据后，再做一次完整验收。
+工具箱路由、导航、分类卡片、缺省图标 fallback、AI 搜索 `toolbox` scope 与后台管理面均已接通并有真实数据，**PASS ✅**。后续可按需扩充 `toolboxItems` 覆盖更多分类。

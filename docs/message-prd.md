@@ -1,9 +1,9 @@
-# 主页留言功能 PRD
+# 关于页留言 / 点子功能 PRD
 
-> 版本：v2.0
-> 日期：2026-04-23
+> 版本：v2.1
+> 日期：2026-07-29
 > 状态：已实现
-> 更新：根据实际工程实现完善文档
+> 更新：根据当前工程实现完善文档；脱敏真实密钥（见第 7 节）；补充管理后台套件与 KV 层现状。
 
 ---
 
@@ -245,15 +245,17 @@ return {
 
 ### 4.1 数据存储
 
-**选用方案：Upstash Redis**
+**选用方案：Vercel KV（兼容 Upstash Redis REST 协议）**
 
-| 对比项 | Upstash Redis | JSON文件 | LanceDB |
+| 对比项 | Vercel KV / Upstash Redis | JSON文件 | LanceDB |
 |-------|-----------|----------|---------|
-| 与现有架构一致性 | ✅ 完全一致 | ❌ | ⚠️ |
+| 与现有架构一致性 | ✅ 完全一致（`@vercel/kv`） | ❌ | ⚠️ |
 | 并发写入支持 | ✅ | ❌ | ⚠️ |
-| 免费额度 | 256MB 足够 | 无限 | 已有 |
+| 免费额度 | 足够 | 无限 | 已有 |
 | 部署持久化 | ✅ 自动 | ❌ 会丢失 | ✅ |
 | 查询效率 | ✅ O(1) | ❌ O(n) | ⚠️ |
+
+> 真实密钥切勿提交到仓库。历史版本曾在本文档内联真实 `GLM_API_KEY`、Redis token 与管理员密码，已于 v2.1 脱敏为占位符；请从 `.env`（本地，不入库）或 Vercel 项目环境变量读取。
 
 **KV Key 设计：**
 ```
@@ -266,27 +268,19 @@ messages:global:count:{window} → 全局频率限制计数
 blogx:healthcheck              → Redis健康检查
 ```
 
-**Redis操作实现：**
+**Redis/KV 操作实现：**
 ```typescript
-// 使用 REST API 直接操作
-async function redisCommand(command: string[]): Promise<unknown> {
-  const response = await fetch(REDIS_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${REDIS_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(command),
-  });
-  return response.json();
-}
+// 使用 @vercel/kv（兼容 Upstash REST 协议）
+import { kv } from "@vercel/kv";
 
 // 常用操作
-redisGet(key)           // GET
-redisSet(key, value, ttl) // SETEX / SET
-redisIncr(key)          // INCR
-redisExpire(key, ttl)   // EXPIRE
+await kv.get(key);                 // GET
+await kv.set(key, value, { ex: ttl }); // SETEX / SET
+await kv.incr(key);                // INCR
+await kv.expire(key, ttl);         // EXPIRE
 ```
+
+封装层见 `src/lib/kv-messages.ts`。
 
 ### 4.2 AI 审核实现
 
@@ -674,12 +668,15 @@ const formatTime = (timestamp: number) => {
 
 ```env
 # AI审核配置
-GLM_API_KEY="bba6d037ad194852a18cfeaa2f0c7547.GrutJWv2bF1m7D6S"
+GLM_API_KEY="<your-glm-api-key>"
 GLM_MODEL="glm-4.5-air"
 
-# Upstash Redis
-UPSTASH_REDIS_REST_URL="https://stunning-phoenix-74627.upstash.io"
-UPSTASH_REDIS_REST_TOKEN="gQAAAAAAASODAAIgcDJmZDM3MWY5MTI4Yjg0NDBmOWMwNjRkNjgzZDgzZGRhYg"
+# Vercel KV / Upstash Redis
+KV_REST_API_URL="<your-vercel-kv-or-upstash-rest-url>"
+KV_REST_API_TOKEN="<your-vercel-kv-or-upstash-rest-token>"
+# 兼容旧名（若使用 Upstash REST）：
+# UPSTASH_REDIS_REST_URL="<...>"
+# UPSTASH_REDIS_REST_TOKEN="<...>"
 
 # 留言功能配置
 MESSAGE_RATE_LIMIT_IP="3"
@@ -689,8 +686,8 @@ MESSAGE_RATE_LIMIT_IP_WINDOW="300"
 MESSAGE_MAX_DISPLAY="20"
 
 # 管理员配置
-ADMIN_PASSWORD="X740288105"
-ADMIN_SESSION_SECRET="blogx_x_secret_key"
+ADMIN_PASSWORD="<your-admin-password>"
+ADMIN_SESSION_SECRET="<your-session-secret>"
 ```
 
 **配置说明：**
@@ -742,6 +739,8 @@ ADMIN_SESSION_SECRET="blogx_x_secret_key"
 - [x] 飘动动画优化
 
 **实际实现时间：约 3 小时**
+
+> **当前工程现状（2026-07-29）**：留言/点子功能仍在 `/about` 运行，KV 层已统一到 `@vercel/kv`（`src/lib/kv-messages.ts`）。管理后台已扩展为完整套件：除 `/admin/ideas`、`/admin/messages` 外，新增 `/admin/posts`、`/admin/projects`、`/admin/repos`、`/admin/skills`、`/admin/toolbox` 与 `/admin` hub（认证统一走 `src/lib/admin-auth.ts`）。详见工程 wiki `wiki/06-interactive-admin.md`。
 
 ---
 
@@ -842,6 +841,6 @@ src/
 
 ---
 
-> 文档版本：v2.0
-> 最后更新：2026-04-23
+> 文档版本：v2.1
+> 最后更新：2026-07-29
 > 状态：已完成实现
