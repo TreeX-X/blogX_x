@@ -2,7 +2,7 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { render } from "astro:content";
 import { getPublishedPosts, formatDate, getEntrySlug, getContentTitle, getContentSummary, getContentDate } from "../../lib/content";
-import { getArticleBySlug, estimateReadingTime, extractDomain } from "../../lib/article-db";
+import { getArticleBySlug, getRelatedContent, estimateReadingTime, extractDomain } from "../../lib/article-db";
 import ArticleReader from "../../components/ArticleReader";
 
 export const prerender = true;
@@ -88,6 +88,11 @@ if (ogOriginalLang === "zh") {
 const currentIndex = posts.findIndex((p) => getEntrySlug(p) === params.slug);
 const prevPost = currentIndex < posts.length - 1 ? posts[currentIndex + 1] : null;
 const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
+
+/*-- 构建期关联内容：基于 blog_index 向量相似度的站内最近邻 --*/
+const related = await getRelatedContent(params.slug, 3);
+const relatedCollectionLabel = (collection: string) =>
+  collection === "knowledge-base" ? "知识库" : collection === "wiki" ? "Wiki" : "文章";
 ---
 
 <BaseLayout
@@ -241,4 +246,27 @@ const nextPost = currentIndex > 0 ? posts[currentIndex - 1] : null;
       ) : <span />}
     </div>
   </nav>
+
+  {/*-- 关联阅读：构建期向量最近邻 --*/}
+  {related.length > 0 ? (
+    <section class="related-posts" aria-label="相关阅读">
+      <div class="section-header">
+        <h2 class="section-title">相关阅读</h2>
+      </div>
+      <div class="related-grid">
+        {related.map((item) => (
+          <a class="card related-card" href={toBase(item.url)}>
+            <span class="related-collection">{relatedCollectionLabel(item.collection)}</span>
+            <h3>{item.title}</h3>
+            <div class="related-sim" aria-hidden="true">
+              <div
+                class="related-sim-bar"
+                style={`width: ${Math.round(Math.max(0.1, Math.min(1, item.similarity)) * 100)}%;`}
+              ></div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  ) : null}
 </BaseLayout>

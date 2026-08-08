@@ -329,3 +329,91 @@ export function extractDomain(url: string): string {
     return url;
   }
 }
+
+/**
+ * 构建期关联内容条目
+ */
+export interface RelatedContent {
+  title: string;
+  url: string;
+  collection: string;
+  slug: string;
+  similarity: number;
+}
+
+/**
+ * 构建期关联内容：基于 blog_index 表向量相似度，找出当前条目的站内最近邻。
+ * 与知识图谱 API 同源数据。完全容错——任何失败返回 []，绝不中断构建。
+ */
+export async function getRelatedContent(slug: string, limit = 3): Promise<RelatedContent[]> {
+  try {
+    const db = await getDb();
+    if (!db) return [];
+    const tableNames = await db.tableNames();
+    const tableName = process.env.LANCEDB_TABLE || "blog_index";
+    if (!tableNames.includes(tableName)) return [];
+
+    let table;
+    try {
+      table = await db.openTable(tableName);
+    } catch (error) {
+      console.error(`[article-db] getRelatedContent 打开 ${tableName} 失败:`, error);
+      return [];
+    }
+
+    /*-- 定位当前条目：先按 slug 匹配，优先 posts 集合 --*/
+    const rows = (await table
+      .query()
+      .where(`slug = "${escapeSlug(slug)}"`)
+      .limit(5)
+      .toArray()) as Record<string, unknown>[];
+    let current = rows.find((r) => String(r.collection) === "posts") || rows[0];
+    if (!current) {
+      const byUrl = (await table
+        .query()
+        .where(`url = "/posts/${escapeSlug(slug)}"`)
+        .limit(1)
+        .toArray()) as Record<string, unknown>[];
+      current = byUrl[0];
+    }
+    if (!current) return [];
+
+    const vector = current.vector as { length: number } | undefined;
+    if (!vector || vector.length === 0) return [];
+
+    const currentId = String(current.id ?? "");
+    const neighbors = (await table
+      .search(vector)
+      .limit(limit + 2)
+      .toArray()) as Record<string, unknown>[];
+
+    const result: RelatedContent[] = [];
+    for (const n of neighbors) {
+      if (String(n.id ?? "") === currentId) continue;
+      const url = String(n.url ?? "");
+      if (!url || url === "#" || url === "/") continue;
+      const distance =
+        typeof n._distance === "number"
+          ? n._distance
+          : typeof n.score === "number"
+            ? n.score
+            : Number.POSITIVE_INFINITY;
+      const similarity = Number.isFinite(distance) ? 1 / (1 + Math.max(0, distance)) : 0;
+      if (similarity <= 0) continue;
+      result.push({
+        title: String(n.title ?? url),
+        url,
+        collection: String(n.collection ?? ""),
+        slug: String(n.slug ?? ""),
+        similarity,
+      });
+      if (result.length >= limit) break;
+    }
+    return result;
+  } catch (error) {
+    console.warn(
+      `[article-db] getRelatedContent 失败，降级为空: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return [];
+  }
+}
