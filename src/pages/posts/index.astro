@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getPublishedPosts, formatDate, getEntrySlug, getContentTitle, getContentDate } from "../../lib/content";
-import { getArticleBySlug, extractDomain } from "../../lib/article-db";
+import { getArticleBySlug, estimateReadingTime, extractDomain } from "../../lib/article-db";
 
 const posts = await getPublishedPosts();
 const base = import.meta.env.BASE_URL;
@@ -19,6 +19,58 @@ const postsWithMeta = await Promise.all(
     return { post, slug, article };
   })
 );
+
+/*-- 从文章内容提取"真实开头正文 + 章节标题"：预览浮层展示卡片上看不到的信息 --*/
+const stripTags = (s: string) => s.replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
+const stripMd = (s: string) =>
+  s
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`]*`/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/[>#*_\-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+function extractPreview(article: any, post: any): { opening: string; headings: string[] } {
+  const raw = String(article?.originalContent || post?.body || "");
+  if (!raw.trim()) return { opening: "", headings: [] };
+  const isHtml = /^\s*</.test(raw);
+  let headings: string[] = [];
+  let plain: string;
+  if (isHtml) {
+    headings = Array.from(raw.matchAll(/<h([23])[^>]*>([\s\S]*?)<\/h\1>/gi))
+      .map((m) => stripTags(m[2]))
+      .filter(Boolean)
+      .slice(0, 6);
+    plain = stripTags(raw);
+  } else {
+    headings = Array.from(raw.matchAll(/^#{2,3}\s+(.+)$/gm))
+      .map((m) => m[1].trim())
+      .filter(Boolean)
+      .slice(0, 6);
+    plain = stripMd(raw);
+  }
+  return { opening: plain.length > 200 ? `${plain.slice(0, 200)}…` : plain, headings };
+}
+
+/*-- 卡片 hover 预览浮层的数据（内嵌 JSON，避免运行时请求） --*/
+const previews = postsWithMeta.map(({ post, slug, article }) => {
+  const preview = extractPreview(article, post);
+  return {
+    title: getContentTitle(post),
+    url: toBase(`posts/${slug}`),
+    date: formatDate(getContentDate(post)),
+    tags: post.data.tags ?? [],
+    author: article?.author ?? "",
+    domain: post.data.sourceUrl ? extractDomain(post.data.sourceUrl) : "",
+    cover: article?.coverImage ?? "",
+    readingTime: article?.wordCount ? estimateReadingTime(article.wordCount) : 0,
+    /*-- 真实开头正文（优先文章内容，兜底 description） --*/
+    opening: preview.opening || article?.description || post.data.description || "",
+    headings: preview.headings,
+  };
+});
 ---
 
 <BaseLayout title="BlogX_x | 文章收藏" description="BlogX_x 收藏的优秀技术文章。">
@@ -29,8 +81,8 @@ const postsWithMeta = await Promise.all(
 
   <section class="section">
     <div class="stagger" style="display: grid; gap: 0.9rem;">
-      {postsWithMeta.map(({ post, slug, article }) => (
-        <a class="card article-card" href={toBase(`posts/${slug}`)}>
+      {postsWithMeta.map(({ post, slug, article }, index) => (
+        <a class="card article-card" data-preview={index} href={toBase(`posts/${slug}`)}>
           {article?.coverImage ? (
             <div class="article-card-cover">
               <img src={article.coverImage} alt="" loading="lazy" />
@@ -86,4 +138,109 @@ const postsWithMeta = await Promise.all(
       ))}
     </div>
   </section>
+
+  {/*-- 卡片 hover 预览浮层：悬停显示封面+摘要+元信息，触屏自动降级 --*/}
+  <script is:inline define:vars={{ previews }}>
+    (function() {
+      // 仅桌面精确指针开启；触屏直接点击进入
+      if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+      var cards = Array.prototype.slice.call(document.querySelectorAll(".article-card"));
+      if (!cards.length || !previews) return;
+
+      var popover = document.createElement("div");
+      popover.className = "preview-popover";
+      popover.setAttribute("aria-hidden", "true");
+      /*-- 滚动容器独立于箭头：overflow 不会裁剪指向箭头 --*/
+      var popoverBody = document.createElement("div");
+      popoverBody.className = "preview-popover-body";
+      popover.appendChild(popoverBody);
+      document.body.appendChild(popover);
+
+      function escapeHtml(v) {
+        return String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+
+      function build(d) {
+        var h = "";
+        /*-- 封面铺满顶部（顶边是封面而非留白边框） --*/
+        if (d.cover) h += '<img class="preview-cover" src="' + escapeHtml(d.cover) + '" alt="" />';
+        h += '<div class="preview-body-content">';
+        h += '<div class="preview-title">' + escapeHtml(d.title) + "</div>";
+        var meta = [];
+        if (d.author) meta.push(escapeHtml(d.author));
+        if (d.domain) meta.push(escapeHtml(d.domain));
+        if (d.date) meta.push(escapeHtml(d.date));
+        if (d.readingTime) meta.push(d.readingTime + " 分钟");
+        if (meta.length) h += '<div class="preview-meta">' + meta.join('<span class="preview-meta-sep">·</span>') + "</div>";
+        /*-- 真实开头正文（卡片上没有） --*/
+        if (d.opening) h += '<p class="preview-opening">' + escapeHtml(d.opening) + "</p>";
+        /*-- 章节小目录（卡片上没有） --*/
+        if (d.headings && d.headings.length) {
+          h += '<ul class="preview-headings">';
+          for (var k = 0; k < d.headings.length; k++) {
+            h += '<li class="preview-heading">' + escapeHtml(d.headings[k]) + "</li>";
+          }
+          h += "</ul>";
+        }
+        if (d.tags && d.tags.length) {
+          h += '<div class="preview-tags">' + d.tags.map(function(t) { return '<span class="preview-tag">#' + escapeHtml(t) + "</span>"; }).join("") + "</div>";
+        }
+        h += "</div>";
+        return h;
+      }
+
+      function position(p, rect) {
+        var pw = 320, pad = 10;
+        var vw = document.documentElement.clientWidth;
+        var vh = document.documentElement.clientHeight;
+        var left = rect.right + pad;
+        if (left + pw > vw - pad) left = rect.left - pw - pad;
+        left = Math.max(pad, Math.min(left, vw - pw - pad));
+        var ph = p.offsetHeight || 0;
+        var top = Math.min(rect.top, vh - ph - pad);
+        top = Math.max(pad, top);
+        p.style.left = left + "px";
+        p.style.top = top + "px";
+        /*-- 箭头指向卡片所在侧 --*/
+        var onRight = left > rect.left;
+        p.classList.toggle("preview-caret-left", onRight);
+        p.classList.toggle("preview-caret-right", !onRight);
+      }
+
+      var hideTimer = null;
+      function scheduleHide(delay) {
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(function() { popover.classList.remove("is-open"); }, delay || 150);
+      }
+
+      cards.forEach(function(card, i) {
+        card.addEventListener("mouseenter", function() {
+          clearTimeout(hideTimer);
+          var d = previews[i];
+          if (!d) return;
+          popoverBody.innerHTML = build(d);
+          position(popover, card.getBoundingClientRect());
+          popover.classList.add("is-open");
+        });
+        /*-- 留出过渡宽限，鼠标可移向浮层而不消失 --*/
+        card.addEventListener("mouseleave", function() { scheduleHide(180); });
+      });
+
+      /*-- 浮层可悬停、可滚动 --*/
+      popover.addEventListener("mouseenter", function() { clearTimeout(hideTimer); });
+      popover.addEventListener("mouseleave", function() { scheduleHide(120); });
+
+      /*-- 浮层内部滚动：到边界时不带动页面滚动 --*/
+      popoverBody.addEventListener("wheel", function(e) {
+        var canScroll = popoverBody.scrollHeight > popoverBody.clientHeight + 1;
+        if (!canScroll) return;
+        var atTop = popoverBody.scrollTop <= 0;
+        var atBottom = popoverBody.scrollTop + popoverBody.clientHeight >= popoverBody.scrollHeight - 1;
+        if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) e.preventDefault();
+      }, { passive: false });
+
+      window.addEventListener("scroll", function() { popover.classList.remove("is-open"); }, { passive: true });
+      window.addEventListener("resize", function() { popover.classList.remove("is-open"); });
+    })();
+  </script>
 </BaseLayout>

@@ -1455,6 +1455,60 @@ main {
   border-left: 2px solid var(--accent);
 }
 
+/* ===== 代码块增强（复制按钮 + 语言标签） ===== */
+
+.code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.code-lang {
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.code-copy {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.code-copy-icon {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.code-copy:hover {
+  color: var(--accent);
+  border-color: rgba(185, 59, 40, 0.3);
+}
+
+.code-copy.copied {
+  color: var(--accent);
+  border-color: rgba(185, 59, 40, 0.4);
+  background: rgba(185, 59, 40, 0.06);
+}
+
 .prose-wrap table {
   width: 100%;
   border-collapse: collapse;
@@ -1981,6 +2035,147 @@ main {
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--accent), var(--accent-warm));
+}
+
+/* ===== Card Hover Preview（文章索引 hover 浮层） ===== */
+
+.preview-popover {
+  position: fixed;
+  z-index: 60;
+  width: min(320px, calc(100vw - 2rem));
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  transform-origin: left center;
+  transition: opacity 160ms ease, transform 160ms ease;
+  pointer-events: none;
+}
+
+.preview-popover.is-open {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* 指向卡片的箭头（独立于滚动容器，避免被 overflow 裁剪） */
+.preview-popover::before {
+  content: "";
+  position: absolute;
+  top: 24px;
+  width: 10px;
+  height: 10px;
+  background: var(--surface-raised);
+  transform: rotate(45deg);
+}
+
+.preview-popover.preview-caret-left::before { left: -5px; }
+.preview-popover.preview-caret-right::before { right: -5px; }
+
+/* 滚动容器：四边柔化（浅边框 + 双层阴影 + 大圆角） */
+.preview-popover-body {
+  max-height: min(70vh, 460px);
+  overflow-y: auto;
+  background: var(--surface-raised);
+  border: 1px solid rgba(21, 22, 19, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(21, 22, 19, 0.07), 0 18px 44px rgba(21, 22, 19, 0.16);
+}
+
+/* 封面铺满顶部：顶边即封面，圆角跟随容器 */
+.preview-cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px 12px 0 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.preview-body-content {
+  padding: 1.05rem 1.15rem 1.1rem;
+}
+
+.preview-title {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.preview-meta-sep {
+  opacity: 0.4;
+}
+
+.preview-opening {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 章节小目录 */
+.preview-headings {
+  margin: 0 0 0.6rem;
+  padding: 0.5rem 0.65rem;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-soft);
+  display: grid;
+  gap: 0.28rem;
+}
+
+.preview-heading {
+  position: relative;
+  padding-left: 1rem;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-heading::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.7;
+}
+
+.preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.preview-tag {
+  font-size: 0.66rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid rgba(185, 59, 40, 0.2);
+  color: var(--accent);
+  background: rgba(185, 59, 40, 0.05);
 }
 
 /* ===== Fun Messages & Idea Box ===== */
