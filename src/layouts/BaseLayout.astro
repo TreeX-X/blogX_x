@@ -18,6 +18,13 @@ const toBase = (path = "") => {
     ? `${normalizedBase}/${normalizedPath}`
     : `${normalizedBase}/`;
 };
+
+// Active nav detection
+const currentPath = Astro.url.pathname.replace(/\/+$/, "") || "/";
+const isActive = (path: string) => {
+  const normalized = toBase(path).replace(/\/+$/, "") || "/";
+  return currentPath === normalized;
+};
 ---
 
 <!doctype html>
@@ -35,6 +42,9 @@ const toBase = (path = "") => {
     <script is:inline>
       /*-- 标记 JS 可用，入场动画仅在 JS 环境下隐藏内容（无 JS 时内容始终可见） --*/
       document.documentElement.classList.add("js-reveal");
+      if (sessionStorage.getItem("nav-particle-transition")) {
+        document.documentElement.classList.add("nav-transition-pending");
+      }
     </script>
   </head>
   <body>
@@ -67,13 +77,13 @@ const toBase = (path = "") => {
           Menu
         </button>
         <nav id="siteNav" class="nav-links" data-open="false">
-          <a href={toBase()}>首页</a>
-          <a href={toBase("posts")}>文章</a>
-          <a href={toBase("knowledge-base")}>知识库</a>
-          <a href={toBase("repos")}>仓库</a>
-          <a href={toBase("skills")}>Skills</a>
-          <a href={toBase("toolbox")}>工具箱</a>
-          <a href={toBase("about")}>关于</a>
+          <a href={toBase()} class:list={{ active: isActive("") }}>首页</a>
+          <a href={toBase("posts")} class:list={{ active: isActive("posts") }}>文章</a>
+          <a href={toBase("knowledge-base")} class:list={{ active: isActive("knowledge-base") }}>知识库</a>
+          <a href={toBase("repos")} class:list={{ active: isActive("repos") }}>仓库</a>
+          <a href={toBase("skills")} class:list={{ active: isActive("skills") }}>Skills</a>
+          <a href={toBase("toolbox")} class:list={{ active: isActive("toolbox") }}>工具箱</a>
+          <a href={toBase("about")} class:list={{ active: isActive("about") }}>关于</a>
         </nav>
       </div>
     </header>
@@ -218,6 +228,38 @@ const toBase = (path = "") => {
     <script>
       import { setupCodeBlocks } from "../scripts/codeblocks";
       setupCodeBlocks();
+    </script>
+
+    <script>
+      import { rememberNavOrigin, spawnNavParticles, takeNavTransition } from "../scripts/nav-particles";
+
+      document.querySelectorAll(".nav-links a").forEach((link) => {
+        (link as HTMLAnchorElement).addEventListener("click", (event) => {
+          if (
+            event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey ||
+            event.shiftKey || event.altKey || (link as HTMLAnchorElement).href === window.location.href
+          ) return;
+          const activeLink = document.querySelector(".nav-links a.active");
+          if (!activeLink) return;
+          rememberNavOrigin(activeLink as HTMLElement);
+        });
+      });
+
+      const transition = takeNavTransition();
+      if (transition) {
+        const activeLink = document.querySelector(".nav-links a.active");
+        if (activeLink) {
+          const r = (activeLink as HTMLElement).getBoundingClientRect();
+          // 积木汇聚到目标指示条位置
+          requestAnimationFrame(() => spawnNavParticles(transition.origin, {
+            x: r.left,
+            y: r.bottom + 4,
+            w: r.width,
+          }, activeLink as HTMLElement));
+        } else {
+          document.documentElement.classList.remove("nav-transition-pending");
+        }
+      }
     </script>
   </body>
 </html>

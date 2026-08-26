@@ -313,6 +313,58 @@ a {
 
 .nav-links a.active {
   color: var(--text);
+  font-weight: 500;
+  text-shadow: 0 0 0 transparent;
+  transition: color var(--transition-fast), text-shadow 380ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-links a.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  transform-origin: center;
+  animation: indicator-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.nav-transition-pending .nav-links a.active::after {
+  animation: none;
+  opacity: 0;
+  transform: scaleX(0.16);
+}
+
+.nav-links a.nav-focus-arrived {
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+@keyframes indicator-in {
+  from { opacity: 0; transform: scaleX(0); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+/* Particle canvas overlay */
+.nav-particle-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: multiply;
+  transition: opacity 180ms ease-out;
+}
+
+.nav-particle-fade {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-links a.active::after { animation: none; }
+  .nav-particle-canvas { display: none; }
 }
 
 .menu-toggle {
