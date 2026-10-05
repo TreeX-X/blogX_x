@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "repoId": "f6f78001-d086-47ba-b627-787ada391296",
+  "standard": "harness-note/1",
+  "profile": "S1.2",
+  "created": "2026-10-05",
+  "notesDir": ".agents/notes"
+}
