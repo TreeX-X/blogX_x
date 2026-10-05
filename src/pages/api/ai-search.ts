@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import * as lancedb from "@lancedb/lancedb";
 import dotenv from "dotenv";
-import { searchToolboxItems } from "../../lib/toolbox";
+import { getToolboxItems, searchToolboxItems } from "../../lib/toolbox";
 
 dotenv.config();
 
@@ -143,7 +143,7 @@ async function searchLanceDB(query: string, limit: number) {
 
 async function searchByScope(scope: SearchScope, query: string, limit: number) {
   if (scope === "toolbox") {
-    return searchToolboxItems(query, limit);
+    return searchToolboxItems(await getToolboxItems(), query, limit);
   }
 
   return searchLanceDB(query, limit);

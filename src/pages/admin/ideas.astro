@@ -19,6 +19,8 @@ const toBase = (path = "") => {
         <a href={toBase("admin/posts")}>文章链接</a>
         <a href={toBase("admin/repos")}>仓库链接</a>
         <a href={toBase("admin/projects")}>项目展示</a>
+        <a href={toBase("admin/knowledge-base")}>知识库</a>
+        <a href={toBase("admin/wiki")}>Wiki</a>
         <a href={toBase("admin/toolbox")}>工具箱</a>
         <a href={toBase("admin/skills")}>Skills</a>
         <a href={toBase("admin/messages")}>留言管理</a>
@@ -42,6 +44,7 @@ const toBase = (path = "") => {
 
       <div id="ideasList" class="ideas-grid"></div>
       <div id="emptyState" class="admin-empty" style="display:none;">暂无点子</div>
+      <p id="actionError" class="meta" style="color:#dc5050;margin:0.5rem 0 0;min-height:1.2em;"></p>
 
       <!-- Review modal -->
       <div id="reviewModal" class="admin-modal" style="display:none;">
@@ -136,23 +139,41 @@ const toBase = (path = "") => {
     async function review(action, implemented) {
       if (!currentId) return;
       const adminNote = document.getElementById("adminNote").value.trim();
-      await fetch("/api/admin/ideas", {
+      const res = await fetch("/api/admin/ideas", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: currentId, action, implemented: !!implemented, adminNote }),
       });
+      if (!res.ok) { showError(await readError(res)); return; }
+      showError("");
       closeModal();
       load();
     }
 
     async function deleteIdea(id) {
       if (!confirm("删除这条点子？")) return;
-      await fetch("/api/admin/ideas", {
+      const res = await fetch("/api/admin/ideas", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
+      if (!res.ok) { showError(await readError(res)); return; }
+      showError("");
       load();
+    }
+
+    function showError(message) {
+      document.getElementById("actionError").textContent = message;
+    }
+
+    /*-- 接口把失败原因放在 error 字段里；不读它就等于把失败藏起来 --*/
+    async function readError(res) {
+      try {
+        const payload = await res.json();
+        return payload.error || `操作失败（HTTP ${res.status}）`;
+      } catch {
+        return `操作失败（HTTP ${res.status}）`;
+      }
     }
 
     function escapeHtml(t) {

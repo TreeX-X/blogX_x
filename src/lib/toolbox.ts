@@ -1,3 +1,6 @@
+import { listCollection } from "./content-store";
+import type { ContentRecord } from "./content-store";
+
 export interface ToolboxItem {
   category: string;
   name: string;
@@ -6,26 +9,45 @@ export interface ToolboxItem {
   icon?: string;
 }
 
-export const toolboxItems: ToolboxItem[] = [
-  {
-    category: "开发工具",
-    name: "JSONLint",
-    url: "https://jsonlint.com/",
-    summary: "在线 JSON 校验与格式化工具，支持错误定位。",
-  },
-  {
-    category: "在线工具",
-    name: "色彩选取器",
-    url: "https://imagecolorpicker.com/",
-    summary: "快速从图片或调色板中选取颜色并复制色值（无图标示例）。",
-  },
-  {
-    category: "开发工具",
-    name: "Regex101",
-    url: "https://regex101.com/",
-    summary: "正则表达式测试与调试工具，带说明与匹配信息。",
-  },
-];
+/**
+ * 工具箱唯一数据入口：读 LanceDB `content` 表的 toolbox 集合。
+ * 面板写入即时可见，不必像其它集合那样等 content-pull 落盘；LanceDB 不可达时
+ * listCollection 返回空数组，页面退到"尚未配置"的空态。
+ *
+ * Note: 内容真相源为 LanceDB 单表 content — see .agents/notes/2026-10-05-decision-truth-source-lancedb--10d55da8.md
+ */
+export async function getToolboxItems(): Promise<ToolboxItem[]> {
+  const records = await listCollection("toolbox");
+  return records.map(toToolboxItem).filter((item): item is ToolboxItem => item !== null);
+}
+
+function toToolboxItem(record: ContentRecord): ToolboxItem | null {
+  let frontmatter: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(record.frontmatter);
+    if (!parsed || typeof parsed !== "object") return null;
+    frontmatter = parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  const name = str(frontmatter.name);
+  const url = str(frontmatter.url);
+  const category = str(frontmatter.category);
+  if (!name || !url || !category) return null;
+
+  return {
+    name,
+    url,
+    category,
+    summary: str(frontmatter.summary),
+    icon: str(frontmatter.icon) || undefined,
+  };
+}
+
+function str(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
 
 function getHostname(url: string) {
   try {
@@ -44,7 +66,7 @@ export function getToolboxIconUrl(item: ToolboxItem) {
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`;
 }
 
-export function groupToolboxItems(items: ToolboxItem[] = toolboxItems) {
+export function groupToolboxItems(items: ToolboxItem[]) {
   return items.reduce(
     (acc, item) => {
       const group = acc.get(item.category) || [];
@@ -73,11 +95,12 @@ function scoreToolboxItem(item: ToolboxItem, query: string) {
   return terms.reduce((score, term) => score + (haystack.includes(term) ? 12 : 0), 0);
 }
 
-export function searchToolboxItems(query: string, limit = 6) {
+/** 纯函数：在已取回的条目里打分排序。取数一律经 getToolboxItems，调用方不碰库 */
+export function searchToolboxItems(items: ToolboxItem[], query: string, limit = 6) {
   const normalizedQuery = query.trim();
   if (!normalizedQuery) return [];
 
-  return [...toolboxItems]
+  return [...items]
     .map((item) => ({ item, score: scoreToolboxItem(item, normalizedQuery) }))
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name, "zh-CN"))

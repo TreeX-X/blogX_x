@@ -1,7 +1,8 @@
 ﻿---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getToolboxIconUrl, groupToolboxItems, toolboxItems } from "../../lib/toolbox";
+import { getToolboxIconUrl, getToolboxItems, groupToolboxItems } from "../../lib/toolbox";
 
+const toolboxItems = await getToolboxItems();
 const groupedToolboxItems = groupToolboxItems(toolboxItems);
 const toolboxCategories = Array.from(groupedToolboxItems.keys()).sort((a, b) =>
 	a.localeCompare(b, "zh-CN")
@@ -101,7 +102,7 @@ const toBase = (path = "") => {
 			<div class="card">
 				<h3 style="margin: 0 0 0.4rem;">工具条目尚未配置</h3>
 				<p class="meta" style="margin: 0;">
-					当前工具箱采用独立静态文件维护，后续可直接在工具数据文件中补充分类与条目。
+					工具箱条目存放在 LanceDB <code>content</code> 表的 <code>toolbox</code> 集合；本地 <code>npm run dev</code> 打开「管理面板 → 工具箱」即可新增，写入后本站与 AI 搜索的 toolbox scope 即时生效。
 				</p>
 			</div>
 		)}

@@ -19,6 +19,8 @@ const toBase = (path = "") => {
         <a href={toBase("admin/posts")}>文章链接</a>
         <a href={toBase("admin/repos")}>仓库链接</a>
         <a href={toBase("admin/projects")}>项目展示</a>
+        <a href={toBase("admin/knowledge-base")}>知识库</a>
+        <a href={toBase("admin/wiki")}>Wiki</a>
         <a href={toBase("admin/toolbox")}>工具箱</a>
         <a href={toBase("admin/skills")} class="active">Skills</a>
         <a href={toBase("admin/messages")}>留言管理</a>
@@ -78,6 +80,7 @@ const toBase = (path = "") => {
           </div>
           <div class="form-group"><label>标签（逗号分隔）</label><input id="f-tags" placeholder="ai, workflow" /></div>
           <div class="form-group"><label>正文内容（Markdown）</label><textarea id="f-body" rows="6" placeholder="## 简介&#10;..."></textarea></div>
+          <div id="formError" style="font-size:0.8rem;margin-top:0.4rem;min-height:1em;"></div>
           <div class="form-btns">
             <button class="admin-btn admin-btn-primary" onclick="saveSkill()">保存</button>
             <button class="admin-btn" onclick="toggleForm()">取消</button>
@@ -128,6 +131,7 @@ const toBase = (path = "") => {
       form.classList.toggle("show");
       editing = null;
       document.getElementById("formTitle").textContent = "新增 Skill";
+      setError("");
       if (!form.classList.contains("show")) {
         ["f-slug","f-title","f-dir","f-ver","f-desc","f-author","f-license","f-tags","f-body"].forEach(id => document.getElementById(id).value = "");
         document.getElementById("f-slug").disabled = false;
@@ -163,11 +167,28 @@ const toBase = (path = "") => {
         tags: document.getElementById("f-tags").value.split(",").map(s => s.trim()).filter(Boolean),
         body: document.getElementById("f-body").value.trim(),
       };
-      if (!data.slug) { alert("Slug 不能为空"); return; }
+      if (!data.slug) { setError("Slug 不能为空"); return; }
       const method = editing !== null ? "PUT" : "POST";
-      await fetch("/api/admin/skills", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await fetch("/api/admin/skills", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      if (!res.ok) { setError(await readError(res)); return; }
       toggleForm();
       load();
+    }
+
+    function setError(message) {
+      const el = document.getElementById("formError");
+      el.textContent = message;
+      el.style.color = message ? "#dc5050" : "";
+    }
+
+    /*-- 接口把 schema 的拒绝原因放在 error 字段里；不读它就等于把失败藏起来 --*/
+    async function readError(res) {
+      try {
+        const payload = await res.json();
+        return payload.error || `保存失败（HTTP ${res.status}）`;
+      } catch {
+        return `保存失败（HTTP ${res.status}）`;
+      }
     }
 
     async function deleteSkill(i) {
@@ -206,8 +227,7 @@ const toBase = (path = "") => {
         } else {
           result.textContent = data.error || "导入失败";
           result.style.color = "#dc5050";
-        }
-      } catch (e) {
+        }      } catch (e) {
         result.textContent = "请求失败";
         result.style.color = "#dc5050";
       }

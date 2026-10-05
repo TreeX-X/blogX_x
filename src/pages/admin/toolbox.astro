@@ -19,6 +19,8 @@ const toBase = (path = "") => {
         <a href={toBase("admin/posts")}>文章链接</a>
         <a href={toBase("admin/repos")}>仓库链接</a>
         <a href={toBase("admin/projects")}>项目展示</a>
+        <a href={toBase("admin/knowledge-base")}>知识库</a>
+        <a href={toBase("admin/wiki")}>Wiki</a>
         <a href={toBase("admin/toolbox")} class="active">工具箱</a>
         <a href={toBase("admin/skills")}>Skills</a>
         <a href={toBase("admin/messages")}>留言管理</a>
@@ -36,14 +38,19 @@ const toBase = (path = "") => {
       </div>
 
       <div id="addForm" class="admin-inline-form">
-        <h3>新增工具</h3>
+        <h3 id="formTitle">新增工具</h3>
         <div class="admin-form">
           <div class="form-row">
             <div class="form-group"><label>名称</label><input id="f-name" placeholder="工具名" /></div>
             <div class="form-group"><label>分类</label><input id="f-cat" placeholder="开发工具" /></div>
           </div>
+          <div class="form-row">
+            <div class="form-group"><label>Slug</label><input id="f-slug" placeholder="留空则按名称自动生成" /></div>
+            <div class="form-group"><label>图标链接（选填）</label><input id="f-icon" placeholder="https://.../icon.png" /></div>
+          </div>
           <div class="form-group"><label>链接</label><input id="f-url" placeholder="https://..." /></div>
           <div class="form-group"><label>简介</label><textarea id="f-summary" rows="2"></textarea></div>
+          <div id="formError" style="font-size:0.8rem;margin-top:0.4rem;min-height:1em;"></div>
           <div class="form-btns">
             <button class="admin-btn admin-btn-primary" onclick="saveItem()">保存</button>
             <button class="admin-btn" onclick="toggleForm()">取消</button>
@@ -77,10 +84,10 @@ const toBase = (path = "") => {
       if (!items.length) { body.innerHTML = ""; empty.style.display = ""; return; }
       empty.style.display = "none";
       body.innerHTML = items.map((t, i) => `<tr>
-        <td><strong>${t.name}</strong></td>
-        <td><span class="admin-badge">${t.category}</span></td>
-        <td><a href="${t.url}" target="_blank" class="admin-link">${t.url.slice(0, 40)}...</a></td>
-        <td>${(t.summary || "").slice(0, 60)}</td>
+        <td><strong>${escapeHtml(t.name)}</strong><br /><code style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(t.slug)}</code></td>
+        <td><span class="admin-badge">${escapeHtml(t.category)}</span></td>
+        <td><a href="${escapeHtml(t.url)}" target="_blank" class="admin-link">${escapeHtml(t.url.slice(0, 40))}...</a></td>
+        <td>${escapeHtml((t.summary || "").slice(0, 60))}</td>
         <td class="admin-actions">
           <button class="admin-btn admin-btn-sm" onclick="editItem(${i})">编辑</button>
           <button class="admin-btn admin-btn-sm admin-btn-danger" onclick="deleteItem(${i})">删除</button>
@@ -92,41 +99,66 @@ const toBase = (path = "") => {
       const form = document.getElementById("addForm");
       form.classList.toggle("show");
       editing = null;
+      document.getElementById("formTitle").textContent = "新增工具";
+      setError("");
       if (!form.classList.contains("show")) {
-        ["f-name","f-cat","f-url","f-summary"].forEach(id => document.getElementById(id).value = "");
+        ["f-name","f-cat","f-slug","f-icon","f-url","f-summary"].forEach(id => document.getElementById(id).value = "");
+        document.getElementById("f-slug").disabled = false;
       }
+    }
+
+    function setError(message) {
+      const el = document.getElementById("formError");
+      el.textContent = message;
+      el.style.color = message ? "#dc5050" : "";
     }
 
     function editItem(i) {
       const t = items[i];
-      editing = i;
+      editing = t.slug;
+      document.getElementById("formTitle").textContent = "编辑工具";
+      document.getElementById("f-slug").value = t.slug;
+      document.getElementById("f-slug").disabled = true;
       document.getElementById("f-name").value = t.name;
       document.getElementById("f-cat").value = t.category;
+      document.getElementById("f-icon").value = t.icon || "";
       document.getElementById("f-url").value = t.url;
-      document.getElementById("f-summary").value = t.summary;
+      document.getElementById("f-summary").value = t.summary || "";
+      setError("");
       document.getElementById("addForm").classList.add("show");
     }
 
     async function saveItem() {
+      const slugInput = document.getElementById("f-slug").value.trim();
       const data = {
         name: document.getElementById("f-name").value.trim(),
         category: document.getElementById("f-cat").value.trim(),
         url: document.getElementById("f-url").value.trim(),
         summary: document.getElementById("f-summary").value.trim(),
+        icon: document.getElementById("f-icon").value.trim(),
       };
-      if (editing !== null) {
-        await fetch("/api/admin/toolbox", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ index: editing, ...data }) });
-      } else {
-        await fetch("/api/admin/toolbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-      }
+      if (slugInput) data.slug = slugInput;
+      if (editing) data.slug = editing;
+      const method = editing ? "PUT" : "POST";
+      const res = await fetch("/api/admin/toolbox", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(payload.error || `保存失败（HTTP ${res.status}）`); return; }
       toggleForm();
       load();
     }
 
     async function deleteItem(i) {
-      if (!confirm(`删除「${items[i].name}」？`)) return;
-      await fetch("/api/admin/toolbox", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ index: i }) });
+      const item = items[i];
+      if (!item) return;
+      if (!confirm(`删除「${item.name}」？`)) return;
+      await fetch("/api/admin/toolbox", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: item.slug }) });
       load();
+    }
+
+    function escapeHtml(t) {
+      const d = document.createElement("div");
+      d.textContent = t;
+      return d.innerHTML;
     }
 
     load();

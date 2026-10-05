@@ -1,0 +1,208 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL;
+const toBase = (path = "") => {
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  return normalizedPath ? `${normalizedBase}/${normalizedPath}` : `${normalizedBase}/`;
+};
+---
+
+<BaseLayout title="知识库管理 | Admin" description="管理知识库笔记（含嵌套路径）">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-brand">BlogX_x</div>
+      <p class="admin-sidebar-sub">管理面板</p>
+      <nav class="admin-nav">
+        <a href={toBase("admin")}>仪表盘</a>
+        <a href={toBase("admin/posts")}>文章链接</a>
+        <a href={toBase("admin/repos")}>仓库链接</a>
+        <a href={toBase("admin/projects")}>项目展示</a>
+        <a href={toBase("admin/knowledge-base")} class="active">知识库</a>
+        <a href={toBase("admin/wiki")}>Wiki</a>
+        <a href={toBase("admin/toolbox")}>工具箱</a>
+        <a href={toBase("admin/skills")}>Skills</a>
+        <a href={toBase("admin/messages")}>留言管理</a>
+        <a href={toBase("admin/ideas")}>意见箱</a>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <a href={toBase()}>← 返回首页</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-page-head">
+        <h1 class="admin-page-title">知识库</h1>
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+          <div class="admin-filter-bar" id="folderBar"></div>
+          <button class="admin-btn admin-btn-primary" onclick="toggleForm()">+ 新增笔记</button>
+        </div>
+      </div>
+
+      <div id="addForm" class="admin-inline-form">
+        <h3 id="formTitle">新增笔记</h3>
+        <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.75rem;">
+          路径即 Obsidian vault 里的相对位置，可含中文、全角冒号、圆括号、空格与嵌套目录；改路径等于移动文件。
+        </p>
+        <div class="admin-form">
+          <div class="form-row">
+            <div class="form-group"><label>路径</label><input id="f-path" placeholder="AI使用技巧/AI评选" /></div>
+            <div class="form-group"><label>日期</label><input id="f-date" type="date" /></div>
+          </div>
+          <div class="form-group"><label>标题</label><input id="f-title" placeholder="留空则用路径末段作为标题" /></div>
+          <div class="form-group"><label>描述</label><textarea id="f-desc" rows="2" placeholder="列表页摘要"></textarea></div>
+          <div class="form-group"><label>标签（逗号分隔）</label><input id="f-tags" placeholder="ai, workflow" /></div>
+          <div class="form-group"><label>正文（Markdown）</label><textarea id="f-body" rows="10"></textarea></div>
+          <div id="formError" style="font-size:0.8rem;margin-top:0.4rem;min-height:1em;"></div>
+          <div class="form-btns">
+            <button class="admin-btn admin-btn-primary" onclick="saveItem()">保存</button>
+            <button class="admin-btn" onclick="toggleForm()">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>路径</th><th>标题</th><th>描述</th><th>标签</th><th>操作</th></tr></thead>
+          <tbody id="kbBody"></tbody>
+        </table>
+        <div id="emptyState" class="admin-empty" style="display:none;">暂无笔记</div>
+      </div>
+    </main>
+  </div>
+
+  <script is:inline>
+    let entries = [];
+    let editing = null;
+    let folder = "all";
+
+    const API = "/api/admin/knowledge-base";
+
+    async function load() {
+      const res = await fetch(API);
+      entries = await res.json();
+      renderFolders();
+      render();
+    }
+
+    function folderOf(path) {
+      return path.includes("/") ? path.split("/")[0] : "（根目录）";
+    }
+
+    function renderFolders() {
+      const names = [...new Set(entries.map(e => folderOf(e.path)))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+      const bar = document.getElementById("folderBar");
+      bar.innerHTML = ["all", ...names].map(f =>
+        `<button class="admin-btn admin-btn-sm ${f === folder ? "active" : ""}" data-folder="${escapeHtml(f)}">${f === "all" ? "全部" : escapeHtml(f)}</button>`
+      ).join("");
+      bar.querySelectorAll("[data-folder]").forEach(btn => {
+        btn.addEventListener("click", () => setFolder(btn.dataset.folder));
+      });
+    }
+
+    function setFolder(next) {
+      folder = next;
+      renderFolders();
+      render();
+    }
+
+    function render() {
+      const body = document.getElementById("kbBody");
+      const empty = document.getElementById("emptyState");
+      const shown = folder === "all" ? entries : entries.filter(e => folderOf(e.path) === folder);
+      if (!shown.length) { body.innerHTML = ""; empty.style.display = ""; return; }
+      empty.style.display = "none";
+      body.innerHTML = shown.map((e, i) => `<tr>
+        <td><code style="font-size:0.78rem;">${escapeHtml(e.path)}</code></td>
+        <td><strong>${escapeHtml(e.title || e.path)}</strong></td>
+        <td>${escapeHtml((e.description || "").slice(0, 50))}</td>
+        <td>${(e.tags || []).map(t => `<span class="admin-badge">${escapeHtml(t)}</span>`).join(" ")}</td>
+        <td class="admin-actions">
+          <button class="admin-btn admin-btn-sm" onclick="editItem(${i})">编辑</button>
+          <button class="admin-btn admin-btn-sm admin-btn-danger" onclick="deleteItem(${i})">删除</button>
+        </td>
+      </tr>`).join("");
+    }
+
+    function toggleForm() {
+      const form = document.getElementById("addForm");
+      form.classList.toggle("show");
+      editing = null;
+      document.getElementById("formTitle").textContent = "新增笔记";
+      setError("");
+      if (!form.classList.contains("show")) {
+        ["f-path","f-date","f-title","f-desc","f-tags","f-body"].forEach(id => document.getElementById(id).value = "");
+        document.getElementById("f-path").disabled = false;
+      }
+    }
+
+    function setError(message) {
+      const el = document.getElementById("formError");
+      el.textContent = message;
+      el.style.color = message ? "#dc5050" : "";
+    }
+
+    function editItem(i) {
+      const e = entries[i];
+      editing = e.path;
+      document.getElementById("formTitle").textContent = "编辑笔记";
+      document.getElementById("f-path").value = e.path;
+      document.getElementById("f-path").disabled = false;
+      document.getElementById("f-date").value = toDateValue(e.date);
+      document.getElementById("f-title").value = e.title || "";
+      document.getElementById("f-desc").value = e.description || "";
+      document.getElementById("f-tags").value = (e.tags || []).join(", ");
+      document.getElementById("f-body").value = e.body || "";
+      setError("");
+      document.getElementById("addForm").classList.add("show");
+    }
+
+    function toDateValue(value) {
+      if (typeof value !== "string" || !value) return "";
+      return value.slice(0, 10);
+    }
+
+    async function saveItem() {
+      const path = document.getElementById("f-path").value.trim();
+      const date = document.getElementById("f-date").value.trim();
+      const data = {
+        path,
+        title: document.getElementById("f-title").value.trim(),
+        description: document.getElementById("f-desc").value.trim(),
+        tags: document.getElementById("f-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+        body: document.getElementById("f-body").value,
+      };
+      /*-- 日期留空 = 保留原值；接口按字段合并，未提交的键不会被抹掉 --*/
+      if (date) data.date = date;
+      if (editing && editing !== path) data.from = editing;
+      const res = await fetch(API, {
+        method: editing ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(payload.error || `保存失败（HTTP ${res.status}）`); return; }
+      toggleForm();
+      load();
+    }
+
+    async function deleteItem(i) {
+      if (!confirm(`删除「${entries[i].path}」？`)) return;
+      await fetch(API, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: entries[i].path }),
+      });
+      load();
+    }
+
+    function escapeHtml(t) {
+      const d = document.createElement("div");
+      d.textContent = t;
+      return d.innerHTML;
+    }
+
+    load();
+  </script>
+</BaseLayout>
