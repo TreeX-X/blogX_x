@@ -34,7 +34,10 @@ const toBase = (path = "") => {
     <main class="admin-main">
       <div class="admin-page-head">
         <h1 class="admin-page-title">文章链接</h1>
-        <button class="admin-btn admin-btn-primary" onclick="toggleForm()">+ 新增文章</button>
+        <div class="admin-actions">
+          <button class="admin-btn admin-btn-primary" onclick="toggleIntake()">+ AI 上传</button>
+          <button class="admin-btn" onclick="toggleForm()">+ 新增文章</button>
+        </div>
       </div>
 
       <div id="addForm" class="admin-inline-form">
@@ -56,6 +59,58 @@ const toBase = (path = "") => {
         </div>
       </div>
 
+      {/*-- AI 上传通道：与 CLI（npm run content:intake）共用 content 表的同一批草稿。
+           这里只生成草稿与发布，不改写正文——双语正文由 intake 产出，表单的 body 是另一条
+           独立通路（见 T4 note 的 Known items）--*/}
+      <div id="intakePanel" class="admin-inline-form">
+        <h3>AI 上传处理</h3>
+        <div class="admin-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>粘贴 URL 抓取</label>
+              <input id="i-url" placeholder="https://..." />
+              <div class="form-btns">
+                <button id="i-url-btn" class="admin-btn admin-btn-primary" onclick="intakeFromUrl()">抓取为草稿</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>上传文件（.md / .html / .txt）</label>
+              <input type="file" id="i-file" accept=".md,.mdx,.markdown,.html,.htm,.txt" />
+              <div class="form-btns">
+                <button id="i-file-btn" class="admin-btn admin-btn-primary" onclick="intakeFromFile()">上传为草稿</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>粘贴正文</label>
+            <textarea id="i-text" rows="6" placeholder="粘贴 Markdown 或纯文本正文，GLM 会提取 frontmatter 并生成双语正文"></textarea>
+            <div class="form-btns">
+              <button id="i-text-btn" class="admin-btn admin-btn-primary" onclick="intakeFromText()">生成草稿</button>
+            </div>
+          </div>
+          <div id="intakeError" style="font-size:0.8rem;margin-top:0.4rem;min-height:1em;"></div>
+          <div id="intakeNote" style="font-size:0.8rem;color:#8a8f98;margin-top:0.4rem;"></div>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <div class="admin-page-head">
+          <h2 class="admin-page-title">草稿箱</h2>
+          <span class="admin-badge" id="draftCount">0</span>
+        </div>
+        <table class="admin-table">
+          <thead><tr><th>标题</th><th>来源</th><th>译文</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody id="draftsBody"></tbody>
+        </table>
+        <div id="draftsEmpty" class="admin-empty" style="display:none;">暂无草稿</div>
+        <div id="draftsActionError" style="font-size:0.8rem;margin-top:0.4rem;min-height:1em;"></div>
+        {/*-- 草稿预览：提取出的 frontmatter 与双语正文节选，发布前的人工核对位 --*/}
+        <div id="draftPreview" class="admin-inline-form">
+          <h3 id="draftPreviewTitle">草稿预览</h3>
+          <pre id="draftPreviewBody" style="white-space:pre-wrap;font-size:0.8rem;max-height:20rem;overflow:auto;"></pre>
+        </div>
+      </div>
+
       <div class="admin-table-wrap">
         <table class="admin-table">
           <thead><tr><th>标题</th><th>链接</th><th>描述</th><th>标签</th><th>操作</th></tr></thead>
@@ -69,11 +124,20 @@ const toBase = (path = "") => {
   <script is:inline>
     let posts = [];
     let editing = null;
+    /*-- 草稿箱与 CLI 写的是同一批 content 表 draft 记录，posts 列表里据此标出草稿 --*/
+    let drafts = [];
+    let draftPaths = [];
 
     async function load() {
-      const res = await fetch("/api/admin/posts");
-      posts = await res.json();
+      const [postsRes, draftsRes] = await Promise.all([
+        fetch("/api/admin/posts"),
+        fetch("/api/admin/intake"),
+      ]);
+      posts = await postsRes.json();
+      drafts = await draftsRes.json();
+      draftPaths = drafts.map(d => d.path);
       render();
+      renderDrafts();
     }
 
     function render() {
@@ -82,7 +146,7 @@ const toBase = (path = "") => {
       if (!posts.length) { body.innerHTML = ""; empty.style.display = ""; return; }
       empty.style.display = "none";
       body.innerHTML = posts.map((p, i) => `<tr>
-        <td><strong>${p.title || p.slug}</strong></td>
+        <td><strong>${p.title || p.slug}</strong>${draftPaths.includes(p.slug) ? ' <span class="admin-badge-warn">草稿</span>' : ""}</td>
         <td>${p.sourceUrl ? `<a href="${p.sourceUrl}" target="_blank" class="admin-link">${p.sourceUrl.slice(0, 40)}...</a>` : "—"}</td>
         <td>${(p.description || "").slice(0, 60)}</td>
         <td>${(p.tags || []).map(t => `<span class="admin-badge">${t}</span>`).join(" ")}</td>
@@ -158,6 +222,173 @@ const toBase = (path = "") => {
       if (!confirm(`删除「${posts[i].title || posts[i].slug}」？`)) return;
       await fetch("/api/admin/posts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: posts[i].slug }) });
       load();
+    }
+
+    /*===== AI 上传通道 =====*/
+
+    function toggleIntake() {
+      const panel = document.getElementById("intakePanel");
+      panel.classList.toggle("show");
+      setIntakeError("");
+      setIntakeNote("");
+    }
+
+    function setIntakeError(message) {
+      const el = document.getElementById("intakeError");
+      el.textContent = message;
+      el.style.color = message ? "#dc5050" : "";
+    }
+
+    function setIntakeNote(message) {
+      document.getElementById("intakeNote").textContent = message || "";
+    }
+
+    function esc(text) {
+      return String(text == null ? "" : text)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    /*-- 三个入口共用的发送位：GLM 提取 + 翻译要几十秒，按钮先禁用防重复提交 --*/
+    async function postIntake(payload, busyButton) {
+      setIntakeError("");
+      setIntakeNote("GLM 正在提取 frontmatter 并翻译正文，请稍候……");
+      const label = busyButton ? busyButton.textContent : "";
+      if (busyButton) { busyButton.disabled = true; busyButton.textContent = "处理中…"; }
+      try {
+        const res = await fetch("/api/admin/intake", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { setIntakeError(data.error || `生成草稿失败（HTTP ${res.status}）`); return null; }
+        /*-- 接口把 GLM 失败等原因随草稿一起返回：草稿已入表，但原因必须显示出来 --*/
+        if (data.warnings && data.warnings.length) {
+          setIntakeNote("草稿已生成，但需要人工修订：" + data.warnings.join("；"));
+        } else {
+          setIntakeNote("草稿已生成，可在下方草稿箱预览后发布。");
+        }
+        return data.draft || null;
+      } catch (error) {
+        setIntakeError(`生成草稿失败: ${error.message}`);
+        return null;
+      } finally {
+        if (busyButton) { busyButton.disabled = false; busyButton.textContent = label; }
+      }
+    }
+
+    function intakeFromUrl() {
+      const url = document.getElementById("i-url").value.trim();
+      if (!url) { setIntakeError("先填一个原文 URL"); return; }
+      postIntake({ source: "url", url }, document.getElementById("i-url-btn"))
+        .then(draft => { if (draft) load(); });
+    }
+
+    function intakeFromText() {
+      const text = document.getElementById("i-text").value;
+      if (!text.trim()) { setIntakeError("先粘贴正文"); return; }
+      postIntake({ source: "text", text }, document.getElementById("i-text-btn"))
+        .then(draft => { if (draft) load(); });
+    }
+
+    /*-- 文件内容由浏览器读出后随 JSON 提交，接口不接受本地路径（也少一层路径穿越面）--*/
+    function intakeFromFile() {
+      const input = document.getElementById("i-file");
+      const button = document.getElementById("i-file-btn");
+      const file = input.files && input.files[0];
+      if (!file) { setIntakeError("先选一个文件"); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        postIntake({ source: "file", filename: file.name, text: String(reader.result || "") }, button)
+          .then(draft => { if (draft) { input.value = ""; load(); } });
+      };
+      reader.onerror = () => setIntakeError(`读取文件失败: ${file.name}`);
+      reader.readAsText(file);
+    }
+
+    function renderDrafts() {
+      const body = document.getElementById("draftsBody");
+      const empty = document.getElementById("draftsEmpty");
+      document.getElementById("draftCount").textContent = String(drafts.length);
+      if (!drafts.length) { body.innerHTML = ""; empty.style.display = ""; return; }
+      empty.style.display = "none";
+      body.innerHTML = drafts.map((d, i) => `<tr>
+        <td><strong>${esc(d.title || d.path)}</strong><br /><span style="font-size:0.75rem;color:#8a8f98;">${esc(d.path)}</span></td>
+        <td>${esc(d.intakeSource || "—")}</td>
+        <td>${d.translatedBodyLength} 字</td>
+        <td>${d.intakeStatus === "failed"
+          ? '<span class="admin-badge-danger">需修订</span>'
+          : '<span class="admin-badge-warn">草稿</span>'}</td>
+        <td class="admin-actions">
+          <button class="admin-btn admin-btn-sm" onclick="previewDraft(${i})">预览</button>
+          <button class="admin-btn admin-btn-sm admin-btn-primary" onclick="publishDraft(${i})">发布</button>
+          <button class="admin-btn admin-btn-sm admin-btn-danger" onclick="discardDraft(${i})">丢弃</button>
+        </td>
+      </tr>`).join("");
+    }
+
+    function setDraftError(message) {
+      const el = document.getElementById("draftsActionError");
+      el.textContent = message;
+      el.style.color = message ? "#dc5050" : "";
+    }
+
+    function previewDraft(i) {
+      const d = drafts[i];
+      const panel = document.getElementById("draftPreview");
+      document.getElementById("draftPreviewTitle").textContent = `预览：${d.title || d.path}`;
+      document.getElementById("draftPreviewBody").textContent =
+        `path: ${d.path}\nsourceUrl: ${d.sourceUrl || "—"}\noriginalLang: ${d.originalLang || "—"}\n` +
+        `date: ${d.date || "—"}\noriginalAuthor: ${d.originalAuthor || "—"}\ntags: ${(d.tags || []).join(", ") || "—"}\n` +
+        `description: ${d.description || "—"}\n` +
+        `正文长度: originalBody ${d.originalBodyLength} / translatedBody ${d.translatedBodyLength} / body ${d.bodyLength}\n` +
+        (d.intakeStatus === "failed" ? `\n需要人工修订：${d.intakeError}\n` : "") +
+        `\n—— 更新于 ${d.updatedAt}`;
+      panel.classList.add("show");
+      setDraftError("");
+    }
+
+    function publishDraft(i) {
+      const d = drafts[i];
+      if (!confirm(`发布「${d.title || d.path}」？\n将通过 schema 校验并触发站点重建。`)) return;
+      setDraftError("正在校验并发布……");
+      fetch("/api/admin/intake", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: d.path }),
+      })
+        .then(async res => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { setDraftError(data.error || `发布失败（HTTP ${res.status}）`); return; }
+          const report = data.report || {};
+          setDraftError("");
+          /*-- Deploy Hook 缺失时接口明确警告：内容已入表，但站点不会自动重建 --*/
+          const notes = (report.warnings || []).join("；");
+          setIntakeNote(
+            `已发布 ${d.path}。${notes}` +
+            (report.deployHook && report.deployHook.triggered ? "（已触发站点重建）" : "")
+          );
+          document.getElementById("draftPreview").classList.remove("show");
+          load();
+        })
+        .catch(error => setDraftError(`发布失败: ${error.message}`));
+    }
+
+    function discardDraft(i) {
+      const d = drafts[i];
+      if (!confirm(`丢弃草稿「${d.title || d.path}」？`)) return;
+      fetch("/api/admin/intake", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: d.path }),
+      }).then(async res => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { setDraftError(data.error || `丢弃失败（HTTP ${res.status}）`); return; }
+        setDraftError("");
+        document.getElementById("draftPreview").classList.remove("show");
+        load();
+      });
     }
 
     load();

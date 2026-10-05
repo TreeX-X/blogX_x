@@ -2,8 +2,13 @@
  * 翻译服务：检测语言方向并执行翻译
  * 负责文章的语言检测、翻译执行和结果处理
  *
- * 这是 article-translation.service.ts 的 JavaScript 版本，
- * 供 scripts/fetch-articles.mjs 等直接使用 node 运行的脚本使用。
+ * 全仓唯一的翻译实现。消费者：
+ * - scripts/fetch-articles.mjs、scripts/content-migrate.mjs（node 直跑脚本）；
+ * - src/lib/article-intake.service.ts（intake 通道，astro check 靠 allowJs 推断本文件的类型，
+ *   TS 侧也能直接 import）。
+ *
+ * 曾有一份同名 .ts 副本，全仓无人 import，属死重复，已删除——此后翻译逻辑只在这一处。
+ * （T4：两份翻译服务收敛为一份；见 .agents/notes/2026-10-05-task-t4-ai-intake--d5d2cc71.md）
  */
 
 /*-- 语言检测正则表达式 --*/

@@ -2,6 +2,7 @@
   "name": "blogx-x",
   "type": "module",
   "version": "0.0.1",
+  "//": "content:intake / content:publish（AI 上传处理通道）另依赖一个环境变量：VERCEL_DEPLOY_HOOK —— Vercel 项目 → Settings → Git → Deploy Hooks 创建的完整 URL，填在 .env 里。内容出仓后 content 表的变更不会触发重建，发布必须主动打这个钩子；变量缺失时发布仍会把草稿写入 content 表，但脚本与面板都会明确警告站点不会自动重建。",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -22,6 +23,8 @@
     "fetch-articles:translate": "node scripts/fetch-articles.mjs --translate",
     "content:pull": "node --experimental-strip-types scripts/content-pull.mjs",
     "content:migrate": "node scripts/content-migrate.mjs",
+    "content:intake": "node --experimental-strip-types scripts/content-intake.mjs",
+    "content:publish": "node --experimental-strip-types scripts/content-publish.mjs",
     "prepare": "node scripts/setup-git-hooks.mjs",
     "maintenance": "node scripts/maintenance.mjs",
     "maintenance:status": "node scripts/maintenance.mjs status",

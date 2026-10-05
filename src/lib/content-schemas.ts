@@ -6,9 +6,17 @@
  * 对 glob loader 集合还同时是 src/content.config.ts 的 collections 键（T2 的 content-pull
  * 依赖它映射回目录）；不经 glob loader 的集合（toolbox）只在这里登记，见下方注释。
  *
+ * z 从 astro/zod 而不是 astro:content 导入（T4 经 Main Agent 授权的范围扩大）：两者是同一个
+ * zod v4 实例——astro:content 虚拟模块本体（node_modules/astro/templates/content/module.mjs:18）
+ * 就是 `export { z } from 'astro/zod'`。astro:content 是 Astro 虚拟模块，Node 直跑的脚本解析不了
+ * 它，于是这份"共用 schema"被锁死在 Astro 运行时里，任何 CLI 想复用同一份字段定义都做不到。
+ * 换成 astro/zod（astro package.json exports 的公开子路径 → dist/zod.js → export * from "zod/v4"）
+ * 后本模块在 Astro 与 Node 下都能加载：content-migrate / fetch-articles / content-intake /
+ * content-publish 从此都能复用同一份 schema，不会退化成两份字段定义。
+ *
  * Note: 内容真相源为 LanceDB 单表 content — see .agents/notes/2026-10-05-decision-truth-source-lancedb--10d55da8.md
  */
-import { z } from "astro:content";
+import { z } from "astro/zod";
 
 export const postsSchema = z.object({
   /*-- 外链文章必填：原文 URL --*/
