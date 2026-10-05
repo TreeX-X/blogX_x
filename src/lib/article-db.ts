@@ -2,9 +2,13 @@
  * LanceDB 文章存储工具
  * 负责从 LanceDB 读取/写入抓取的文章原文和翻译
  * 支持文章翻译功能：语言检测、翻译存储和双语内容检索
+ *
+ * Note: 文章正文真源为 content 表（双语正文并入 posts 记录），getArticleBySlug 改查该表；
+ * articles 表保留为迁移期只读回退，验证后废弃 — see .agents/notes/2026-10-05-decision-truth-source-lancedb--10d55da8.md
  */
 import crypto from "node:crypto";
 import path from "node:path";
+import { getEntry } from "./content-store";
 
 /*-- 动态导入 LanceDB，避免原生模块在不兼容环境（如 Vercel serverless）下崩溃整个页面 --*/
 let lancedb: typeof import("@lancedb/lancedb") | null = null;
@@ -147,50 +151,74 @@ function escapeSlug(slug: string): string {
 }
 
 /**
- * 按 slug 查询文章
+ * 解析 content 表记录的 frontmatter JSON 字符串。
+ * 字段顺序不保证，读取方不得依赖顺序；解析失败按空对象处理，不让单条坏记录拖垮页面。
+ */
+function parseFrontmatter(raw: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+  } catch (error) {
+    console.error(`[article-db] frontmatter JSON 解析失败: ${error instanceof Error ? error.message : String(error)}`);
+    return {};
+  }
+}
+
+/*-- frontmatter 取值助手：字符串兜空串，数字兜 0 --*/
+function fmStr(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function fmNum(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * 按 slug 查询文章（读 content 表 posts 集合，path 即文件名去扩展名）
+ *
+ * 正文取自记录的 originalBody / translatedBody；抓取期元数据（title/description/
+ * author/coverImage/wordCount 等）迁移时并入 frontmatter 的 fetched 子对象，
+ * 优先取 fetched、缺失时回退到 frontmatter 顶层（管理端新建条目没有 fetched）。
+ * 返回值字段与 articles 表时代一致，src/pages/posts/** 调用方零改动。
  */
 export async function getArticleBySlug(
   slug: string
 ): Promise<ArticleRecord | null> {
   try {
     console.log(`[article-db] 查询文章: ${slug}`);
-    const db = await getDb();
-    if (!db) {
-      console.error(`[article-db] 数据库不可用，无法查询文章: ${slug}`);
-      return null;
-    }
-    const tableNames = await db.tableNames();
-    if (!tableNames.includes(ARTICLES_TABLE)) {
-      console.warn(`[article-db] 表 ${ARTICLES_TABLE} 不存在`);
+    const entry = await getEntry("posts", slug);
+    if (!entry) {
+      console.warn(`[article-db] content 表无 posts/${slug} 记录`);
       return null;
     }
 
-    let table;
-    try {
-      table = await db.openTable(ARTICLES_TABLE);
-    } catch (error) {
-      console.error('[article-db] Error opening table, will try to recreate:', error);
-      // Table exists but is corrupted, try to recreate
-      try {
-        await db.dropTable(ARTICLES_TABLE);
-        table = await initArticlesTable();
-      } catch (recreateError) {
-        console.error('[article-db] Failed to recreate table:', recreateError);
-        return null;
-      }
-    }
+    const frontmatter = parseFrontmatter(entry.frontmatter);
+    const fetchedValue = frontmatter.fetched;
+    const fetched: Record<string, unknown> =
+      fetchedValue && typeof fetchedValue === "object"
+        ? (fetchedValue as Record<string, unknown>)
+        : {};
 
-    const safeSlug = escapeSlug(slug);
-    console.log(`[article-db] 执行查询: slug = "${safeSlug}"`);
-    const rows = await table
-      .query()
-      .where(`slug = "${safeSlug}"`)
-      .limit(1)
-      .toArray();
-    console.log(`[article-db] 查询结果: ${rows.length} 条记录`);
-    if (rows.length === 0) return null;
-    console.log(`[article-db] 找到文章: ${rows[0].title}`);
-    return rows[0] as unknown as ArticleRecord;
+    const fetchStatus = fmStr(fetched.fetchStatus);
+    return {
+      slug: entry.path,
+      sourceUrl: fmStr(frontmatter.sourceUrl),
+      originalContent: entry.originalBody,
+      translatedContent: entry.translatedBody,
+      contentHash: fmStr(fetched.contentHash),
+      fetchedAt: fmStr(fetched.fetchedAt) || entry.updatedAt,
+      translatedAt: fmStr(fetched.translatedAt),
+      originalLang: fmStr(frontmatter.originalLang) || "en",
+      title: fmStr(fetched.title) || fmStr(frontmatter.title) || entry.path,
+      description: fmStr(fetched.description) || fmStr(frontmatter.description),
+      author: fmStr(fetched.author) || fmStr(frontmatter.originalAuthor),
+      coverImage: fmStr(fetched.coverImage) || fmStr(frontmatter.coverImage),
+      wordCount: fmNum(fetched.wordCount),
+      fetchStatus:
+        fetchStatus === "success" || fetchStatus === "failed" || fetchStatus === "pending"
+          ? fetchStatus
+          : "pending",
+    };
   } catch (error) {
     console.error(`[article-db] Error fetching article by slug "${slug}":`, error);
     return null;
