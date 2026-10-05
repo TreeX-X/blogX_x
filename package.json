@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "prebuild": "node scripts/pack-skills.mjs",
+    "predev": "node --experimental-strip-types scripts/content-pull.mjs",
+    "prebuild": "node --experimental-strip-types scripts/content-pull.mjs && node scripts/pack-skills.mjs",
     "build": "node scripts/init-db.mjs && node scripts/fetch-articles.mjs --translate && astro build",
     "preview": "astro preview",
     "astro": "astro",
@@ -19,6 +20,8 @@
     "mcp:kb:http": "node scripts/kb-mcp-http-server.mjs",
     "fetch-articles": "node scripts/fetch-articles.mjs",
     "fetch-articles:translate": "node scripts/fetch-articles.mjs --translate",
+    "content:pull": "node --experimental-strip-types scripts/content-pull.mjs",
+    "content:migrate": "node scripts/content-migrate.mjs",
     "prepare": "node scripts/setup-git-hooks.mjs",
     "maintenance": "node scripts/maintenance.mjs",
     "maintenance:status": "node scripts/maintenance.mjs status",

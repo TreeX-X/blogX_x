@@ -1,4 +1,9 @@
-# Source and content are committed from src/, scripts/, public/, and .github/workflows/.
+# Source, scripts, public/ and .github/workflows/ are committed.
+# src/content/ is a build artifact: pulled from the LanceDB `content` table by prebuild/predev
+# (scripts/content-pull.mjs) and never tracked. The unique content truth source is that table.
+
+# content build artifact (pulled from LanceDB at build time — do not commit)
+src/content/
 
 # build output
 dist/

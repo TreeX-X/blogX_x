@@ -18,13 +18,15 @@ execution: pending
 
 同步 `wiki/02-architecture.md`、`wiki/04-content-model.md`、`wiki/06-interactive-admin.md`、`wiki/07-pipeline-mcp.md`、`docs/blogX_x.md` 与 `.hybrid/status.json`，使工程 wiki 与新架构一致。
 
+**跨任务观察项（T2 评审提出）**：`package.json` 的 `sync-kb:check` 执行 `node scripts/sync-obsidian-kb.mjs && git diff --quiet -- src/content/knowledge-base`。内容出仓后 `src/content/knowledge-base` 不再被 git 追踪，该 diff 恒为空、检查恒通过，成为一个假绿的门禁。本任务处理同步链路时须一并处置：删除该脚本入口，或改为对 `content` 表的校验，不得留一个永不失败却看似在把关的检查。
+
 ## Acceptance
 
 满足 [内容云化需求](2026-10-05-content-cloud-requirement--675d3c93.md) 的 AC-8 的剩余部分。
 
 ## Verification
 
-一台没有 Obsidian vault 的机器 `git pull` 后 `npm run build` 通过；`pre-commit` 与 `pre-push` 不再引用 `sync-kb` 或触碰 `src/content/knowledge-base`；`npm run fetch-articles` 运行后 `git status` 干净；LanceDB 不可达时已部署站点可正常访问，本地 dev 用上次拉取的 `src/content` 可启动。
+一台没有 Obsidian vault 的机器 `git pull` 后 `npm run build` 通过；`pre-commit` 与 `pre-push` 不再引用 `sync-kb` 或触碰 `src/content/knowledge-base`；`npm run fetch-articles` 运行后 `git status` 干净；`sync-kb:check` 的假绿问题已处置且处置方式写进 note；LanceDB 不可达时已部署站点可正常访问，本地 dev 用上次拉取的 `src/content` 可启动。
 
 ## Dependencies
 
@@ -32,4 +34,4 @@ T4（[note://f6f78001-d086-47ba-b627-787ada391296/d5d2cc71-8987-47a2-870f-8c3c1e
 
 ## Allowed scope
 
-`.githooks/pre-commit`、`.githooks/pre-push`、`AUTOMATION.md`、`scripts/fetch-articles.mjs`、`scripts/sync-obsidian-kb.mjs`、`wiki/02-architecture.md`、`wiki/04-content-model.md`、`wiki/06-interactive-admin.md`、`wiki/07-pipeline-mcp.md`、`docs/blogX_x.md`、`.hybrid/status.json`
+`.githooks/pre-commit`、`.githooks/pre-push`、`AUTOMATION.md`、`scripts/fetch-articles.mjs`、`scripts/sync-obsidian-kb.mjs`、`package.json`、`wiki/02-architecture.md`、`wiki/04-content-model.md`、`wiki/06-interactive-admin.md`、`wiki/07-pipeline-mcp.md`、`docs/blogX_x.md`、`.hybrid/status.json`
