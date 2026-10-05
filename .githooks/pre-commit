@@ -1,24 +1,15 @@
 #!/bin/sh
 
-# 检查用户是否手动暂存了 knowledge-base 文件
-KB_STAGED=$(git diff --cached --name-only -- src/content/knowledge-base/ | head -1)
+# 本钩子已清空。原因：这里原有的逻辑是把 Obsidian vault 同步进
+# src/content/knowledge-base 并 `git add` 暂存，而那个存在前提已经消失——
+# T2 起 src/content/ 被 .gitignore 忽略（.gitignore:6），`git add` 恒被拒、
+# 钩子每次提交都以非零退出；同时 src/content 只是构建期由 content-pull 从
+# LanceDB 清空重建的产物目录，既没有可暂存的跟踪文件，同步进去的内容也会被
+# 下一次 content-pull 冲掉，同步本身已空转。
+# 原「检测到手动暂存就跳过」的分支一并删除：它检测的对象（已暂存的 KB 变更）
+# 已随内容出仓永久不存在，留着只是一段永不成立的死代码。
+# 遗留收口：.githooks/pre-push 的同类 sync-kb 逻辑、KB diff 门禁与
+# package.json 中 sync-kb:check 的假绿门禁，由 T5 统一处理——
+# 见 .agents/notes/2026-10-05-task-t5-cut-local-coupling--d0a6d506.md
 
-if [ -n "$KB_STAGED" ]; then
-  echo "[pre-commit] Detected manually staged knowledge-base changes, skipping auto-sync."
-  echo "[pre-commit] If you want to force sync, unstage knowledge-base files first:"
-  echo "  git reset HEAD -- src/content/knowledge-base/"
-  exit 0
-fi
-
-# 没有手动编辑 KB，安全执行自动同步
-echo "[pre-commit] Syncing Obsidian knowledge base..."
-npm run sync-kb:stage
-status=$?
-
-if [ "$status" -ne 0 ]; then
-  echo "[pre-commit] Sync failed, commit aborted."
-  exit $status
-fi
-
-echo "[pre-commit] Knowledge base synced and staged."
 exit 0
