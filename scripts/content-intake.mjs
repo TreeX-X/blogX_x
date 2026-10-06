@@ -183,14 +183,13 @@ async function main() {
 if (hasFlag("--delete")) {
   const target = flagValue("--delete").trim();
   if (!target) {
-    log.error("--delete 需要一个 path");
-    process.exit(1);
+    log.fail("--delete 需要一个 path");
+  } else {
+    await deleteIntakeDraft("posts", target);
+    log.delete(`已删除草稿 posts/${target}`);
   }
-  await deleteIntakeDraft("posts", target);
-  log.delete(`已删除草稿 posts/${target}`);
 } else {
   main().catch((err) => {
-    log.error(`执行失败: ${err.message}`);
-    process.exit(1);
+    log.fail(`执行失败: ${err.message}`);
   });
 }

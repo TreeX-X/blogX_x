@@ -165,6 +165,5 @@ async function main() {
 }
 
 main().catch((err) => {
-  log.error(`脚本执行失败: ${err.message}`);
-  process.exit(1);
+  log.fail(`脚本执行失败: ${err.message}`);
 });

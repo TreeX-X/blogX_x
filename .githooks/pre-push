@@ -1,6 +1,29 @@
 #!/bin/sh
+#
+# pre-push：内容已出仓后的收口版本。
+#
+# 移除的三步（它们都要求本机存在 Obsidian vault 与内容文件，是"没有 vault 的机器推不动"
+# 的直接原因）：
+#   1. npm run sync-kb —— 写 src/content/knowledge-base。那已是构建期由 content-pull 生成、
+#      被 .gitignore 忽略的产物，写进去只会被下一次 content-pull 冲掉。
+#   2. git diff --quiet -- src/content/knowledge-base —— 路径不被追踪时该比较恒为空、
+#      恒通过，是一道假绿门禁（已实证）。
+#   3. npm run fetch-articles:translate —— 抓取并翻译外链文章。产物是 content 表的 posts
+#      记录，与本次 push 的代码无关，且依赖 GLM 配额；限流时它以 exit 1 挡住 push。
+#
+# 一并移除 init-db：blog_index 是内容派生索引，而 git push 不再等于内容变更——内容变更
+# 发生在云端 content 表（面板 / content:intake / content:publish），push 只是代码。用工作区
+# 里那份构建期产物去覆盖共享的云端索引，是把 stale 数据写进公共状态。索引由
+# `npm run build`（先 content-pull 再 init-db）与 .github/workflows/vector-sync.yml 重建。
+# （另：init-db 目前仍会顺手 CREATE 一张已废弃的 articles 表，更不该在钩子里跑它。）
+#
+# 保留 maintenance:fix：本地库健康自检，只连本地 .lancedb、不碰云端、不依赖 vault 与内容
+# 文件。它只删"坏了就该重建"的派生索引，绝不动 content 表（内容真源，见 maintenance.mjs
+# 文件头）。它不保证任何东西——真正的门禁是 npm run build。
+#
+# 真相源：LanceDB content 表。构建前置：prebuild → content-pull（content 表 → src/content）。
 
-echo "[pre-push] Checking database health..."
+echo "[pre-push] Checking local database health..."
 npm run maintenance:fix
 status=$?
 if [ "$status" -ne 0 ]; then
@@ -8,36 +31,6 @@ if [ "$status" -ne 0 ]; then
   exit $status
 fi
 
-echo "[pre-push] Syncing Obsidian knowledge base..."
-npm run sync-kb
-status=$?
-if [ "$status" -ne 0 ]; then
-  echo "[pre-push] Sync failed, push aborted."
-  exit $status
-fi
-
-echo "[pre-push] Building knowledge graph index..."
-npm run init-db
-status=$?
-if [ "$status" -ne 0 ]; then
-  echo "[pre-push] Knowledge graph index build failed, push aborted."
-  exit $status
-fi
-
-echo "[pre-push] Fetching and translating articles..."
-npm run fetch-articles:translate
-status=$?
-if [ "$status" -ne 0 ]; then
-  echo "[pre-push] Article fetch/translate failed, push aborted."
-  exit $status
-fi
-
-git update-index -q --refresh
-if ! git diff --quiet -- src/content/knowledge-base; then
-  echo "[pre-push] Detected uncommitted knowledge-base changes after sync."
-  echo "[pre-push] Run: git add src/content/knowledge-base && git commit --amend or new commit."
-  exit 1
-fi
-
+echo "[pre-push] Content truth source is the LanceDB 'content' table; git push no longer implies a content change."
 echo "[pre-push] All checks passed. Ready to push."
 exit 0

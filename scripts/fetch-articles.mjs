@@ -1,676 +1,348 @@
 #!/usr/bin/env node
 /**
- * 文章抓取 + 翻译脚本
- * 构建时自动扫描 posts 目录，抓取外链文章原文并翻译
+ * 外链文章刷新：content 表 posts 记录 → 抓取 + 翻译 → 回写同一条记录
+ *
+ * 内容真相源是 LanceDB `content` 表（单表），本脚本只做一件事：把 posts 集合里带
+ * http(s) sourceUrl 的记录按原 path 原地刷新——重新抓取原文、重新翻译，写回
+ * originalBody / translatedBody / body 与 frontmatter 的 fetched / intake 子对象，
+ * path 与 status 一律不变（绝不把在架文章降级成草稿，也不新建 -2 副本）。
+ *
+ * 与旧版的区别（T5，内容出仓之后）：
+ * - 不再扫描 src/content/posts：那已是 prebuild/predev 由 content-pull 生成的产物，
+ *   而且草稿根本不写盘，扫描磁盘等于漏掉一半记录。枚举源改为 content 表本身，
+ *   "哪篇文章要刷新"不再依赖本机磁盘上恰好有什么。
+ * - 不再 upsert `articles` 表：站点侧零读取方，双语正文只有 posts 记录这一份 master。
+ * - 不再回写任何 .md：正文的唯一载体是 content 表，写 .md 就是再造第二份 master。
+ * - 抓取与富媒体翻译不再有本脚本自己的一份副本：整条"URL → 双语正文 + 结构化 frontmatter"
+ *   流水线只有 src/lib/article-intake.service.ts 一份实现（content-intake CLI 与 dev 面板
+ *   共用）。本脚本以 write:false 调用它拿产物，再自己决定写回哪条记录、保留哪些字段。
+ *
+ * 默认只补缺：originalBody 为空、或 translatedBody 为空/与原文同语言的记录才会被刷新。
+ * 对已完整的语料，`npm run build` 里的这一步是空转——不会每次部署都打一遍 GLM，也不会让
+ * 构建写云端内容。但只要有一条记录缺译文（面板新建后直接发布、或 GLM 曾失败），这一步就
+ * 会重试它。全部重来用 --force。
+ *
+ * 失败不静默（与 T4 同一原则）：
+ * - 抓取失败：原记录一个字节都不动。旧版会写一条 originalContent 为空的失败记录，
+ *   把好数据直接冲掉，那是比失败本身更坏的行为。抓取失败一律退出码 1。
+ * - 写回失败：原文已取到但没落库（最常见是 content-store 在降级连接上拒绝写入），
+ *   磁盘状态没变。它不是"抓取失败"，构建期只报告；--force 下 exit 1。
+ * - 翻译失败：保留原有译文，把 intake 记下的失败原因逐条念出来，汇总里再列出受影响的
+ *   slug。退出码分情形：显式运行（--force）、译文从合格退化为不合格（回归）、抓取失败
+ *   都是 exit 1；构建期只是给"本来就缺"的记录补缺而失败时只报告、不阻断构建——构建期
+ *   对 intake 期的配额失败负责，是门禁放错了层（详见 note 的 Known items）。
  *
  * 用法：
- *   node scripts/fetch-articles.mjs              # 仅抓取
- *   node scripts/fetch-articles.mjs --translate   # 抓取 + 翻译（仅新文章）
- *   node scripts/fetch-articles.mjs --force       # 强制重新抓取所有
- *   node scripts/fetch-articles.mjs --translate --force  # 强制重新抓取并翻译
- *   node scripts/fetch-articles.mjs --translate --force-translate  # 强制重新翻译（不重新抓取）
+ *   node scripts/fetch-articles.mjs              # 只刷新缺原文 / 缺译文的 posts 记录
+ *   node scripts/fetch-articles.mjs --force      # 全部重新抓取 + 翻译
+ *   node scripts/fetch-articles.mjs --dry-run    # 只报告会刷新哪些记录、会写成什么样，不写库
+ *   （--translate 仍被接受但无额外含意：翻译本来就是流水线的一部分。--force-translate 已移除，
+ *     见下方参数解析处的说明。）
+ *
+ * Note: 内容真相源为 LanceDB 单表 content — see .agents/notes/2026-10-05-decision-truth-source-lancedb--10d55da8.md
+ * Note: 内容移出仓库、构建期从 LanceDB 拉取写盘 — see .agents/notes/2026-10-05-decision-content-out-of-repo--a23b0b97.md
+ * Note: 抓取/翻译/发布链唯一实现在 intake 通道 — see .agents/notes/2026-10-05-task-t4-ai-intake--d5d2cc71.md
  */
 
-import fs from "node:fs";
-import path from "node:path";
-import crypto from "node:crypto";
-import matter from "gray-matter";
-import { Readability } from "@mozilla/readability";
-import { parseHTML } from "linkedom";
-import * as lancedb from "@lancedb/lancedb";
 import dotenv from "dotenv";
 import { Logger } from "./lib/logger.mjs";
-import { detectLanguage, translateText, processArticleTranslation } from "../src/lib/article-translation.service.mjs";
+import { listCollection, upsertEntry } from "../src/lib/content-store.ts";
+import { createIntakeDraft } from "../src/lib/article-intake.service.ts";
+import { detectLanguage } from "../src/lib/article-translation.service.mjs";
 
+/*-- 服务在调用时才读 process.env，故 dotenv.config() 必须在任何查询之前 --*/
 dotenv.config();
 
 const log = new Logger("fetch-articles");
 
-/*===== 配置常量 =====*/
-const POSTS_DIR = "src/content/posts";
-const ARTICLES_TABLE = "articles";
-const LOCAL_DB_PATH = process.env.LANCEDB_LOCAL_PATH || ".lancedb";
-const FETCH_TIMEOUT = 15_000;
-const TRANSLATE_BATCH_SIZE = 1500;
-const MAX_RETRIES = 2;
-const TRANSLATE_TIMEOUT = 120_000;
-const USER_AGENT = "Mozilla/5.0 (compatible; BlogX_x/1.0; +https://blogx-x.vercel.app)";
-
-/*===== 命令行参数解析 =====*/
+/*===== 命令行参数 =====*/
 const args = process.argv.slice(2);
-const shouldTranslate = args.includes("--translate");
-const forceRefetch = args.includes("--force");
+const force = args.includes("--force");
+const dryRun = args.includes("--dry-run");
+
+/*-- --force-translate 已移除且不能默默忽略：它的语义是"只重译不重抓"，而抓取与翻译现在是
+     intake 流水线里的同一个动作，没有"拿到原文却不翻译"的中间态。静默忽略会让调用方以为
+     重译过了，实际什么都没做。判据在 main() 里抛给统一失败出口，不用 process.exit
+     （见 Logger.fail 的说明）。 --*/
 const forceTranslate = args.includes("--force-translate");
 
 /*===== 统计计数器 =====*/
 const stats = {
   total: 0,
-  fetched: 0,
+  refreshed: 0,
   skipped: 0,
-  failed: 0,
-  translated: 0,
-  translateSkipped: 0,
-  translateFailed: 0
+  fetchFailed: 0,
+  translateFailed: 0,
+  /*-- 写回失败：原文取到了，content 表没写下（最常见是 content-store 在降级连接上拒绝写入）。
+       与"抓取失败"分开记——它既不是说错事实，也不该把构建期补缺拖成 exit 1 --*/
+  writeFailed: 0,
+  /*-- 回归：刷新前译文合格、本次刷新后不合格。与"本来就缺"必须分开计数 --*/
+  regressed: 0,
+  /*-- 跑完后仍缺可用译文的记录 slug：让"译文陈旧"成为可枚举、可查询的状态 --*/
+  stalePaths: [],
 };
 
 /*===== 工具函数 =====*/
 
-function computeHash(url, content) {
-  return crypto.createHash("sha256").update(`${url}::${content.slice(0, 500)}`, "utf8").digest("hex");
-}
-
-function countWords(text) {
-  const plain = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  const cjk = (plain.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
-  const latin = plain.replace(/[\u4e00-\u9fff\u3400-\u4dbf]/g, " ").split(/\s+/).filter(Boolean).length;
-  return cjk + latin;
-}
-
-function slugify(filename) {
-  return filename.replace(/\.mdx?$/, "");
-}
-
-function stripHtmlToMarkdownFallback(html) {
-  return String(html || "")
-    .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (_, code) => `\n\n\`\`\`\n${code}\n\`\`\`\n\n`)
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<\/div>/gi, "\n")
-    .replace(/<\/h[1-6]>/gi, "\n\n")
-    .replace(/<li[^>]*>/gi, "- ")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function writeArticleMarkdown(filePath, data, body) {
-  const normalizedBody = String(body || "").trim();
-  const fileContent = matter.stringify(`${normalizedBody}\n`, data);
-  fs.writeFileSync(filePath, fileContent, "utf-8");
-}
-
-function hasMeaningfulBody(body) {
-  return typeof body === "string" && body.trim().length > 0;
-}
-
-function syncMarkdownFromRecord(filePath, data, record) {
-  if (!record) return false;
-  /*-- Defect fix: 禁止回退到未翻译的源文，避免 GLM 限流时把源文覆盖到 .md --*/
-  if (!record.translatedContent) return false;
-  const preferredBody = record.translatedContent;
-  if (!hasMeaningfulBody(preferredBody)) return false;
-  writeArticleMarkdown(filePath, data, preferredBody);
-  return true;
-}
-
-function extractDomain(url) {
-  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
-}
-
-// The detectSourceLang function has been removed as we now use the unified detectLanguage function from article-translation.service.mjs
-
-/*===== LanceDB 操作 =====*/
-
-async function getDb() {
-  const { LANCEDB_URI, LANCEDB_API_KEY } = process.env;
-
-  /*-- 优先尝试 LanceDB Cloud --*/
-  if (LANCEDB_URI && LANCEDB_API_KEY) {
-    try {
-      log.database("连接 LanceDB Cloud...");
-      const db = await lancedb.connect(LANCEDB_URI, { apiKey: LANCEDB_API_KEY });
-      log.success("LanceDB Cloud 连接成功");
-      return db;
-    } catch (error) {
-      log.warn(`LanceDB Cloud 连接失败，降级到本地: ${error.message}`);
-    }
-  }
-
-  /*-- 降级到本地 LanceDB --*/
-  log.database("使用本地 LanceDB...");
-  const dbUri = path.join(process.cwd(), LOCAL_DB_PATH);
-  return lancedb.connect(dbUri);
-}
-
-async function ensureTable(db) {
-  const tableNames = await db.tableNames();
-  if (tableNames.includes(ARTICLES_TABLE)) {
-    try {
-      const table = await db.openTable(ARTICLES_TABLE);
-      await table.query().limit(1).toArray();
-      return table;
-    } catch (error) {
-      log.warn(`articles 表损坏，正在重建: ${error.message}`);
-      try { await db.dropTable(ARTICLES_TABLE); } catch { /* ignore */ }
-    }
-  }
-  const table = await db.createTable(ARTICLES_TABLE, [{
-    slug: "__placeholder__", sourceUrl: "", originalContent: "", translatedContent: "",
-    contentHash: "", fetchedAt: "", translatedAt: "", originalLang: "en",
-    title: "", description: "", author: "", coverImage: "", wordCount: 0, fetchStatus: "pending",
-  }]);
-  await table.delete('slug = "__placeholder__"');
-  return table;
-}
-
-async function getExistingRecord(table, slug) {
+function parseFrontmatter(raw) {
   try {
-    const rows = await table.query().where(`slug = "${slug}"`).limit(1).toArray();
-    return rows.length > 0 ? rows[0] : null;
-  } catch { return null; }
-}
-
-async function upsertRecord(table, record) {
-  try { await table.delete(`slug = "${record.slug}"`); } catch { /* empty table */ }
-  await table.add([record]);
-}
-
-/*===== 网页抓取 =====*/
-
-async function fetchArticle(url) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
-  try {
-    const resp = await fetch(url, {
-      signal: controller.signal,
-      headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml" },
-      redirect: "follow",
-    });
-    clearTimeout(timeout);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const html = await resp.text();
-    const { document } = parseHTML(html);
-    const reader = new Readability(document);
-    const parsed = reader.parse();
-    if (!parsed || !parsed.textContent?.trim()) throw new Error("Readability 解析失败");
-    return {
-      title: parsed.title || "",
-      content: parsed.content || "",
-      textContent: parsed.textContent || "",
-      excerpt: parsed.excerpt || "",
-      coverImage: document.querySelector('meta[property="og:image"]')?.getAttribute("content") || "",
-      author: document.querySelector('meta[name="author"]')?.getAttribute("content") || parsed.byline || "",
-    };
-  } catch (err) {
-    clearTimeout(timeout);
-    throw err;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
   }
 }
 
-/*===== LLM 翻译 =====*/
+function isHttpUrl(value) {
+  return typeof value === "string" && /^https?:\/\//i.test(value.trim());
+}
 
-// Translation logic is imported from ../src/lib/article-translation.service.mjs
-// See that file for TRANSLATE_SYSTEM_PROMPT_EN_TO_ZH, TRANSLATE_SYSTEM_PROMPT_ZH_TO_EN,
-// pickTranslateSystemPrompt, and splitTextIntoSegments implementations
+/**
+ * 双语正文是否可用：译文非空，且语言与原文相反。
+ *
+ * intake 的契约是"翻译失败也返回一份译文"：translateText 段落级失败回退原文、整体异常回退
+ * 原文、缺 key 时返回占位译文，三者都指向同一个信号——译文落回了原文的语言。所以"译文非空"
+ * 完全不等于"翻译成功"，必须过语言这一关。判据与 content-migrate 从 articles 表多代记录里
+ * 挑真实译文时用的同一条：译文语言必须与原文相反。把未翻译的原文当译文留在记录里，正是
+ * T1 迁移时要避开的那类失真，只不过方向反了过来。
+ *
+ * 检测不出语言（纯图/代码页）时不擅动：非空即认为可用，避免每条记录每次运行都被重刷。
+ */
+function hasUsableTranslation(originalBody, translatedBody) {
+  if (!translatedBody.trim()) return false;
+  const originalLang = detectLanguage(originalBody, null);
+  const translatedLang = detectLanguage(translatedBody, null);
+  if (originalLang === "unknown" || translatedLang === "unknown") return true;
+  return originalLang !== translatedLang;
+}
 
-/*===== 富媒体翻译辅助（按文本节点分段、保留 HTML 结构）===== */
+/**
+ * 记录是否已具备完整双语正文：原文非空，且译文可用。
+ *
+ * 这一个谓词同时是"只补缺"的筛选判据和"回归"的对比基准：它决定哪些记录被跳过，也决定
+ * 哪些记录失败才算"被改坏"。拆成两个判据必然漂移——这正是"本来就缺"与"被改坏"被混为
+ * 一谈、导致构建对 intake 期的失败负责的根源。
+ */
+function hasCompleteBilingual(record) {
+  return Boolean(record.originalBody.trim()) && hasUsableTranslation(record.originalBody, record.translatedBody);
+}
 
-const TEXT_NODE = 3;
-const ELEMENT_NODE = 1;
+/*===== 单条记录刷新 =====*/
 
-/*-- 深度优先遍历 root 下的所有文本节点，回调收到 textNode --*/
-function walkTextNodes(root, callback) {
-  if (!root || !root.childNodes) return;
-  const stack = [root];
-  while (stack.length) {
-    const cur = stack.pop();
-    for (const child of Array.from(cur.childNodes)) {
-      if (!child) continue;
-      if (child.nodeType === TEXT_NODE) {
-        callback(child);
-      } else if (child.nodeType === ELEMENT_NODE) {
-        stack.push(child);
-      }
+/**
+ * 把 intake 产物合并回一条已存在的 posts 记录。
+ *
+ * 保留：path、status、以及 frontmatter 顶层由人手维护的字段（title / date / tags /
+ * description / originalAuthor …）。刷新：originalBody、译文、originalLang，以及
+ * fetched（抓取期元数据，article-db 优先读它）与 intake（成败自述，失败必须随记录可见）。
+ *
+ * wasComplete 是刷新前的译文状态（调用方用 hasCompleteBilingual 取）：true = 刷新前合格。
+ * 返回本次是否采用了新译文。统计由调用方统一记账——落库失败时磁盘状态没变，判据得按
+ * "刷新前状态"算而不是"本次刷新结果"算，记账放在这一处会把它错记成回归。
+ */
+async function refreshRecord(record, draft, wasComplete) {
+  const existingFrontmatter = parseFrontmatter(record.frontmatter);
+  const fresh = draft.record;
+  const warnings = Array.isArray(draft.warnings) ? draft.warnings : [];
+  /*-- 两个信号都说不失败才采用新译文：语言方向对不上，或 intake 自己记了"正文翻译失败" --*/
+  const languageLooksUntranslated = !hasUsableTranslation(fresh.originalBody, fresh.translatedBody);
+  const intakeReportedFailure = warnings.some((warning) => String(warning).includes("正文翻译失败"));
+  const translated = !languageLooksUntranslated && !intakeReportedFailure;
+
+  if (!translated) {
+    /*-- 回归必须单独点出来：它意味着一次刷新把好译文弄坏了，与"这条本来就缺译文"不是一回事 --*/
+    log.warn(
+      `${record.path} — 未采用本次译文，保留原有译文（${record.translatedBody.length} 字符）` +
+        (wasComplete ? "（注意：刷新前译文是合格的，本次把它改坏了——回归）" : "")
+    );
+    if (languageLooksUntranslated) {
+      log.warn(
+        `  译本语言与原文相同（${detectLanguage(fresh.originalBody, null)}），疑似未真正翻译`
+      );
+    }
+    for (const warning of warnings) {
+      log.warn(`  intake: ${warning}`);
     }
   }
-}
 
-/*-- 将 Readability 输出的 HTML 片段用 linkedom 解析，并对每个非空文本节点插入占位符 --*/
-function buildTranslateInput(html) {
-  const wrapped = `<!DOCTYPE html><html><body>${html || ""}</body></html>`;
-  const { document } = parseHTML(wrapped);
-  const body = document.body;
-  const pairs = [];
-  let idx = 0;
-  walkTextNodes(body, (textNode) => {
-    const raw = textNode.textContent || "";
-    if (!raw.trim()) return; /*-- 跳过纯空白文本节点 --*/
-    pairs.push({ index: idx, originalText: raw });
-    textNode.textContent = `[[T_${idx}]]${raw}[[/T_${idx}]]`;
-    idx += 1;
+  const translatedBody = translated ? fresh.translatedBody : record.translatedBody;
+  /*-- body 与译文保持一致：content-pull 把 body 写盘做降级渲染，二者漂移就又多一份master --*/
+  const body = translated ? fresh.translatedBody : record.body;
+
+  const frontmatter = {
+    ...existingFrontmatter,
+    originalLang: draft.frontmatter?.originalLang ?? existingFrontmatter.originalLang,
+    fetched: draft.frontmatter?.fetched,
+    intake: draft.frontmatter?.intake,
+  };
+
+  if (dryRun) {
+    log.file(`dry-run：将写回 posts/${record.path}（status 保持 ${record.status}）`);
+    log.file(
+      `  originalBody ${record.originalBody.length} → ${fresh.originalBody.length}，` +
+        `translatedBody ${record.translatedBody.length} → ${translatedBody.length}`
+    );
+    stats.refreshed += 1;
+    return translated;
+  }
+
+  await upsertEntry({
+    collection: "posts",
+    path: record.path,
+    frontmatter: JSON.stringify(frontmatter),
+    body,
+    originalBody: fresh.originalBody,
+    translatedBody,
+    status: record.status,
+    updatedAt: new Date().toISOString(),
   });
-  return { markedHtml: body.innerHTML, pairs };
-}
-
-/*-- 去掉 LLM 偶尔会包裹的 ```html ... ``` 代码栅栏 --*/
-function stripLlmFence(content) {
-  const s = String(content || "").trim();
-  const m = s.match(/^```(?:html|HTML)?\s*\n([\s\S]*?)\n```\s*$/);
-  return m ? m[1] : s;
-}
-
-/*-- 折叠多余空白为单个空格，保留单个换行 --*/
-function collapseInline(text) {
-  return String(text || "").replace(/\s+/g, " ").trim();
-}
-
-/*-- 最小 Markdown 转义：避免 alt/text 含 ] 或换行导致图片/链接语法 malformed --*/
-function mdEscape(text) {
-  return String(text || "").replace(/\\/g, "\\\\").replace(/\]/g, "\\]").replace(/\n/g, " ");
-}
-
-/*-- 递归序列化节点为 Markdown --*/
-function serializeNode(node) {
-  if (!node) return "";
-  if (node.nodeType === TEXT_NODE) {
-    return node.textContent || "";
-  }
-  if (node.nodeType !== ELEMENT_NODE) return "";
-  const tag = (node.tagName || "").toLowerCase();
-  const inner = serializeChildren(node);
-  switch (tag) {
-    case "h1": return `\n\n# ${collapseInline(inner)}\n\n`;
-    case "h2": return `\n\n## ${collapseInline(inner)}\n\n`;
-    case "h3": return `\n\n### ${collapseInline(inner)}\n\n`;
-    case "h4": return `\n\n#### ${collapseInline(inner)}\n\n`;
-    case "h5": return `\n\n##### ${collapseInline(inner)}\n\n`;
-    case "h6": return `\n\n###### ${collapseInline(inner)}\n\n`;
-    case "p": {
-      const t = inner.replace(/\n{2,}/g, "\n").trim();
-      return t ? `\n\n${t}\n\n` : "";
-    }
-    case "br": return "  \n";
-    case "hr": return "\n\n---\n\n";
-    case "strong":
-    case "b": return `**${inner}**`;
-    case "em":
-    case "i": return `*${inner}*`;
-    case "del":
-    case "s": return `~~${inner}~~`;
-    case "code": {
-      /*-- <pre><code> 由 pre 节点处理；此处是行内 code --*/
-      const parentTag = node.parentNode && (node.parentNode.tagName || "").toLowerCase();
-      if (parentTag === "pre") return inner;
-      return `\`${inner}\``;
-    }
-    case "pre": {
-      const codeEl = node.querySelector ? node.querySelector("code") : null;
-      const cls = codeEl && codeEl.getAttribute ? (codeEl.getAttribute("class") || "") : "";
-      const langMatch = cls.match(/(?:^|\s)language-([\w+-]+)/i) || cls.match(/(?:^|\s)lang-([\w+-]+)/i);
-      const lang = langMatch ? langMatch[1] : "";
-      const code = codeEl ? serializeChildren(codeEl) : inner;
-      /*-- 仅剥最多 1 个首尾换行（HTML 格式产生），保留代码块内含的换行 --*/
-      const cleaned = code.replace(/^\n|\n$/, "");
-      return `\n\n\`\`\`${lang}\n${cleaned}\n\`\`\`\n\n`;
-    }
-    case "blockquote": {
-      const stripped = inner.replace(/\n{3,}/g, "\n\n").trim();
-      const quoted = stripped.split("\n").map((l) => (l ? `> ${l}` : ">")).join("\n");
-      return quoted ? `\n\n${quoted}\n\n` : "";
-    }
-    case "ul":
-    case "ol": {
-      const children = Array.from(node.children || []);
-      const lines = [];
-      let n = 1;
-      for (const li of children) {
-        if ((li.tagName || "").toLowerCase() !== "li") continue;
-        const marker = tag === "ol" ? `${n}.` : "-";
-        n += 1;
-        const content = serializeChildren(li).replace(/\n+/g, "\n    ").trim();
-        lines.push(`${marker} ${content}`.replace(/\s+$/g, ""));
-      }
-      return lines.length ? `\n\n${lines.join("\n")}\n\n` : "";
-    }
-    case "li": return inner; /*-- 由 ul/ol 节点统一处理前缀 --*/
-    case "a": {
-      const href = (node.getAttribute && node.getAttribute("href")) || "";
-      return `[${mdEscape(inner)}](${mdEscape(href)})`;
-    }
-    case "img": {
-      const src = (node.getAttribute && node.getAttribute("src")) || "";
-      const alt = (node.getAttribute && node.getAttribute("alt")) || "";
-      return `![${mdEscape(alt)}](${src})`;
-    }
-    case "video": {
-      /*-- 保留 <video src> 或内嵌 <source src> 的 URL，避免回退到原文 URL 的逻辑失效 --*/
-      const src = (node.getAttribute && node.getAttribute("src")) || "";
-      const innerSrc = (() => {
-        const source = node.querySelector ? node.querySelector("source") : null;
-        return (source && source.getAttribute && source.getAttribute("src")) || "";
-      })();
-      const finalSrc = src || innerSrc;
-      return finalSrc ? `\n\n[video](${finalSrc})\n\n` : "";
-    }
-    case "picture": {
-      const img = node.querySelector ? node.querySelector("img") : null;
-      return img ? serializeNode(img) : "";
-    }
-    case "figure": {
-      const img = node.querySelector ? node.querySelector("img") : null;
-      const cap = node.querySelector ? node.querySelector("figcaption") : null;
-      const imgMd = img ? serializeNode(img) : "";
-      const capText = cap ? collapseInline(cap.textContent || "") : "";
-      const out = `${imgMd}${capText ? `\n\n*${capText}*\n` : ""}`;
-      return out ? `\n\n${out.trim()}\n\n` : "";
-    }
-    case "div":
-    case "section":
-    case "article":
-    case "main":
-    case "header":
-    case "footer":
-    case "aside":
-    case "nav": {
-      const t = inner.replace(/\n{2,}/g, "\n\n").trim();
-      return t ? `\n\n${t}\n\n` : "";
-    }
-    case "span": return inner;
-    case "iframe":
-    case "script":
-    case "style":
-    case "noscript":
-    case "template": return "";
-    default: return inner;
-  }
-}
-
-function serializeChildren(parent) {
-  if (!parent || !parent.childNodes) return "";
-  const parts = [];
-  for (const child of Array.from(parent.childNodes)) {
-    parts.push(serializeNode(child));
-  }
-  return parts.join("");
-}
-
-/*-- 将 DOM 树序列化为最终 Markdown --*/
-function domToMarkdown(document) {
-  const md = serializeChildren(document && document.body).replace(/\n{3,}/g, "\n\n").trim();
-  return md;
-}
-
-/*-- 解析 LLM 返回的 HTML，替换占位符为已翻译文本，再走 DOM→Markdown --*/
-function reassembleMarkdown(translatedHtml) {
-  const cleaned = stripLlmFence(translatedHtml);
-  const wrapped = `<!DOCTYPE html><html><body>${cleaned}</body></html>`;
-  const { document } = parseHTML(wrapped);
-  /*-- 容忍标记周围多余空白；闭标记的 index 数字可能被翻译时改动但通常不会 --*/
-  const placeholderRe = /\[\[\s*T_(\d+)\s*\]\]([\s\S]*?)\[\[\s*\/?T_\1\s*\]\]/g;
-  walkTextNodes(document.body, (textNode) => {
-    const original = textNode.textContent || "";
-    if (!original.includes("[[T_")) return;
-    textNode.textContent = original.replace(placeholderRe, (_m, _idx, inner) => inner);
-  });
-  /*-- 兜底：清掉任何残留的孤儿占位符（LLM 改写关闭 index 时）--*/
-  walkTextNodes(document.body, (textNode) => {
-    const t = textNode.textContent || "";
-    if (t.includes("[[T_") || t.includes("[[/T_")) {
-      textNode.textContent = t.replace(/\[\[\s*\/?T_\d+\s*\]\]/g, "");
-    }
-  });
-  return domToMarkdown(document);
-}
-
-/*===== 翻译判断逻辑 =====*/
-
-function shouldTranslateArticle(existing, newContent, forceTranslate = false) {
-  /*-- 强制翻译模式：跳过所有检查，直接返回需要翻译 --*/
-  if (forceTranslate) {
-    return { needed: true, reason: "强制重新翻译" };
-  }
-
-  // 1. 没有翻译记录 -> 需要翻译
-  if (!existing || !existing.translatedContent || existing.translatedContent === "") {
-    return { needed: true, reason: "无翻译记录" };
-  }
-
-  // 2. 内容哈希变化 -> 需要重新翻译
-  if (existing.contentHash && existing.contentHash !== newContent.contentHash) {
-    return { needed: true, reason: "内容已更新" };
-  }
-
-  // 3. 翻译时间早于抓取时间 -> 需要重新翻译
-  if (existing.translatedAt && existing.fetchedAt &&
-    new Date(existing.translatedAt) < new Date(existing.fetchedAt)) {
-    return { needed: true, reason: "翻译版本过旧" };
-  }
-
-  return { needed: false, reason: "翻译已是最新" };
+  stats.refreshed += 1;
+  log.save(
+    `${record.path} — 已写回 content 表（originalBody ${fresh.originalBody.length} / ` +
+      `translatedBody ${translatedBody.length} / body ${body.length}）`
+  );
+  return translated;
 }
 
 /*===== 主流程 =====*/
 
 async function main() {
-  log.start("文章抓取脚本启动");
-  log.config(`模式: ${shouldTranslate ? "抓取 + 翻译" : "仅抓取"}${forceRefetch ? " (强制刷新)" : ""}${forceTranslate ? " (强制重译)" : ""}`);
+  if (forceTranslate) {
+    throw new Error(
+      "--force-translate 已移除：抓取与翻译共用 intake 的同一条流水线，无法只重译不重抓。要重来用 --force。"
+    );
+  }
+  log.start("外链文章刷新（content 表 posts → 抓取 + 翻译 → 回写同一记录）");
+  log.config(
+    `模式: ${force ? "强制全部刷新" : "只补缺（缺原文 / 缺译文）"}${dryRun ? "（dry-run，不写库）" : ""}`
+  );
 
-  /*-- 1. 扫描 posts 目录 --*/
-  if (!fs.existsSync(POSTS_DIR)) {
-    log.warn("posts 目录不存在，跳过");
+  /*-- 1. 枚举源是 content 表本身，不是 src/content/posts --*/
+  const posts = await listCollection("posts");
+  stats.total = posts.length;
+  if (posts.length === 0) {
+    log.warn("content 表没有 posts 记录，无事可做");
     return;
   }
+  log.info(`content 表 posts 集合共 ${posts.length} 条记录`);
 
-  const mdFiles = fs.readdirSync(POSTS_DIR).filter((f) => f.endsWith(".md") || f.endsWith(".mdx"));
-  const articles = [];
-
-  for (const file of mdFiles) {
-    const raw = fs.readFileSync(path.join(POSTS_DIR, file), "utf-8");
-    const { data } = matter(raw);
-    if (!data.sourceUrl) continue;
-    articles.push({ file, slug: slugify(file), data });
+  /*-- 2. 选出要刷新的记录 --*/
+  const candidates = [];
+  for (const record of posts) {
+    const frontmatter = parseFrontmatter(record.frontmatter);
+    if (!isHttpUrl(frontmatter.sourceUrl)) {
+      log.skip(
+        `${record.path} — sourceUrl 不是外链（${String(frontmatter.sourceUrl || "").slice(0, 48) || "空"}），跳过`
+      );
+      stats.skipped += 1;
+      continue;
+    }
+    /*-- 译文与原文同语言即视为缺译文：上次翻译失败时会留下这样一份"假译文" --*/
+    if (!force && hasCompleteBilingual(record)) {
+      log.skip(`${record.path} — 已有完整双语正文，跳过（--force 可强制刷新）`);
+      stats.skipped += 1;
+      continue;
+    }
+    candidates.push({
+      record,
+      sourceUrl: String(frontmatter.sourceUrl).trim(),
+      /*-- 刷新前的译文状态：true = 刷新前合格（只有 --force 才可能为 true）。用于区分
+           "本来就缺"与"被改坏" --*/
+      wasComplete: hasCompleteBilingual(record),
+    });
   }
 
-  stats.total = articles.length;
-  if (articles.length === 0) {
-    log.info("没有找到带 sourceUrl 的文章，跳过");
+  if (candidates.length === 0) {
+    log.info("没有需要刷新的记录");
     return;
   }
-  log.info(`发现 ${articles.length} 篇外链文章`);
+  log.info(`待刷新 ${candidates.length} 条记录`);
 
-  /*-- 2. 连接 LanceDB --*/
-  const db = await getDb();
-  const table = await ensureTable(db);
-  log.database("数据库连接成功");
-
-  /*-- 3. 逐篇处理 --*/
-  for (let idx = 0; idx < articles.length; idx++) {
-    const article = articles[idx];
-    const { slug, data } = article;
-    const markdownPath = path.join(POSTS_DIR, article.file);
-    log.process(`[${idx + 1}/${articles.length}] ${slug}`);
-    const url = data.sourceUrl;
-    const existing = await getExistingRecord(table, slug);
-
-    /*-- 检查是否需要重新抓取 --*/
-    if (!forceRefetch && existing && existing.fetchStatus === "success" && existing.originalContent) {
-      /*-- 命中缓存时也要把正文补回 Markdown，避免本地文件仍为空 --*/
-      const rawMarkdown = fs.readFileSync(markdownPath, "utf-8");
-      const parsedMarkdown = matter(rawMarkdown);
-      if (!hasMeaningfulBody(parsedMarkdown.content)) {
-        if (syncMarkdownFromRecord(markdownPath, parsedMarkdown.data, existing)) {
-          log.save(`${slug} — 已从缓存回写正文到 Markdown`);
-        }
-      }
-
-      // 检查是否需要翻译
-      if (shouldTranslate) {
-        const translateCheck = shouldTranslateArticle(existing, { contentHash: existing.contentHash }, forceTranslate);
-        if (translateCheck.needed) {
-          log.translate(`${slug} — ${translateCheck.reason}`);
-          await doTranslate(table, existing, slug);
-        } else {
-          log.skip(`${slug} — 已有缓存，翻译已是最新`);
-          stats.translateSkipped++;
-        }
-      } else {
-        log.skip(`${slug} — 已有缓存，跳过抓取`);
-      }
-      stats.skipped++;
+  /*-- 3. 逐条走 intake 流水线（write:false，写回由本脚本决定）--*/
+  for (let idx = 0; idx < candidates.length; idx++) {
+    const { record, sourceUrl, wasComplete } = candidates[idx];
+    log.process(`[${idx + 1}/${candidates.length}] ${record.path} — ${sourceUrl}`);
+    let draft;
+    try {
+      draft = await createIntakeDraft(
+        { source: "url", url: sourceUrl },
+        { write: false, onProgress: (message) => log.process(`  ${message}`) }
+      );
+    } catch (error) {
+      stats.fetchFailed += 1;
+      log.error(`${record.path} — 抓取失败，原记录未改动: ${error.message}`);
       continue;
     }
 
-    /*-- 抓取 --*/
-    log.search(`${slug} — ${extractDomain(url)}`);
+    let adopted = false;
+    let writeBroke = false;
     try {
-      const result = await fetchArticle(url);
-      const contentHash = computeHash(url, result.textContent);
-      const wordCount = countWords(result.textContent);
-      const now = new Date().toISOString();
+      adopted = await refreshRecord(record, draft, wasComplete);
+    } catch (error) {
+      /*-- 原文已经取到，失败发生在落库（最常见是 content-store 在降级连接上拒绝写入）。
+           这不叫"抓取失败"：记成抓取失败是说错事实，还会把构建期补缺拖成 exit 1。--*/
+      writeBroke = true;
+      stats.writeFailed += 1;
+      log.error(`${record.path} — 写回失败，译文未更新: ${error.message}`);
+    }
 
-      const record = {
-        slug,
-        sourceUrl: url,
-        originalContent: result.content,
-        translatedContent: existing?.translatedContent || "",
-        contentHash,
-        fetchedAt: now,
-        translatedAt: existing?.translatedAt || "",
-        originalLang: detectLanguage(result.textContent || result.content, data.originalLang),
-        title: result.title || data.title || slug,
-        description: result.excerpt || data.description || "",
-        author: result.author || data.originalAuthor || "",
-        coverImage: result.coverImage || data.coverImage || "",
-        wordCount,
-        fetchStatus: "success",
-      };
-
-      await upsertRecord(table, record);
-      /*-- 将抓取正文回写到 Markdown，避免线上依赖远程 LanceDB 才能渲染文章 --*/
-      /*-- 把检测到的 originalLang 合并进 frontmatter，避免新文章缺字段 / 旧文章陈旧 --*/
-      const mergedData = { ...data, originalLang: record.originalLang };
-      syncMarkdownFromRecord(markdownPath, mergedData, record);
-      log.success(`${slug} — 抓取成功 (${wordCount} 词)`);
-      stats.fetched++;
-
-      /*-- 翻译 --*/
-      if (shouldTranslate) {
-        const translateCheck = shouldTranslateArticle(existing, { contentHash }, forceTranslate);
-        if (translateCheck.needed) {
-          log.translate(`${slug} — ${translateCheck.reason}`);
-          await doTranslate(table, record, slug);
-        } else {
-          log.skip(`${slug} — 翻译已是最新，跳过`);
-          stats.translateSkipped++;
-        }
-      }
-    } catch (err) {
-      const now = new Date().toISOString();
-      const failedRecord = {
-        slug,
-        sourceUrl: url,
-        originalContent: "",
-        translatedContent: existing?.translatedContent || "",
-        contentHash: "",
-        fetchedAt: now,
-        translatedAt: "",
-        originalLang: detectLanguage(`${data.title || ""} ${data.description || ""}`, data.originalLang),
-        title: data.title || slug,
-        description: data.description || "",
-        author: data.originalAuthor || "",
-        coverImage: data.coverImage || "",
-        wordCount: 0,
-        fetchStatus: "failed",
-      };
-      await upsertRecord(table, failedRecord);
-      log.error(`${slug} — 抓取失败: ${err.message}`);
-      stats.failed++;
+    /*-- 记账统一在这里，判据是磁盘状态而不是"本次刷新成没成功"：落库失败时磁盘一个字节都
+           没变，本来就缺的仍然缺、刷新前合格的没被改坏（绝不能记成回归） --*/
+    if (writeBroke) {
+      if (!wasComplete) stats.stalePaths.push(record.path);
+    } else if (!adopted) {
+      stats.translateFailed += 1;
+      stats.stalePaths.push(record.path);
+      if (wasComplete) stats.regressed += 1;
     }
   }
 
-  /*-- 4. 输出报告 --*/
+  /*-- 4. 报告 --*/
   log.summary({
-    "总计": stats.total,
-    "抓取成功": stats.fetched,
+    "记录总数": stats.total,
+    "已刷新": stats.refreshed,
     "跳过": stats.skipped,
-    "抓取失败": stats.failed,
-    ...(shouldTranslate ? {
-      "翻译成功": stats.translated,
-      "翻译跳过": stats.translateSkipped,
-      "翻译失败": stats.translateFailed,
-    } : {})
+    "抓取失败": stats.fetchFailed,
+    "写回失败": stats.writeFailed,
+    "翻译失败（保留原译文）": stats.translateFailed,
+    "其中回归（刷新前合格）": stats.regressed,
+    "译文仍缺/陈旧的记录": stats.stalePaths.join(", ") || "无",
   });
-}
-
-/**
- * 对单条记录执行翻译
- * 新流程：先按 HTML 文本节点分段并插入占位符 → LLM 翻译 → 占位符回填 → DOM→Markdown
- * 任意一步异常时回退到原"剥标签纯文本"路径，保证已有文章不被打断
- */
-async function doTranslate(table, record, slug) {
-  if (!record.originalContent) {
-    log.warn(`${slug} — 无原文内容，跳过翻译`);
-    return;
+  if (stats.translateFailed > 0) {
+    log.warn("有记录翻译失败：原有译文原样保留，站点渲染不受影响，但译文不是最新的");
+  }
+  if (stats.writeFailed > 0) {
+    log.warn("有记录写回失败：原文已取到但没落库，磁盘上的译文一点没变，站点渲染不受影响");
+  }
+  if (stats.stalePaths.length > 0) {
+    /*-- 让"译文陈旧"成为可枚举、可查询的状态：slug 清单进汇总，判据与查询路径写清楚，
+           不必去翻上面每一条 warn 才能拼出受影响集合 --*/
+    log.warn(
+      `译文仍缺/陈旧的记录（${stats.stalePaths.length}）: ${stats.stalePaths.join(", ")}` +
+        "（content 表判据：originalBody 非空而 translatedBody 为空或与其同语言；失败原因在记录的 frontmatter.intake）"
+    );
   }
 
-  log.translate(`${slug} — 开始翻译...`);
-  /*-- 使用统一的语言检测函数 --*/
-  const sourceLang = detectLanguage(record.originalContent, record.originalLang);
-  const targetLang = sourceLang === "zh" ? "en" : "zh";
-  log.process(`${slug} — 源语言=${sourceLang}，目标语言=${targetLang}，待翻译 ${record.originalContent.length} 字符 HTML`);
-
-  let translated = null;
-  let usedFallback = false;
-  try {
-    const { markedHtml, pairs } = buildTranslateInput(record.originalContent);
-    if (pairs.length === 0) {
-      /*-- 没有可翻译的文本节点，直接走 DOM→Markdown，保留图片/链接/代码块结构 --*/
-      log.process(`${slug} — 无可翻译文本节点，直接转 Markdown`);
-      translated = reassembleMarkdown(record.originalContent);
-    } else {
-      const llmOutput = await translateText(markedHtml, sourceLang, targetLang);
-      if (llmOutput) {
-        translated = reassembleMarkdown(llmOutput);
-      }
-    }
-  } catch (err) {
-    log.warn(`${slug} — 富媒体翻译流程失败，回退到纯文本翻译: ${err.message}`);
-    usedFallback = true;
+  /*-- 5. 退出码：分情形。构建期只给"本来就缺"的记录补缺，它不该为 intake 期的配额失败
+        负责——那是门禁放错了层（真正该设门禁的是发布期，见 content-publish 的 intake 门禁）。
+        判据是刷新前的状态 wasComplete，同一谓词筛选用过一次，两处不会漂移。写回失败同理：
+        磁盘没变、站点照常渲染，构建期只报告；--force 是显式要求刷新，没刷成要 exit 1。--*/
+  const failures = [];
+  if (stats.fetchFailed > 0) failures.push(`${stats.fetchFailed} 条抓取失败`);
+  if (stats.regressed > 0) {
+    failures.push(`${stats.regressed} 条译文从合格退化为不合格（回归）`);
   }
-
-  /*-- 兜底：旧 plain-text 路径，仅在 LLM 走通但转换失败 / 异常时使用 --*/
-  if (!translated && !usedFallback) {
-    log.warn(`${slug} — 翻译产物为空，回退到纯文本翻译`);
-    usedFallback = true;
+  if (force && stats.translateFailed > 0) {
+    failures.push(`--force 显式刷新，${stats.translateFailed} 条翻译失败`);
   }
-  if (usedFallback) {
-    const plainText = record.originalContent
-      .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, '![$2]($1)')
-      .replace(/<img[^>]*src="([^"]*)"[^>]*/gi, '![]($1)')
-      .replace(/<[^>]+>/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
-    translated = await translateText(plainText, sourceLang, targetLang);
+  if (force && stats.writeFailed > 0) {
+    failures.push(`--force 显式刷新，${stats.writeFailed} 条写回失败`);
   }
-
-  if (translated) {
-    record.translatedContent = translated;
-    record.translatedAt = new Date().toISOString();
-    /*-- 同步修正 originalLang，避免历史记录把 unknown 状态写回 --*/
-    record.originalLang = sourceLang;
-    await upsertRecord(table, record);
-    /*-- 翻译成功后优先把翻译正文回写到 Markdown，作为稳定的部署兜底内容 --*/
-    const markdownPath = path.join(POSTS_DIR, `${slug}.md`);
-    if (fs.existsSync(markdownPath)) {
-      const raw = fs.readFileSync(markdownPath, "utf-8");
-      const parsed = matter(raw);
-      /*-- 修正 frontmatter 的 originalLang，与 record.originalLang 保持一致 --*/
-      writeArticleMarkdown(markdownPath, { ...parsed.data, originalLang: sourceLang }, translated);
-    }
-    log.success(`${slug} — 翻译完成 (${usedFallback ? "fallback" : "html-aware"})`);
-    stats.translated++;
-  } else {
-    log.error(`${slug} — 翻译失败`);
-    stats.translateFailed++;
+  if (failures.length > 0) {
+    throw new Error(`${failures.join("、")}（详见上方日志）`);
   }
 }
 
 main().catch((err) => {
-  log.error(`脚本执行失败: ${err.message}`);
-  process.exit(1);
+  log.fail(`脚本执行失败: ${err.message}`);
 });

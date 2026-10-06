@@ -77,6 +77,20 @@ export class Logger {
     this._log(message, icons.success, colors.green);
   }
 
+  /**
+   * 失败并置退出码 1。绝不用 process.exit() 硬杀进程。
+   *
+   * process.exit() 在原生句柄（content-store 缓存的 LanceDB 连接）尚在关闭途中时把进程
+   * 带走，可能触发 libuv 断言并以 127 退出——读起来像"命令找不到"，还会把上一行关键日志
+   * 挤出视野。置 process.exitCode 让事件循环自然排空：退出码仍是 1，原生连接的收尾由它
+   * 自己完成。content-pull / fetch-articles / content-intake / content-publish 四条失败
+   * 路径统一走这里。
+   */
+  fail(message) {
+    this.error(message);
+    process.exitCode = 1;
+  }
+
   error(message) {
     this._log(message, icons.error, colors.red);
   }

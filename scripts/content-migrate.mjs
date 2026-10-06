@@ -2,7 +2,16 @@
 /**
  * 一次性内容迁移：src/content/** → LanceDB `content` 表
  *
- * 把六个集合的 markdown 灌入 content 表：frontmatter 解析后以 JSON 字符串存储、
+ * 一次性脚本：把"内容还在 git 里"的旧世界搬进 content 表。迁移早已完成（59 条），此后内容
+ * 的入口是 dev 面板 / content:intake / sync-obsidian-kb --to-lancedb，本脚本只作为
+ * "从一份遗留 src/content 重新灌表"的应急手段保留，不在日常流程里。
+ *
+ * 输入表 `articles` 即将废弃：站点侧零读取方（src/pages/** 只经 getArticleBySlug 读 content
+ * 表），fetch-articles 与 maintenance 也都不再碰它。它的唯一剩余读者就是本脚本——所以本脚本
+ * 也是"还不能立刻 drop articles 表"的原因：drop 之后这份脚本无法再从旧表恢复双语正文。
+ * 后续动作见 T5 note（.agents/notes/2026-10-05-task-t5-cut-local-coupling--d0a6d506.md）。
+ *
+ * 会把六个集合的 markdown 灌入 content 表：frontmatter 解析后以 JSON 字符串存储、
  * body 原样保留、status 取 published（isDraft: true 的文件取 draft）、updatedAt 取文件 mtime。
  * posts 额外把 articles 表中对应篇目的双语正文合并进 originalBody / translatedBody。
  * 目标条数：posts 3 + knowledgeBase 15 + wiki 29 + repos 5 + skills 5 + projects 2 = 59

@@ -18,6 +18,8 @@ execution: pending
 
 **同一文件内已确认的第三处**：`src/lib/article-db.ts:294` 的 `.where(\`fetchStatus = "${status}"\`)`（`getArticlesByStatus` 内）是同一写法、同一机制，同样 400 后返 []。T2 评审读码时新发现， Main Agent 已复核行号与上下文。本任务须一并修掉，不允许只修前两处留下同族 bug。
 
+**附带修一处定时器泄漏（T5 修复评审发现，Main Agent 已复核）**：`src/lib/article-translation.service.mjs:146-182` 的 `callGlmApi` 把 `clearTimeout(timeout)` 放在 `await fetch` 之后、`if (!resp.ok) throw` 之前，既不在 `finally` 里，也在成功判断之前。于是 `fetch` reject（网络不通、429、DNS 失败、URL 非法）**与 HTTP 非 2xx** 两条路径都会跳过清除，每次调用泄漏一个 300 秒的 abort 定时器；一篇 39,559 字符的文章切出 60 个段落即泄漏 60 个。实测（一次性本地库 + `GLM_BASE_URL=http://127.0.0.1:9/v1`）：`createIntakeDraft` 返回后 `process.getActiveResourcesInfo()` 有 33 个 `Timeout`，一次完整 gap-fill 运行打印完汇总后又等了约 300 秒才退出（整轮 301s）。影响面：`content-intake` 与 `fetch-articles` 两个 CLI 进程最长滞留约 5 分钟；`/admin` 面板无害（服务长驻，300 秒后只是对一个早已 settle 的 AbortController 调 abort）；`src/lib/article-intake.service.ts` 自己的 `callGlm` 有正确的 `try/finally`，不受影响。**本机 GLM 正处于 429 状态，此泄漏当前正在发生。** 修法是把 `clearTimeout` 移入 `finally`——同代码库已有三处正确范式可对齐（`src/lib/article-intake.service.ts:164`、`:353`、`:1100`）。注意它与 T5 的 F-2 有因果：`process.exit()` 被移除后，这段排空延迟从"被掩盖"变成"能看见"。
+
 ## Acceptance
 
 - [ ] AC-1: `getRelatedContent` 对三篇现存 posts 各自返回非空结果（或在该篇确无近邻时返回空且日志可判因）。
@@ -37,4 +39,4 @@ T1（[note://f6f78001-d086-47ba-b627-787ada391296/a7c1fab4-4118-443f-8de0-60c447
 
 ## Allowed scope
 
-`src/lib/article-db.ts`
+`src/lib/article-db.ts`、`src/lib/article-translation.service.mjs`（仅 `callGlmApi` 的 `clearTimeout` 移入 `finally`）
