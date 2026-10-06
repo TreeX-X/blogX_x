@@ -15,13 +15,26 @@
 const CHINESE_CHAR_REGEX = /[\u4e00-\u9fff]/g;
 const ENGLISH_CHAR_REGEX = /[a-zA-Z]/g;
 
-/*-- GLM 翻译配置（延迟读取，确保 dotenv 已加载） --*/
-function getGlmConfig() {
-  return {
-    apiKey: process.env.GLM_API_KEY,
-    baseUrl: process.env.GLM_BASE_URL || "https://open.bigmodel.cn/api/paas/v4",
-    model: process.env.GLM_MODEL || "glm-4.5-air"
-  };
+/*-- 外部 LLM 配置（延迟读取，确保 dotenv 已加载）。全仓唯一出口。
+     接口形态是 OpenAI 兼容：<baseUrl>/chat/completions，Bearer 鉴权，messages 载荷。
+     三项全部从 env 读，不内置任何供应商默认值——供应商默认值会让"换一个提供商"
+     表现为一次难以定位的静默失败，而缺失时直接报错只费一次配置。
+
+     Note: 统一为 LLM_* 命名并收敛为单一配置出口，替换原 GLM_* 与四处各自读 env 的写法
+     — see .agents/notes/2026-10-06-decision-external-llm-interface--e7f77826.md --*/
+export function getLlmConfig() {
+  const apiKey = process.env.LLM_API_KEY;
+  const baseUrl = process.env.LLM_BASE_URL;
+  const model = process.env.LLM_MODEL;
+  const missing = [
+    !apiKey && "LLM_API_KEY",
+    !baseUrl && "LLM_BASE_URL",
+    !model && "LLM_MODEL",
+  ].filter(Boolean);
+  if (missing.length > 0) {
+    throw new Error(`LLM 配置缺失: ${missing.join(", ")}——在 .env 中配置，任何 OpenAI 兼容端点均可`);
+  }
+  return { apiKey, baseUrl, model };
 }
 
 /*-- 英文 → 中文 的翻译 prompt：保留 HTML 标签、占位符、URL、代码块不翻译 --*/
@@ -138,14 +151,14 @@ function splitTextIntoSegments(text, maxLen) {
 }
 
 /**
- * 调用 GLM API 进行翻译
+ * 调用外部 LLM API 进行翻译（OpenAI 兼容：/chat/completions + Bearer + messages）
  * @param {string} text 待翻译的文本
  * @param {string} systemPrompt 系统提示词
  * @returns {Promise<string|null>} 翻译后的文本
  */
-async function callGlmApi(text, systemPrompt) {
+async function callLlmApi(text, systemPrompt) {
   try {
-    const config = getGlmConfig();
+    const config = getLlmConfig();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
     
@@ -176,13 +189,13 @@ async function callGlmApi(text, systemPrompt) {
     const data = await resp.json();
     return data.choices?.[0]?.message?.content || null;
   } catch (error) {
-    console.error(`[article-translation] GLM API 调用失败:`, error);
+    console.error(`[article-translation] 外部 LLM API 调用失败:`, error);
     return null;
   }
 }
 
 /**
- * 执行翻译（使用 GLM API）
+ * 执行翻译（使用外部 LLM API）
  * @param {string} text 待翻译的文本
  * @param {'zh' | 'en'} sourceLang 源语言
  * @param {'zh' | 'en'} targetLang 目标语言
@@ -194,11 +207,17 @@ export async function translateText(text, sourceLang, targetLang) {
     return text;
   }
 
-  // 检查 GLM API 配置
-  const config = getGlmConfig();
-  if (!config.apiKey) {
-    console.warn("[article-translation] GLM_API_KEY 未配置，使用占位翻译");
-    // 占位符翻译逻辑（实际应用中应删除此部分并集成真实翻译API）
+  // 外部 LLM 配置缺失（或不可用）时退回占位翻译。占位标记不是噪音：intake 侧靠
+  // `[中文翻译]`/`[English Translation]` 前缀与"译文与原文逐字相同"判定"这次没真译"，
+  // 从而让失败随草稿可见（见 src/lib/article-intake.service.ts 的译文失败检测）。
+  let config;
+  try {
+    config = getLlmConfig();
+  } catch (error) {
+    console.warn(`[article-translation] ${error.message}，使用占位翻译`);
+    config = null;
+  }
+  if (!config) {
     if (sourceLang === 'zh' && targetLang === 'en') {
       // 中文到英文的简单占位翻译
       return `[English Translation] ${text}`;
@@ -233,8 +252,8 @@ export async function translateText(text, sourceLang, targetLang) {
         console.log(`[article-translation] 翻译段落 ${i + 1}/${segments.length} (${segment.length} 字符)...`);
       }
 
-      // 调用 GLM API
-      const translated = await callGlmApi(segment, systemPrompt);
+      // 调用外部 LLM API
+      const translated = await callLlmApi(segment, systemPrompt);
       if (translated) {
         translatedSegments.push(translated);
       } else {

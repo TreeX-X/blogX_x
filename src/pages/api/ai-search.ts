@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import * as lancedb from "@lancedb/lancedb";
 import dotenv from "dotenv";
 import { getToolboxItems, searchToolboxItems } from "../../lib/toolbox";
+import { getLlmConfig } from "../../lib/article-translation.service.mjs";
 
 dotenv.config();
 
@@ -149,13 +150,8 @@ async function searchByScope(scope: SearchScope, query: string, limit: number) {
   return searchLanceDB(query, limit);
 }
 
-async function callGLMAPI(query: string, context: string): Promise<string> {
-  const GLM_API_KEY = env("GLM_API_KEY");
-  const GLM_MODEL = env("GLM_MODEL") || "glm-4.5-air";
-
-  if (!GLM_API_KEY) {
-    throw new Error("GLM_API_KEY is missing from runtime environment");
-  }
+async function callLLMAPI(query: string, context: string): Promise<string> {
+  const config = getLlmConfig();
 
   const systemPrompt = `你是一个智能搜索助手，帮助用户在博客和知识库中查找信息。
 基于提供的搜索结果，用简洁、友好的语言回答用户的问题。
@@ -171,14 +167,14 @@ ${context}
 请基于以上信息回答用户的问题。`;
 
   try {
-    const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+    const response = await fetch(`${config.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${GLM_API_KEY}`,
+        Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: GLM_MODEL,
+        model: config.model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -190,7 +186,7 @@ ${context}
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`GLM API error: ${response.status} - ${JSON.stringify(errorData)}`);
+      throw new Error(`LLM API error: ${response.status} - ${JSON.stringify(errorData)}`);
     }
 
     const data = (await response.json()) as {
@@ -203,15 +199,15 @@ ${context}
 
     return messageContent;
   } catch (error) {
-    console.error("GLM API call failed:", error);
+    console.error("LLM API call failed:", error);
     return `AI 调用失败：${error instanceof Error ? error.message : "未知错误"}`;
   }
 }
 
 function getSearchEnvStatus() {
   return {
-    glmApiKey: Boolean(env("GLM_API_KEY")),
-    glmModel: env("GLM_MODEL") || "glm-4.5-air",
+    llmConfigured: Boolean(env("LLM_API_KEY") && env("LLM_BASE_URL") && env("LLM_MODEL")),
+    llmModel: env("LLM_MODEL") || "(未配置)",
     lancedbUri: Boolean(env("LANCEDB_URI")),
     lancedbApiKey: Boolean(env("LANCEDB_API_KEY")),
     sfToken: Boolean(env("SF_TOKEN")),
@@ -266,7 +262,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
     const searchResults = await searchByScope(scope, query, limit);
     const context = formatContext(searchResults);
-    const aiResponse = await callGLMAPI(query, context);
+    const aiResponse = await callLLMAPI(query, context);
 
     return new Response(
       JSON.stringify({
@@ -345,7 +341,7 @@ export const GET: APIRoute = async ({ request, clientAddress }) => {
   try {
     const searchResults = await searchByScope(scope, query, limit);
     const context = formatContext(searchResults);
-    const aiResponse = await callGLMAPI(query, context);
+    const aiResponse = await callLLMAPI(query, context);
 
     return new Response(
       JSON.stringify({

@@ -1,8 +1,8 @@
 /**
- * AI 上传处理通道：抓取 → GLM 提取 → 翻译 → 落草稿 → 校验发布
+ * AI 上传处理通道：抓取 → 外部 LLM 提取 → 翻译 → 落草稿 → 校验发布
  *
  * 三种输入（粘贴 URL / 上传文件 / 粘贴正文）汇成同一条流水线，产物只有一种：一条
- * `collection: "posts"`、`status: "draft"` 的 content 表记录，含 GLM 提取的结构化
+ * `collection: "posts"`、`status: "draft"` 的 content 表记录，含外部 LLM 提取的结构化
  * frontmatter 与双语正文（originalBody = 原文，translatedBody = 译文）。
  * CLI（scripts/content-intake.mjs、scripts/content-publish.mjs）与 dev 面板
  * （src/pages/api/admin/intake.ts）共用本模块，抓取、翻译、校验、发布各只有一份实现。
@@ -33,14 +33,14 @@ import {
   upsertEntry,
   type ContentRecord,
 } from "./content-store.ts";
-import { detectLanguage, translateText } from "./article-translation.service.mjs";
+import { detectLanguage, translateText, getLlmConfig } from "./article-translation.service.mjs";
 
 /*-- intake 只产 posts：双语正文（originalBody / translatedBody）是 posts 独有的两列 --*/
 export const INTAKE_COLLECTION: CollectionKey = "posts";
 
-/*-- GLM 配置与翻译服务同一套默认值：改翻译端点时两边一起改（本模块只多一个提取用的 system prompt）--*/
-const GLM_TIMEOUT_MS = 120_000;
-const GLM_EXTRACT_MAX_CHARS = 8000;
+/*-- 外部 LLM 常量：配置本身只在翻译服务一处（getLlmConfig），本模块只多提取用的限制 --*/
+const LLM_TIMEOUT_MS = 120_000;
+const LLM_EXTRACT_MAX_CHARS = 8000;
 const FETCH_TIMEOUT_MS = 15_000;
 const USER_AGENT = "Mozilla/5.0 (compatible; BlogX_x/1.0; +https://blogx-x.vercel.app)";
 
@@ -81,7 +81,7 @@ export interface IntakeOptions {
 export interface IntakeDraft {
   record: ContentRecord;
   frontmatter: Record<string, unknown>;
-  /** GLM 提取/翻译失败等原因：草稿照常落库，但失败必须随草稿可见 */
+  /** 外部 LLM 提取/翻译失败等原因：草稿照常落库，但失败必须随草稿可见 */
   warnings: string[];
 }
 
@@ -123,25 +123,17 @@ export class PublishValidationError extends Error {
   }
 }
 
-/*===== GLM 调用 =====*/
+/*===== 外部 LLM 调用 =====*/
 
-function glmConfig() {
-  return {
-    apiKey: process.env.GLM_API_KEY,
-    baseUrl: process.env.GLM_BASE_URL || "https://open.bigmodel.cn/api/paas/v4",
-    model: process.env.GLM_MODEL || "glm-4.5-air",
-  };
-}
-
-/** 一次 GLM chat completion；非 2xx 与网络错误都抛错（调用方据此判定失败，不静默吞掉） */
-async function callGlm(
+/**
+ * 一次 LLM chat completion；非 2xx 与网络错误都抛错（调用方据此判定失败，不静默吞掉）。
+ * 配置只从翻译服务那一处读——曾在本模块内另有一份 glmConfig()，与翻译服务各持一套默认值，
+ * 注释还要求"改端点时两边一起改"；那正是本次要消掉的双源。 */
+async function callLlm(
   messages: Array<{ role: "system" | "user"; content: string }>,
-  timeoutMs = GLM_TIMEOUT_MS
+  timeoutMs = LLM_TIMEOUT_MS
 ): Promise<string> {
-  const config = glmConfig();
-  if (!config.apiKey) {
-    throw new Error("GLM_API_KEY 未配置");
-  }
+  const config = getLlmConfig();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -153,12 +145,12 @@ async function callGlm(
     });
     if (!resp.ok) {
       const detail = (await resp.text()).slice(0, 300);
-      throw new Error(`GLM HTTP ${resp.status}: ${detail}`);
+      throw new Error(`LLM HTTP ${resp.status}: ${detail}`);
     }
     const data = (await resp.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const content = data.choices?.[0]?.message?.content;
     if (!content || !content.trim()) {
-      throw new Error("GLM 返回空内容");
+      throw new Error("LLM 返回空内容");
     }
     return content;
   } finally {
@@ -247,7 +239,7 @@ function frontmatterDate(value: unknown): string {
   return typeof value === "string" ? normalizeDate(value) : "";
 }
 
-async function extractFrontmatterWithGlm(
+async function extractFrontmatterWithLlm(
   input: { title: string; description: string; author: string; plainText: string; sourceUrl: string },
   onProgress: (message: string) => void
 ): Promise<{ fields: ExtractedFields; error: string }> {
@@ -259,21 +251,21 @@ async function extractFrontmatterWithGlm(
     .filter(Boolean)
     .join("\n");
   try {
-    const raw = await callGlm([
+    const raw = await callLlm([
       { role: "system", content: EXTRACT_SYSTEM_PROMPT },
       {
         role: "user",
-        content: `${hint}\n\n正文（前 ${GLM_EXTRACT_MAX_CHARS} 字符）：\n${input.plainText.slice(0, GLM_EXTRACT_MAX_CHARS)}`,
+        content: `${hint}\n\n正文（前 ${LLM_EXTRACT_MAX_CHARS} 字符）：\n${input.plainText.slice(0, LLM_EXTRACT_MAX_CHARS)}`,
       },
     ]);
     const fields = normalizeExtracted(parseJsonObject(raw));
     if (!Object.keys(fields).length) {
-      return { fields: {}, error: "GLM 提取结果不是可用的 JSON 对象" };
+      return { fields: {}, error: "外部 LLM 提取结果不是可用的 JSON 对象" };
     }
-    onProgress("GLM frontmatter 提取完成");
+    onProgress("外部 LLM frontmatter 提取完成");
     return { fields, error: "" };
   } catch (error) {
-    return { fields: {}, error: `GLM frontmatter 提取失败: ${errText(error)}` };
+    return { fields: {}, error: `外部 LLM frontmatter 提取失败: ${errText(error)}` };
   }
 }
 
@@ -545,7 +537,7 @@ async function reassembleMarkdown(translatedHtml: string): Promise<string> {
   return serializeChildren(document.body).replace(/\n{3,}/g, "\n\n").trim();
 }
 
-/*-- 占位翻译标记：GLM_API_KEY 缺失时 article-translation.service.mjs 的 translateText
+/*-- 占位翻译标记：外部 LLM 配置缺失时 article-translation.service.mjs 的 translateText
     不会报错，而是返回带这两个前缀之一的"译文"。留着它等于把失败伪装成正常草稿 --*/
 const PLACEHOLDER_MARKERS = ["[中文翻译]", "[English Translation]"];
 
@@ -559,10 +551,10 @@ function detectTranslationFailure(source: string, translated: string): string {
   const text = translated.trim();
   if (!text) return "译文为空";
   if (PLACEHOLDER_MARKERS.some((marker) => text.includes(marker))) {
-    return "GLM_API_KEY 未配置，translateText 返回占位译文";
+    return "外部 LLM 未配置（LLM_API_KEY 等），translateText 返回占位译文";
   }
   if (text === source.trim()) {
-    return "译文与原文逐字相同（GLM 未真正返回译文，失败被 translateText 静默吞掉）";
+    return "译文与原文逐字相同（外部 LLM 未真正返回译文，失败被 translateText 静默吞掉）";
   }
   return "";
 }
@@ -797,8 +789,8 @@ export async function createIntakeDraft(
       : await translateMarkdownBody(source.body, sourceLang, targetLang, onProgress);
   if (bodyTranslation.error) warnings.push(bodyTranslation.error);
 
-  /*-- frontmatter：GLM 提取优先，缺失字段回落到页面自带元数据，再回落到正文推断 --*/
-  const extraction = await extractFrontmatterWithGlm(
+  /*-- frontmatter：外部 LLM 提取优先，缺失字段回落到页面自带元数据，再回落到正文推断 --*/
+  const extraction = await extractFrontmatterWithLlm(
     {
       title: source.title,
       description: source.description,
@@ -869,7 +861,7 @@ export async function createIntakeDraft(
       fetchStatus: "success",
     },
     /*-- intake 自述：成败与原因随草稿可见。status = failed 表示"有任何需要人工修订的警告"
-          （GLM 提取/翻译失败、缺原文链接等），此时草稿照常落库，content-publish 会把它当众
+          （外部 LLM 提取/翻译失败、缺原文链接等），此时草稿照常落库，content-publish 会把它当众
           念一遍再发布——人工修订后仍可发布，所以它不是发布门禁 --*/
     intake: {
       source: request.source,

@@ -159,7 +159,7 @@ async function status() {
   log.config("环境变量:");
   const envVars = [
     "LANCEDB_URI", "LANCEDB_API_KEY", "LANCEDB_TABLE", "LANCEDB_LOCAL_PATH",
-    "SF_TOKEN", "GLM_API_KEY"
+    "SF_TOKEN", "LLM_API_KEY"
   ];
   for (const varName of envVars) {
     const value = process.env[varName];

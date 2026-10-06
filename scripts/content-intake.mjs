@@ -2,7 +2,7 @@
 /**
  * AI 上传处理通道（CLI）：URL / 文件 / 粘贴正文 → 结构化草稿
  *
- * 产物一律是 content 表里 collection=posts、status=draft 的一条记录，含 GLM 提取的
+ * 产物一律是 content 表里 collection=posts、status=draft 的一条记录，含外部 LLM 提取的
  * frontmatter 与双语正文；草稿不进构建产物（content-pull 只写盘 status: published）。
  * 抓取、翻译、落库全部在 src/lib/article-intake.service.ts，本脚本只做参数解析与报表。
  *
@@ -172,7 +172,7 @@ async function main() {
     reportDraft(draft);
   }
 
-  /*-- 产物已落库即为成功退出 0；GLM 失败等原因写在草稿的 intake.warnings 里，由
+  /*-- 产物已落库即为成功退出 0；LLM 失败等原因写在草稿的 intake.warnings 里，由
         人工修订后再发布，不以非零退出把失败藏起来，也不假装无事发生 --*/
   if (draft.warnings.length && !asJson) {
     log.warn(`本次 intake 有 ${draft.warnings.length} 条警告，草稿保留待人工修订后再发布`);

@@ -83,7 +83,7 @@ const toBase = (path = "") => {
           </div>
           <div class="form-group">
             <label>粘贴正文</label>
-            <textarea id="i-text" rows="6" placeholder="粘贴 Markdown 或纯文本正文，GLM 会提取 frontmatter 并生成双语正文"></textarea>
+            <textarea id="i-text" rows="6" placeholder="粘贴 Markdown 或纯文本正文，AI 会提取 frontmatter 并生成双语正文"></textarea>
             <div class="form-btns">
               <button id="i-text-btn" class="admin-btn admin-btn-primary" onclick="intakeFromText()">生成草稿</button>
             </div>
@@ -249,10 +249,10 @@ const toBase = (path = "") => {
         .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     }
 
-    /*-- 三个入口共用的发送位：GLM 提取 + 翻译要几十秒，按钮先禁用防重复提交 --*/
+    /*-- 三个入口共用的发送位：LLM 提取 + 翻译要几十秒，按钮先禁用防重复提交 --*/
     async function postIntake(payload, busyButton) {
       setIntakeError("");
-      setIntakeNote("GLM 正在提取 frontmatter 并翻译正文，请稍候……");
+      setIntakeNote("AI 正在提取 frontmatter 并翻译正文，请稍候……");
       const label = busyButton ? busyButton.textContent : "";
       if (busyButton) { busyButton.disabled = true; busyButton.textContent = "处理中…"; }
       try {
@@ -263,7 +263,7 @@ const toBase = (path = "") => {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { setIntakeError(data.error || `生成草稿失败（HTTP ${res.status}）`); return null; }
-        /*-- 接口把 GLM 失败等原因随草稿一起返回：草稿已入表，但原因必须显示出来 --*/
+        /*-- 接口把 LLM 失败等原因随响应一起返回：草稿已入表，但原因必须显示出来 --*/
         if (data.warnings && data.warnings.length) {
           setIntakeNote("草稿已生成，但需要人工修订：" + data.warnings.join("；"));
         } else {

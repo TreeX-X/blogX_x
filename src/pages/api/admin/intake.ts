@@ -61,7 +61,7 @@ export const POST: APIRoute = async ({ request }) => {
     return json({
       ok: true,
       draft: summary,
-      /*-- GLM 失败等原因必须随响应回到界面：草稿照常落库，但失败不能只在终端里 --*/
+      /*-- LLM 失败等原因必须随响应回到界面：草稿照常落库，但失败不能只在终端里 --*/
       warnings: draft.warnings,
     });
   } catch (error) {

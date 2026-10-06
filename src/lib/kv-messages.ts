@@ -1,4 +1,6 @@
 // Type definitions
+import { getLlmConfig } from "./article-translation.service.mjs";
+
 export interface FunMessage {
   id: string;
   name: string;
@@ -283,12 +285,7 @@ export async function auditContent(name: string, content: string): Promise<{
   safe: boolean;
   reason?: string;
 }> {
-  const GLM_API_KEY = env("GLM_API_KEY");
-  const GLM_MODEL = env("GLM_MODEL") || "glm-4.5-air";
-
-  if (!GLM_API_KEY) {
-    return { safe: false, reason: "AI审核服务未配置" };
-  }
+  const config = getLlmConfig();
 
   const prompt = `请审核以下留言内容是否合适公开展示。
 
@@ -305,21 +302,21 @@ export async function auditContent(name: string, content: string): Promise<{
 {"safe": true或false, "reason": "如果不安全，说明原因"}`;
 
   try {
-    const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+    const response = await fetch(`${config.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${GLM_API_KEY}`,
+        Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: GLM_MODEL,
+        model: config.model,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.1,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`GLM API error: ${response.status}`);
+      throw new Error(`LLM API error: ${response.status}`);
     }
 
     const data = await response.json();
