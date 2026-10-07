@@ -70,10 +70,29 @@ export const skillsSchema = z.object({
   isDraft: z.boolean().default(false),
 });
 
+const projectImageUrl = z.string().refine(value => !value || /^\/(?!\/)/.test(value) || /^https:\/\//i.test(value), "请使用站内路径或 HTTPS 图片链接");
+const projectHttpsUrl = z.string().url().refine(value => /^https:\/\//i.test(value), "请使用 HTTPS 链接");
+
+export const projectReadmeSchema = z.object({
+  summary: z.string().max(300),
+  highlights: z.array(z.string().max(180)).max(3),
+  sections: z.array(z.object({ title: z.string().max(120), text: z.string().max(900) })).max(4),
+  images: z.array(z.object({ url: projectHttpsUrl, alt: z.string().max(250) })).max(8),
+  sourceUrl: projectHttpsUrl,
+  revision: z.string(),
+  fetchedAt: z.string(),
+});
+
 export const projectsSchema = z.object({
   title: z.string(),
   repoUrl: z.string().url(),
   description: z.string(),
+  summary: z.string().max(300).optional(),
+  coverImage: projectImageUrl.optional(),
+  coverAlt: z.string().max(250).optional(),
+  demoUrl: projectImageUrl.optional(),
+  highlights: z.array(z.string().max(180)).max(3).optional(),
+  readmeSnapshot: projectReadmeSchema.nullable().optional(),
   tags: z.array(z.string()).optional(),
   isDraft: z.boolean().default(false),
 });

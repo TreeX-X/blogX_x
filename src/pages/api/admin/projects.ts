@@ -14,9 +14,13 @@ const write = async (request: Request, merge: boolean): Promise<Response> => {
   const slug = normalizeSlug(body.slug);
   if (!slug) return fail("slug required");
   const { slug: _slug, body: _markdown, ...fields } = body;
+  if (merge) {
+    const existing = (await listEntries("projects")).find(entry => entry.slug === slug);
+    if (existing && existing.repoUrl !== fields.repoUrl && !("readmeSnapshot" in fields)) fields.readmeSnapshot = null;
+  }
   const validated = validateFields("projects", fields);
   if (!validated.ok) return fail(validated.error);
-  await saveEntry("projects", slug, validated, "", merge ? slug : null);
+  await saveEntry("projects", slug, validated, merge ? undefined : "", merge ? slug : null);
   return json({ ok: true, slug });
 };
 

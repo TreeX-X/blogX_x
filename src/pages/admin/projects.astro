@@ -47,9 +47,21 @@ const toBase = (path = "") => {
           <div class="form-group"><label>GitHub 链接</label><input id="f-url" placeholder="https://github.com/TreeX-X/..." /></div>
           <div class="form-group"><label>描述</label><textarea id="f-desc" rows="2"></textarea></div>
           <div class="form-group"><label>标签（逗号分隔）</label><input id="f-tags" placeholder="ai, tool, agent" /></div>
+          <div class="form-group"><label>展示简介（选填，优先于 README）</label><textarea id="f-summary" rows="2" maxlength="300" placeholder="留空使用 README 简介，其次使用上方描述"></textarea></div>
+          <div class="form-row">
+            <div class="form-group"><label>静态封面（选填）</label><input id="f-cover" placeholder="/projects/preview.webp 或 HTTPS 图片链接" /></div>
+            <div class="form-group"><label>封面说明</label><input id="f-alt" maxlength="250" placeholder="截图展示的内容" /></div>
+          </div>
+          <div class="form-group"><label>演示 GIF（选填）</label><input id="f-demo" placeholder="HTTPS GIF 链接，点击后播放" /></div>
+          <div class="form-group"><label>代表能力（选填，每行一项，最多三项）</label><textarea id="f-highlights" rows="3" placeholder="留空使用 README 提取的能力"></textarea></div>
+          <div class="form-group">
+            <button id="readmeButton" class="admin-btn" type="button" onclick="fetchReadme()">从 README 更新</button>
+            <p id="readmeStatus" class="meta" role="status">读取后可调整内容，点击保存才会更新项目。</p>
+            <div id="readmePreview" class="admin-readme-preview" hidden></div>
+          </div>
           <div id="formError" style="font-size:0.8rem;margin-top:0.4rem;min-height:1em;"></div>
           <div class="form-btns">
-            <button class="admin-btn admin-btn-primary" onclick="saveProject()">保存</button>
+            <button id="saveProjectButton" class="admin-btn admin-btn-primary" onclick="saveProject()">保存</button>
             <button class="admin-btn" onclick="toggleForm()">取消</button>
           </div>
         </div>
@@ -62,97 +74,146 @@ const toBase = (path = "") => {
         </table>
         <div id="emptyState" class="admin-empty" style="display:none;">暂无项目，点击「新增项目」添加</div>
       </div>
+      <p id="actionError" class="meta" role="status"></p>
     </main>
   </div>
 
   <script is:inline>
     let projects = [];
     let editing = null;
+    let pendingReadme = null;
+    let readmeRepoUrl = "";
+    let readmeAbort = null;
+    let saving = false;
+    const fieldIds = ["f-slug","f-title","f-url","f-desc","f-tags","f-summary","f-cover","f-alt","f-demo","f-highlights"];
+    const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
 
-    async function load() {
-      const res = await fetch("/api/admin/projects");
-      projects = await res.json();
-      render();
+    async function readError(response) {
+      try { return (await response.json()).error || "操作失败（HTTP " + response.status + "）"; }
+      catch { return "操作失败（HTTP " + response.status + "）"; }
     }
-
-    function render() {
-      const body = document.getElementById("projectsBody");
-      const empty = document.getElementById("emptyState");
-      if (!projects.length) { body.innerHTML = ""; empty.style.display = ""; return; }
-      empty.style.display = "none";
-      body.innerHTML = projects.map((p, i) => `<tr>
-        <td><strong>${p.title || p.slug}</strong></td>
-        <td><a href="${p.repoUrl}" target="_blank" class="admin-link">${(p.repoUrl || "").replace("https://github.com/", "")}</a></td>
-        <td>${(p.description || "").slice(0, 50)}${(p.description || "").length > 50 ? "..." : ""}</td>
-        <td>${(p.tags || []).map(t => `<span class="admin-badge">${t}</span>`).join(" ")}</td>
-        <td class="admin-actions">
-          <button class="admin-btn admin-btn-sm" onclick="editProject(${i})">编辑</button>
-          <button class="admin-btn admin-btn-sm admin-btn-danger" onclick="deleteProject(${i})">删除</button>
-        </td>
-      </tr>`).join("");
-    }
-
-    function toggleForm() {
-      const form = document.getElementById("addForm");
-      form.classList.toggle("show");
-      editing = null;
-      if (!form.classList.contains("show")) {
-        ["f-slug","f-title","f-url","f-desc","f-tags"].forEach(id => document.getElementById(id).value = "");
-        document.getElementById("f-slug").disabled = false;
-      }
-      setError("");
-    }
-
-    function editProject(i) {
-      const p = projects[i];
-      editing = i;
-      document.getElementById("f-slug").value = p.slug;
-      document.getElementById("f-slug").disabled = true;
-      document.getElementById("f-title").value = p.title || "";
-      document.getElementById("f-url").value = p.repoUrl || "";
-      document.getElementById("f-desc").value = p.description || "";
-      document.getElementById("f-tags").value = (p.tags || []).join(", ");
-      document.getElementById("addForm").classList.add("show");
-    }
-
-    async function saveProject() {
-      const data = {
-        slug: document.getElementById("f-slug").value.trim(),
-        title: document.getElementById("f-title").value.trim(),
-        repoUrl: document.getElementById("f-url").value.trim(),
-        description: document.getElementById("f-desc").value.trim(),
-        tags: document.getElementById("f-tags").value.split(",").map(s => s.trim()).filter(Boolean),
-      };
-      if (!data.slug) { alert("Slug 不能为空"); return; }
-      const method = editing !== null ? "PUT" : "POST";
-      const res = await fetch("/api/admin/projects", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-      if (!res.ok) { setError(await readError(res)); return; }
-      toggleForm();
-      load();
-    }
-
     function setError(message) {
       const el = document.getElementById("formError");
       el.textContent = message;
-      el.style.color = message ? "#dc5050" : "";
+      el.style.color = message ? "#b93b28" : "";
     }
-
-    /*-- 接口把 schema 的拒绝原因放在 error 字段里；不读它就等于把失败藏起来 --*/
-    async function readError(res) {
+    async function load() {
       try {
-        const payload = await res.json();
-        return payload.error || `保存失败（HTTP ${res.status}）`;
-      } catch {
-        return `保存失败（HTTP ${res.status}）`;
+        const response = await fetch("/api/admin/projects");
+        if (!response.ok) throw new Error(await readError(response));
+        projects = await response.json();
+        render();
+      } catch (error) { document.getElementById("actionError").textContent = error.message; }
+    }
+    function render() {
+      const body = document.getElementById("projectsBody");
+      document.getElementById("emptyState").style.display = projects.length ? "none" : "";
+      body.innerHTML = projects.map((p, i) => '<tr>' +
+        '<td><strong>' + escapeHtml(p.title || p.slug) + '</strong></td>' +
+        '<td><a href="' + (/^https:\/\//i.test(p.repoUrl) ? escapeHtml(p.repoUrl) : '#') + '" target="_blank" rel="noopener noreferrer" class="admin-link">' + escapeHtml((p.repoUrl || "").replace("https://github.com/", "")) + '</a></td>' +
+        '<td>' + escapeHtml((p.summary || p.readmeSnapshot?.summary || p.description || "").slice(0,50)) + '</td>' +
+        '<td>' + (p.tags || []).map(tag => '<span class="admin-badge">' + escapeHtml(tag) + '</span>').join(" ") + '</td>' +
+        '<td class="admin-actions"><button class="admin-btn admin-btn-sm" data-edit="' + i + '">编辑</button> <button class="admin-btn admin-btn-sm admin-btn-danger" data-delete="' + i + '">删除</button></td></tr>').join("");
+      body.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => editProject(Number(button.dataset.edit))));
+      body.querySelectorAll("[data-delete]").forEach(button => button.addEventListener("click", () => deleteProject(Number(button.dataset.delete))));
+    }
+    function resetReadme() {
+      readmeAbort?.abort();
+      pendingReadme = null; readmeRepoUrl = "";
+      document.getElementById("readmeButton").disabled = false;
+      showReadme(null);
+      document.getElementById("readmeStatus").textContent = "读取后可调整内容，点击保存才会更新项目。";
+    }
+    function toggleForm() {
+      const form = document.getElementById("addForm");
+      form.classList.toggle("show");
+      editing = null; resetReadme();
+      fieldIds.forEach(id => { document.getElementById(id).value = ""; });
+      document.getElementById("f-slug").disabled = false;
+      setError("");
+    }
+    function editProject(index) {
+      const p = projects[index];
+      resetReadme(); editing = index;
+      const values = [p.slug,p.title,p.repoUrl,p.description,(p.tags || []).join(", "),p.summary,p.coverImage,p.coverAlt,p.demoUrl,(p.highlights || []).join("\n")];
+      fieldIds.forEach((id, i) => { document.getElementById(id).value = values[i] || ""; });
+      document.getElementById("f-slug").disabled = true;
+      document.getElementById("addForm").classList.add("show");
+      showReadme(p.readmeSnapshot);
+      document.getElementById("readmeStatus").textContent = p.readmeSnapshot ? "已有 README 快照，可读取最新内容；手动字段优先保留。" : "读取后可调整内容，点击保存才会更新项目。";
+      setError("");
+    }
+    async function saveProject() {
+      if (saving) return;
+      const value = id => document.getElementById(id).value.trim();
+      const data = {
+        slug: value("f-slug"), title: value("f-title"), repoUrl: value("f-url"),
+        description: value("f-desc"), tags: value("f-tags").split(/[,，]/).map(s => s.trim()).filter(Boolean),
+        summary: value("f-summary"), coverImage: value("f-cover"), coverAlt: value("f-alt"),
+        demoUrl: value("f-demo"), highlights: value("f-highlights").split("\n").map(s => s.trim()).filter(Boolean)
+      };
+      if (!data.slug) { setError("Slug 不能为空"); return; }
+      if (pendingReadme) {
+        if (data.repoUrl !== readmeRepoUrl) { setError("仓库链接已变化，请重新读取 README"); return; }
+        data.readmeSnapshot = pendingReadme;
+      }
+      saving = true; document.getElementById("saveProjectButton").disabled = true;
+      document.getElementById("readmeButton").disabled = true;
+      try {
+        const response = await fetch("/api/admin/projects", { method: editing !== null ? "PUT" : "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(data) });
+        if (!response.ok) throw new Error(await readError(response));
+        toggleForm(); await load();
+        document.getElementById("actionError").textContent = "已保存，发布后站点展示会更新。";
+      } catch (error) { setError(error.message); }
+      finally { saving = false; document.getElementById("saveProjectButton").disabled = false; document.getElementById("readmeButton").disabled = false; }
+    }
+    function showReadme(snapshot) {
+      const preview = document.getElementById("readmePreview");
+      preview.hidden = !snapshot;
+      if (!snapshot) { preview.textContent = ""; return; }
+      preview.innerHTML = '<p>' + escapeHtml(snapshot.summary) + '</p><ul>' +
+        snapshot.highlights.map(item => '<li>' + escapeHtml(item) + '</li>').join("") +
+        '</ul><p class="meta">精选章节：' + snapshot.sections.map(section => escapeHtml(section.title)).join(" · ") +
+        '</p><div class="admin-readme-images">' + snapshot.images.map((image, i) =>
+          '<button type="button" class="admin-btn admin-btn-sm" data-image="' + i + '">' +
+          (/\.gif(?:$|\?)/i.test(image.url) ? '演示：' : '封面：') + escapeHtml(image.alt || "项目预览") + '</button>').join("") + '</div>';
+      preview.querySelectorAll("[data-image]").forEach(button => button.addEventListener("click", () => {
+        const image = snapshot.images[Number(button.dataset.image)];
+        const demo = /\.gif(?:$|\?)/i.test(image.url);
+        document.getElementById(demo ? "f-demo" : "f-cover").value = image.url;
+        if (!demo) document.getElementById("f-alt").value = image.alt;
+      }));
+    }
+    async function fetchReadme() {
+      if (saving) return;
+      readmeAbort?.abort();
+      const controller = new AbortController(); readmeAbort = controller;
+      const repoUrl = document.getElementById("f-url").value.trim();
+      const status = document.getElementById("readmeStatus");
+      const button = document.getElementById("readmeButton");
+      button.disabled = true; document.getElementById("saveProjectButton").disabled = true;
+      status.textContent = "正在读取 README…";
+      try {
+        const response = await fetch("/api/admin/project-readme", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({repoUrl}),signal:controller.signal});
+        if (!response.ok) throw new Error(await readError(response));
+        const snapshot = await response.json();
+        if (controller.signal.aborted) return;
+        if (repoUrl !== document.getElementById("f-url").value.trim()) throw new Error("仓库链接已变化，请重新读取 README");
+        pendingReadme = snapshot; readmeRepoUrl = repoUrl; showReadme(snapshot);
+        status.textContent = "已读取。手动简介和封面保持不变；可点击素材选择封面或演示，保存后生效。";
+      } catch (error) { if (!controller.signal.aborted) status.textContent = error.message; }
+      finally {
+        if (readmeAbort === controller) { button.disabled = false; document.getElementById("saveProjectButton").disabled = false; }
       }
     }
-
-    async function deleteProject(i) {
-      if (!confirm(`删除「${projects[i].title || projects[i].slug}」？`)) return;
-      await fetch("/api/admin/projects", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: projects[i].slug }) });
-      load();
+    async function deleteProject(index) {
+      if (!confirm("删除「" + (projects[index].title || projects[index].slug) + "」？")) return;
+      try {
+        const response = await fetch("/api/admin/projects", {method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:projects[index].slug})});
+        if (!response.ok) throw new Error(await readError(response));
+        await load();
+      } catch (error) { document.getElementById("actionError").textContent = error.message; }
     }
-
     load();
   </script>
 </BaseLayout>

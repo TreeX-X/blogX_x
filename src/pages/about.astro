@@ -3,6 +3,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import FunMessages from "../components/FunMessages";
 import IdeaBox from "../components/IdeaBox";
 import { getProjects } from "../lib/content";
+import ProjectPreview from "../components/ProjectPreview";
 
 const base = import.meta.env.BASE_URL;
 const toBase = (path = "") => {
@@ -16,7 +17,8 @@ const ideasApi = toBase("api/ideas");
 const projects = await getProjects();
 const githubUsername = "TreeX-X";
 const githubContributionsUrl = `https://ghchart.rshah.org/E87040/${githubUsername}`;
-const projectStatus = "Temporary Lab";
+const safeImage = (url?: string) => url && (/^https:\/\//i.test(url) || /^\/(?!\/)/.test(url)) ? url : undefined;
+const imageUrl = (url?: string) => url?.startsWith("/") ? toBase(url) : url;
 ---
 
 <BaseLayout title="BlogX_x | 关于" description="关于 BlogX_x 和作者。">
@@ -86,55 +88,59 @@ const projectStatus = "Temporary Lab";
     </div>
   </section>
 
-  <!-- Projects Showcase -->
+  <!-- Note: 项目预览读取已保存的 README 快照 — see .agents/notes/2026-10-07-decision-project-showcase--617f02c5.md -->
   {projects.length > 0 && (
     <section class="section">
       <div class="section-header project-section-head">
         <div>
           <h2 class="section-title">我的项目</h2>
-          <p class="meta">暂时放在这里的实验项目，记录正在形成的工作方式。</p>
+          <p class="meta">从工作流到桌面工具，把想法做成可以使用的项目。</p>
         </div>
-        <span class="project-count">{projects.length} item{projects.length > 1 ? "s" : ""}</span>
       </div>
       <div class="project-showcase-grid stagger">
-        {projects.map((p, index) => {
+        {projects.map((p) => {
           const tags = (p.data.tags ?? [])
             .flatMap((tag) => tag.split(/[,，]/))
             .map((tag) => tag.trim())
             .filter(Boolean)
-            .slice(0, 4);
-          const repoHost = new URL(p.data.repoUrl).hostname.replace(/^www\./, "");
-          const displayTags = tags.length ? tags : ["AI workflow", "Open source"];
+            .slice(0, 3);
+          const snapshot = p.data.readmeSnapshot;
+          const cover = snapshot?.images.find(image => !/\.gif(?:$|\?)/i.test(image.url));
+          const demo = snapshot?.images.find(image => /\.gif(?:$|\?)/i.test(image.url));
+          const highlights = p.data.highlights?.length ? p.data.highlights : snapshot?.highlights || [];
+          const summary = p.data.summary || snapshot?.summary || p.data.description;
+          const repoUrl = /^https:\/\//i.test(p.data.repoUrl) ? p.data.repoUrl : "#";
 
           return (
-            <a class="project-preview-card" href={p.data.repoUrl} target="_blank" rel="noreferrer">
-              <div class="project-card-top">
-                <span class="project-mark" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+            <article class="project-showcase">
+              <ProjectPreview title={p.data.title}
+                coverImage={imageUrl(safeImage(p.data.coverImage || cover?.url))}
+                coverAlt={p.data.coverAlt || cover?.alt}
+                demoUrl={imageUrl(safeImage(p.data.demoUrl || demo?.url))}
+                client:visible />
+              <div class="project-copy">
                 <div class="project-title-group">
-                  <div class="project-kicker">
-                    <span>{projectStatus}</span>
-                    <span>{repoHost}</span>
-                  </div>
+                  <p class="project-repo-name">{new URL(p.data.repoUrl).pathname.replace(/^\//, "")}</p>
                   <h3>{p.data.title}</h3>
                 </div>
-              </div>
-              <p class="project-preview-desc">{p.data.description}</p>
+              <p class="project-preview-desc">{summary}</p>
+              {highlights.length > 0 && <ul class="project-highlights">{highlights.map(item => <li>{item}</li>)}</ul>}
               <div class="project-tags" aria-label="项目标签">
-                {displayTags.map((tag) => (
+                {tags.map((tag) => (
                   <span class="tag">#{tag}</span>
                 ))}
               </div>
-              <div class="project-card-foot">
-                <span>Requirement -> Agent -> Review</span>
-                <span class="project-open-row">
-                  Open repository
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M7 17 17 7" />
-                    <path d="M7 7h10v10" />
-                  </svg>
-                </span>
+              <a class="project-repository-link" href={repoUrl} target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
               </div>
-            </a>
+              <details class="project-readme">
+                <summary>项目介绍 <span aria-hidden="true">＋</span></summary>
+                <div class="project-readme-content">
+                  {snapshot?.sections.length ? snapshot.sections.map(section => <section><h4>{section.title}</h4><p>{section.text}</p></section>)
+                    : <p>{p.data.description}</p>}
+                  {snapshot && <a href={snapshot.sourceUrl} target="_blank" rel="noopener noreferrer">完整 README ↗</a>}
+                </div>
+              </details>
+            </article>
           );
         })}
       </div>
