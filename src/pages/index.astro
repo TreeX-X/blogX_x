@@ -29,6 +29,9 @@ const toBase = (path = "") => {
 	title="BlogX_x | 首页"
 	description="BlogX_x 是一个个人数字花园，沉淀技术文章与本地知识库。"
 >
+	{/* Note: 单一图谱贯穿首页并保留探索状态 — see .agents/notes/2026-10-07-decision-home-graph--a9c83e72.md */}
+	<div class="home-experience">
+	<div class="home-main">
 	{/* ===== Hero ===== */}
 	<section class="hero">
 		<div class="hero-content">
@@ -84,24 +87,6 @@ const toBase = (path = "") => {
 			<div id="searchResults" class="search-results" style="max-width: 520px;" aria-live="polite"></div>
 		</div>
 
-		<div class="hero-panel">
-			<div class="hero-graph">
-				<KnowledgeGraph
-					apiUrl={toBase("api/knowledge-graph")}
-					client:media="(min-width: 1025px)"
-				/>
-			</div>
-			<div class="hero-stats">
-				<div class="hero-stat">
-					<div class="hero-stat-value">{posts.length * 10}+</div>
-					<div class="hero-stat-label">articles</div>
-				</div>
-				<div class="hero-stat">
-					<div class="hero-stat-value">{knowledgeEntries.length * 5}+</div>
-					<div class="hero-stat-label">knowledge entries</div>
-				</div>
-			</div>
-		</div>
 	</section>
 
 	{/* ===== Features ===== */}
@@ -130,8 +115,7 @@ const toBase = (path = "") => {
 	</div>
 
 	{/* ===== Content Sections ===== */}
-	<div class="home-layout section">
-		<div class="home-main">
+	<div class="section">
 			<section>
 				<div class="section-header">
 					<h2 class="section-title">最新文章</h2>
@@ -178,16 +162,12 @@ const toBase = (path = "") => {
 					}
 				</div>
 			</section>
-		</div>
-
-		<aside class="home-sidebar">
-			<h2 class="section-title" style="margin-bottom: 0.6rem;">知识图谱</h2>
-			<p class="meta" style="margin: 0 0 0.65rem;">
-				基于向量相似度自动构建关系网络。
-			</p>
+	</div>
+	</div>
+		<aside class="home-sidebar" aria-label="知识地图">
 			<KnowledgeGraph
 				apiUrl={toBase("api/knowledge-graph")}
-				client:media="(min-width: 901px)"
+				client:load
 			/>
 		</aside>
 	</div>

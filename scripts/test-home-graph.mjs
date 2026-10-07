@@ -1,0 +1,67 @@
+// Browser regression checks; install Playwright externally or provide PLAYWRIGHT_MODULE.
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
+import assert from 'node:assert/strict';
+const browser = await chromium.launch(process.env.PLAYWRIGHT_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE } : {});
+try {
+const page = await browser.newPage({viewport:{width:1440,height:900}});
+const errors=[]; page.on('pageerror', e=>errors.push(e.message));
+let requests=0;
+const nodes=Array.from({length:12},(_,i)=>({id:`n${i}`, title:`知识主题 ${i}：探索与工程实践`,url:`/posts/example-${i}`,collection:i%2?'knowledge-base':'posts',summary:'用于验证节点预览、状态保留和响应式交互的内容摘要。'}));
+const links=nodes.slice(1).map((n,i)=>({source:'n0',target:n.id,similarity:0.6,distance:0.5}));
+await page.route('**/api/knowledge-graph',route=>{requests++;return route.fulfill({json:{nodes,links,nodeCount:nodes.length,linkCount:links.length}})});
+await page.goto(process.env.SITE_URL || 'http://127.0.0.1:4321/');
+await page.locator('[data-node]').first().waitFor();
+await page.waitForTimeout(1600);
+assert.equal(await page.locator('.kg-panel').count(),1);
+assert.equal(requests,1);
+await page.screenshot({path:join(tmpdir(), 'blogx-home-desktop.png'),fullPage:true});
+await page.locator('[data-node]').first().focus(); await page.keyboard.press('Enter');
+assert.match(await page.locator('.kg-detail').innerText(),/知识主题/);
+await page.getByRole('button',{name:'放大图谱'}).click();
+const transform=await page.locator('.kg-canvas svg > g').getAttribute('transform');
+await page.getByRole('button',{name:'展开 ↗'}).click();
+assert.equal(await page.getByRole('dialog').count(),1);
+assert.equal(await page.locator('.kg-canvas svg > g').getAttribute('transform'),transform);
+assert.equal(await page.locator('.home-main').evaluate(el=>el.inert),true);
+await page.screenshot({path:join(tmpdir(), 'blogx-home-expanded.png')});
+await page.keyboard.press('Escape');
+assert.equal(await page.getByRole('dialog').count(),0);
+assert.equal(await page.locator('.kg-canvas svg > g').getAttribute('transform'),transform);
+assert.equal(await page.locator('.home-main').evaluate(el=>el.inert),false);
+assert.equal(await page.getByRole('button', { name: '展开 ↗' }).evaluate(el => el === document.activeElement), true);
+await page.evaluate(()=>window.scrollTo(0,500)); await page.waitForTimeout(300);
+const box=await page.locator('.kg-panel').boundingBox();
+assert.ok(Math.abs(box.y-92)<2,`sticky top ${box.y}`);
+await page.mouse.move(box.x+80,box.y+120);
+const before=await page.evaluate(()=>scrollY); await page.mouse.wheel(0,150); await page.waitForTimeout(400);
+assert.ok(await page.evaluate(()=>scrollY)>before);
+assert.equal(await page.locator('.kg-canvas svg > g').getAttribute('transform'),transform);
+await page.setViewportSize({width:390,height:844}); await page.evaluate(()=>window.scrollTo(0,0));
+assert.equal(await page.locator('.kg-body').isVisible(),false);
+await page.getByRole('button',{name:'展开 ↗'}).click();
+assert.equal(await page.locator('.kg-body').isVisible(),true);
+await page.screenshot({path:join(tmpdir(), 'blogx-home-mobile.png')});
+assert.ok(await page.locator('.kg-panel').evaluate(el => el.getBoundingClientRect().right <= innerWidth));
+await page.keyboard.press('Escape');
+await page.setViewportSize({width:1280,height:600});
+const short=await page.locator('.kg-panel').boundingBox(); assert.ok(short.height<=488);
+assert.equal(requests,1);
+assert.deepEqual(errors,[]);
+console.log('PASS: single instance/request, keyboard preview, persistent transform, modal/escape/focus, sticky, wheel scrolling, mobile and short viewport.');
+// Loading failures and empty responses still expose a usable open/close control.
+for (const fixture of [{ status: 500, json: { error: '测试加载失败' } }, { json: { nodes: [], links: [] } }]) {
+  const fallback = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await fallback.route('**/api/knowledge-graph', route => route.fulfill(fixture));
+  await fallback.goto(process.env.SITE_URL || 'http://127.0.0.1:4321/');
+  await fallback.getByRole('button', { name: '展开 ↗' }).click();
+  await fallback.locator(fixture.status ? '.kg-error' : '.kg-empty').waitFor();
+  await fallback.keyboard.press('Escape');
+  assert.equal(await fallback.getByRole('dialog').count(), 0);
+  await fallback.close();
+}
+console.log('PASS: failure and empty states.');
+} finally {
+  await browser.close();
+}

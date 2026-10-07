@@ -8,6 +8,7 @@ type Node = {
   title: string;
   url: string;
   collection: string;
+  summary?: string;
   x?: number;
   y?: number;
   fx?: number | null;
@@ -54,29 +55,51 @@ function toAppUrl(rawUrl: string) {
 
 export default function KnowledgeGraph({ apiUrl }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef(false);
+  expandedRef.current = expanded;
+  const [selected, setSelected] = useState<Node | null>(null);
+  const selectedRef = useRef<Node | null>(null);
+  const controlsRef = useRef<{ zoom: (factor: number) => void; reset: () => void; highlight: (node: Node | null) => void } | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const wrapperGRef = useRef<SVGGElement | null>(null);
   const nodesGRef = useRef<SVGGElement | null>(null);
   const linksGRef = useRef<SVGGElement | null>(null);
   const simRef = useRef<any>(null);
-  const [width, setWidth] = useState(360);
-  const [height, setHeight] = useState(500);
+  const width = 600;
+  const height = 520;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [payload, setPayload] = useState<Payload>({ nodes: [], links: [], nodeCount: 0, linkCount: 0 });
 
-  /*-- 响应式尺寸 --*/
+  /*-- 展开时保持图谱实例、限制背景交互并恢复焦点 --*/
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      const nextWidth = Math.max(280, Math.floor(entries[0].contentRect.width));
-      setWidth(nextWidth);
-      setHeight(Math.max(480, Math.floor(nextWidth * 1.35)));
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+    controlsRef.current?.highlight(selectedRef.current);
+    if (!expanded) return;
+    const panel = containerRef.current!;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const background = Array.from(document.querySelectorAll<HTMLElement>(".home-main, .site-header, footer"));
+    const inert = background.map(el => el.inert);
+    background.forEach(el => { el.inert = true; });
+    panel.querySelector<HTMLButtonElement>("button")?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+      if (event.key !== "Tab") return;
+      const items = Array.from(panel.querySelectorAll<HTMLElement>('button, a[href], [tabindex="0"]')).filter(el => el.getClientRects().length);
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = overflow;
+      background.forEach((el, i) => { el.inert = inert[i]; });
+      document.removeEventListener("keydown", onKey);
+      previousFocus?.focus();
+    };
+  }, [expanded]);
 
   /*-- 拉取数据 --*/
   useEffect(() => {
@@ -121,7 +144,15 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       simRef.current = null;
     }
 
-    const nodes: Node[] = payload.nodes.map((n) => ({ ...n }));
+    const degree = new Map<string, number>();
+    payload.links.forEach(link => {
+      for (const endpoint of [link.source, link.target]) {
+        const id = typeof endpoint === "string" ? endpoint : endpoint.id;
+        degree.set(id, (degree.get(id) || 0) + 1);
+      }
+    });
+    const nodes: Node[] = payload.nodes.map((n) => ({ ...n }))
+      .sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0));
     const links: Link[] = payload.links.map((l) => ({ ...l }));
 
     /*-- 创建 SVG 元素 --*/
@@ -141,6 +172,9 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .data(nodes, (d: any) => d.id)
       .join("g")
       .attr("data-node", "true")
+      .attr("role", "button")
+      .attr("tabindex", 0)
+      .attr("aria-label", (d: any) => `预览：${d.title}`)
       .style("cursor", "pointer");
 
     /*-- 柔和光晕 --*/
@@ -168,7 +202,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .attr("x", 10)
       .attr("y", 1)
       .attr("dy", "0.35em")
-      .attr("font-size", 11)
+      .attr("font-size", 15)
       .attr("font-weight", 500)
       .attr("font-family", '"IBM Plex Sans", "Noto Sans SC", -apple-system, sans-serif')
       .attr("fill", (d: any) => getNodeStyle(d.collection).text)
@@ -176,15 +210,15 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .attr("stroke", "rgba(245,240,235,0.85)")
       .attr("stroke-width", 3);
 
-    /*-- 点击跳转（拖拽结束后短路） --*/
+    /*-- 点击预览（拖拽结束后短路） --*/
     let suppressClick = false;
 
     nodeGroups.on("click", (event: any, d: any) => {
       if (suppressClick) { suppressClick = false; return; }
       event.stopPropagation();
-      if (!d?.url || d.url === "#") return;
-      const url = toAppUrl(d.url);
-      if (url && url !== "#") window.location.href = url;
+      selectedRef.current = d;
+      setSelected(d);
+      highlight(d);
     });
 
     /*-- 邻接表 + 悬停高亮 --*/
@@ -202,6 +236,9 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     const highlight = (node: any | null) => {
       const id = node?.id ?? null;
       const nset = id ? neighbors.get(id) : null;
+      nodeGroups.attr("aria-pressed", (d: any) => String(d.id === selectedRef.current?.id));
+      nodeGroups.select(".kg-label").attr("opacity", (d: any, i: number) =>
+        id ? (d.id === id || nset?.has(d.id) ? 1 : 0) : (expandedRef.current || i < 6 ? 1 : 0));
       const edgeColor = node ? getNodeStyle(node.collection).core : null;
       nodeGroups
         .transition()
@@ -236,21 +273,28 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         const g = select(event.currentTarget);
         g.select(".kg-core").transition().duration(160).attr("r", 7);
         g.select(".kg-glow").transition().duration(160).attr("r", 19).attr("opacity", 0.85);
-        g.select(".kg-label").transition().duration(160).attr("font-size", 12);
+        g.select(".kg-label").transition().duration(160).attr("font-size", 16);
       })
       .on("mouseleave", function (event: any) {
-        highlight(null);
+        highlight(selectedRef.current);
         const g = select(event.currentTarget);
         g.select(".kg-core").transition().duration(160).attr("r", 5);
         g.select(".kg-glow").transition().duration(160).attr("r", 14).attr("opacity", 0.6);
-        g.select(".kg-label").transition().duration(160).attr("font-size", 11);
+        g.select(".kg-label").transition().duration(160).attr("font-size", 15);
       });
 
+    nodeGroups.on("keydown", (event: KeyboardEvent, d: any) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault(); selectedRef.current = d; setSelected(d); highlight(d);
+      }
+    }).on("focus", (_event: any, d: any) => highlight(d))
+      .on("blur", () => highlight(selectedRef.current));
+    highlight(selectedRef.current);
     /*-- 缩放 + 平移：transform 只作用于 wrapperG --*/
     const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.3, 5])
       .filter((event: any) => {
-        if (event.type === "wheel") return true;
+        if (event.type === "wheel") return expandedRef.current || event.ctrlKey || event.metaKey;
         if (event.type === "mousedown" || event.type === "touchstart") {
           const target = event.target as Element;
           if (target.closest("[data-node]")) return false;
@@ -292,15 +336,14 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
 
     const onMouseMove = (event: MouseEvent) => {
       if (!dragNode) return;
-      const t = select(svg).property("__zoom") || zoomIdentity;
-      const dx = (event.clientX - dragStartPos.x) / t.k;
-      const dy = (event.clientY - dragStartPos.y) / t.k;
+      const matrix = wrapperG.getScreenCTM();
+      if (!matrix) return;
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
       if (Math.abs(event.clientX - dragStartPos.x) > 4 || Math.abs(event.clientY - dragStartPos.y) > 4) {
         dragMoved = true;
       }
-      dragNode.fx = (dragNode.fx ?? dragNode.x!) + dx;
-      dragNode.fy = (dragNode.fy ?? dragNode.y!) + dy;
-      dragStartPos = { x: event.clientX, y: event.clientY };
+      dragNode.fx = point.x;
+      dragNode.fy = point.y;
     };
 
     const onMouseUp = () => {
@@ -334,14 +377,14 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     nodeGroups.append("title").text((d: any) => `${d.title} (${d.collection})`);
 
     /*-- 初始适配 --*/
-    const fitTimer = setTimeout(() => {
+    const fitGraph = () => {
       const padding = 40;
       const nodePositions = nodes.filter((n) => n.x !== undefined && n.y !== undefined);
       if (nodePositions.length === 0) return;
       const xs = nodePositions.map((n) => n.x!);
       const ys = nodePositions.map((n) => n.y!);
       const minX = Math.min(...xs) - padding;
-      const maxX = Math.max(...xs) + padding;
+      const maxX = Math.max(...xs) + 160;
       const minY = Math.min(...ys) - padding;
       const maxY = Math.max(...ys) + padding;
       const graphW = maxX - minX || 1;
@@ -355,69 +398,65 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       select(svg).call(zoomBehavior.transform, initialTransform);
       wrapperG.style.transition = "opacity 0.6s ease";
       wrapperG.style.opacity = "1";
-    }, 800);
+    };
+    controlsRef.current = { zoom: factor => { select(svg).call(zoomBehavior.scaleBy, factor); }, reset: fitGraph, highlight };
+    const fitTimer = setTimeout(fitGraph, 800);
 
     return () => {
       sim.stop();
       simRef.current = null;
+      controlsRef.current = null;
       clearTimeout(fitTimer);
+      select(svg).on(".zoom", null);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [payload, width, height]);
-
-  /*-- Loading / Error / Empty --*/
-  if (loading) {
-    return (
-      <div className="kg-panel" ref={containerRef}>
-        <div className="kg-loading">
-          <div className="kg-loading-dot" />
-          <span>加载中...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="kg-panel" ref={containerRef}>
-        <p className="kg-error">图谱加载失败：{error}</p>
-      </div>
-    );
-  }
-
-  if (!payload.nodes.length) {
-    return (
-      <div className="kg-panel" ref={containerRef}>
-        <p className="kg-empty">暂无足够的关联数据生成图谱</p>
-      </div>
-    );
-  }
+  }, [payload]);
 
   return (
-    <div className="kg-panel" ref={containerRef}>
+    <div className={`kg-panel${expanded ? " kg-expanded" : ""}`} ref={containerRef}
+      role={expanded ? "dialog" : undefined} aria-modal={expanded || undefined} aria-label="知识地图">
       <div className="kg-header">
-        <span className="kg-stats">
-          <span className="kg-stat-dot posts" /> {payload.nodeCount} 节点
-          <span className="kg-sep">·</span>
-          {payload.linkCount} 关系
-        </span>
-        <span className="kg-hint">滚轮缩放 · 拖拽平移 · 拖动节点</span>
+        <div><h2>知识地图</h2><p>沿着联系，发现下一篇</p></div>
+        <button type="button" className="kg-expand" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+          {expanded ? "关闭 ✕" : "展开 ↗"}
+        </button>
       </div>
-
+      <div className="kg-body">
+      <div className="kg-canvas">
+      {loading && <div className="kg-loading" role="status"><div className="kg-loading-dot" /><span>加载地图中…</span></div>}
+      {error && <p className="kg-error" role="alert">图谱加载失败：{error}</p>}
+      {!loading && !error && !payload.nodes.length && <p className="kg-empty">暂无足够的关联数据生成图谱</p>}
       <svg
         ref={svgRef}
-        width={width}
-        height={height - 36}
-        style={{ display: "block", width: "100%", cursor: "grab", touchAction: "none", userSelect: "none" }}
+        viewBox={`0 0 ${width} ${height - 36}`}
+        width="100%"
+        height="100%"
+        aria-label="文章与知识库的语义关系网络"
+        style={{ display: "block", cursor: "grab", touchAction: expanded ? "none" : "pan-y", userSelect: "none" }}
       >
         <g ref={wrapperGRef}>
           <g ref={linksGRef} />
           <g ref={nodesGRef} />
         </g>
       </svg>
-
-      <p className="kg-tip">点击节点跳转对应条目</p>
+      {!loading && !error && payload.nodes.length > 0 && <div className="kg-tools" aria-label="地图操作">
+        <button type="button" aria-label="放大图谱" onClick={() => controlsRef.current?.zoom(1.3)}>＋</button>
+        <button type="button" aria-label="缩小图谱" onClick={() => controlsRef.current?.zoom(1 / 1.3)}>−</button>
+        <button type="button" onClick={() => controlsRef.current?.reset()}>复位</button>
+      </div>}
+      </div>
+      <div className="kg-detail" aria-live="polite">
+        {selected ? <>
+          <span className="kg-detail-kind">{{ posts: "文章", "knowledge-base": "知识库", wiki: "Wiki" }[selected.collection] || "内容"}</span>
+          <h3>{selected.title}</h3>
+          <p>{selected.summary || "探索与这篇内容相连的节点，继续发现相关主题。"}</p>
+          {selected.url && selected.url !== "#" && <a href={toAppUrl(selected.url)}>阅读全文 →</a>}
+        </> : <><h3>从一个节点开始</h3><p>点击节点预览内容，高亮相连的文章与笔记。</p></>}
+      </div>
+      </div>
+      <div className="kg-footer"><span>{payload.nodeCount} 节点 · {payload.linkCount} 联系</span><span>连线表示语义相近</span></div>
+      <p className="kg-tip">{expanded ? "滚轮缩放 · 拖拽平移 · Esc 关闭" : "拖拽探索 · 使用 ＋ / − 缩放"}</p>
     </div>
   );
 }

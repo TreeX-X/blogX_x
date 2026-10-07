@@ -8,6 +8,7 @@ type GraphNode = {
   title: string;
   url: string;
   collection: string;
+  summary: string;
 };
 
 type GraphLink = {
@@ -122,6 +123,7 @@ export const GET: APIRoute = async () => {
       title: String(row.title ?? ""),
       url: getSafeUrl(row),
       collection: String(row.collection ?? ""),
+      summary: String(row.content ?? "").replace(/\s+/g, " ").trim().slice(0, 150),
     })) as GraphNode[];
     const nodeIdSet = new Set(nodes.map((n) => n.id));
 
