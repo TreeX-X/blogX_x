@@ -60,7 +60,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
   expandedRef.current = expanded;
   const [selected, setSelected] = useState<Node | null>(null);
   const selectedRef = useRef<Node | null>(null);
-  const controlsRef = useRef<{ zoom: (factor: number) => void; reset: () => void; highlight: (node: Node | null) => void } | null>(null);
+  const controlsRef = useRef<{ reset: () => void; highlight: (node: Node | null) => void } | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const wrapperGRef = useRef<SVGGElement | null>(null);
   const nodesGRef = useRef<SVGGElement | null>(null);
@@ -294,7 +294,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.3, 5])
       .filter((event: any) => {
-        if (event.type === "wheel") return expandedRef.current || event.ctrlKey || event.metaKey;
+        if (event.type === "wheel") return false; // The entire panel owns wheel zoom.
         if (event.type === "mousedown" || event.type === "touchstart") {
           const target = event.target as Element;
           if (target.closest("[data-node]")) return false;
@@ -306,6 +306,17 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       });
 
     select(svg).call(zoomBehavior).on("dblclick.zoom", null);
+    const panel = containerRef.current!;
+    const onWheel = (event: WheelEvent) => {
+      const matrix = svg.getScreenCTM();
+      if (!matrix) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+      const origin: [number, number] = [Math.max(0, Math.min(width, point.x)), Math.max(0, Math.min(height - 36, point.y))];
+      select(svg).call(zoomBehavior.scaleBy, Math.pow(2, zoomBehavior.wheelDelta()(event)), origin);
+    };
+    panel.addEventListener("wheel", onWheel, { passive: false });
 
     /*-- 力导向模拟 --*/
     const sim = forceSimulation(nodes)
@@ -399,7 +410,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       wrapperG.style.transition = "opacity 0.6s ease";
       wrapperG.style.opacity = "1";
     };
-    controlsRef.current = { zoom: factor => { select(svg).call(zoomBehavior.scaleBy, factor); }, reset: fitGraph, highlight };
+    controlsRef.current = { reset: fitGraph, highlight };
     const fitTimer = setTimeout(fitGraph, 800);
 
     return () => {
@@ -408,6 +419,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       controlsRef.current = null;
       clearTimeout(fitTimer);
       select(svg).on(".zoom", null);
+      panel.removeEventListener("wheel", onWheel);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
@@ -441,8 +453,6 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         </g>
       </svg>
       {!loading && !error && payload.nodes.length > 0 && <div className="kg-tools" aria-label="地图操作">
-        <button type="button" aria-label="放大图谱" onClick={() => controlsRef.current?.zoom(1.3)}>＋</button>
-        <button type="button" aria-label="缩小图谱" onClick={() => controlsRef.current?.zoom(1 / 1.3)}>−</button>
         <button type="button" onClick={() => controlsRef.current?.reset()}>复位</button>
       </div>}
       </div>
@@ -455,7 +465,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         </> : null}
       </div>
       </div>
-      <p className="kg-tip">{expanded ? "拖拽平移 · 滚轮缩放 · Esc 关闭" : "点击节点预览 · 连线表示语义相近"}</p>
+      <p className="kg-tip">{expanded ? "拖拽平移 · 滚轮缩放 · Esc 关闭" : "滚轮缩放 · 点击节点预览"}</p>
     </div>
   );
 }
