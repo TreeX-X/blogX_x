@@ -417,7 +417,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
     <div className={`kg-panel${expanded ? " kg-expanded" : ""}`} ref={containerRef}
       role={expanded ? "dialog" : undefined} aria-modal={expanded || undefined} aria-label="知识地图">
       <div className="kg-header">
-        <div><h2>知识地图</h2><p>沿着联系，发现下一篇</p></div>
+        <h2>知识地图</h2>
         <button type="button" className="kg-expand" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
           {expanded ? "关闭 ✕" : "展开 ↗"}
         </button>
@@ -452,11 +452,10 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
           <h3>{selected.title}</h3>
           <p>{selected.summary || "探索与这篇内容相连的节点，继续发现相关主题。"}</p>
           {selected.url && selected.url !== "#" && <a href={toAppUrl(selected.url)}>阅读全文 →</a>}
-        </> : <><h3>从一个节点开始</h3><p>点击节点预览内容，高亮相连的文章与笔记。</p></>}
+        </> : null}
       </div>
       </div>
-      <div className="kg-footer"><span>{payload.nodeCount} 节点 · {payload.linkCount} 联系</span><span>连线表示语义相近</span></div>
-      <p className="kg-tip">{expanded ? "滚轮缩放 · 拖拽平移 · Esc 关闭" : "拖拽探索 · 使用 ＋ / − 缩放"}</p>
+      <p className="kg-tip">{expanded ? "拖拽平移 · 滚轮缩放 · Esc 关闭" : "点击节点预览 · 连线表示语义相近"}</p>
     </div>
   );
 }
