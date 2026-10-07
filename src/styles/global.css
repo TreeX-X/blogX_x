@@ -2435,8 +2435,10 @@ main {
   height: min(560px, calc(100dvh - 112px));
   min-height: 0;
   background: transparent;
-  border: 0;
-  border-radius: 0;
+  border: 1px solid rgba(21, 22, 19, 0.1);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  box-sizing: border-box;
   box-shadow: none;
 }
 .kg-header { padding: 0.5rem 0.25rem; gap: 0.75rem; flex-shrink: 0; border: 0; }
