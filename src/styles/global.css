@@ -2458,6 +2458,8 @@ main {
 .kg-detail h3 { font-size: 0.9rem; margin: 0.3rem 0; line-height: 1.6; }
 .kg-detail p { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.7; margin: 0.4rem 0; }
 .kg-detail a { font-size: 0.78rem; color: var(--accent); }
+.kg-detail-placeholder h3 { font-size: 0.8125rem; }
+.kg-detail-placeholder p { font-size: 0.75rem; }
 .kg-footer { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.6rem 1.1rem; border-top: 1px solid var(--line); font-size: 0.65rem; color: var(--text-muted); flex-shrink: 0; }
 .kg-tip { flex-shrink: 0; }
 .home-sidebar .kg-expanded {

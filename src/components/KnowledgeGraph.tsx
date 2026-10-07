@@ -446,7 +446,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         <button type="button" onClick={() => controlsRef.current?.reset()}>复位</button>
       </div>}
       </div>
-      <div className="kg-detail" aria-live="polite">
+      <div className={`kg-detail${selected ? "" : " kg-detail-placeholder"}`} aria-live="polite">
         {selected ? <>
           <span className="kg-detail-kind">{{ posts: "文章", "knowledge-base": "知识库", wiki: "Wiki" }[selected.collection] || "内容"}</span>
           <h3>{selected.title}</h3>
