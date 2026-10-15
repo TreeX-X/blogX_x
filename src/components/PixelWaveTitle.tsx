@@ -1,5 +1,8 @@
 import { useEffect, useRef } from "react";
 
+/*-- 像素波动标题：文本采样网格 + 对角行波/扫描线/微浮；hero 用法叠加指针力场
+   Note: see .agents/notes/2026-10-15-pixel-title-pointer-requirement--8004ac41.md --*/
+
 interface Props {
   text?: string;
   className?: string;
@@ -64,6 +67,18 @@ export default function PixelWaveTitle({
     const cs = getComputedStyle(canvas);
     const color = cs.getPropertyValue("--accent").trim() || "#b93b28";
 
+    // 指针力场：仅 hero 标题启用（brand-wave 保持原波动）；触控不响应，reduced-motion 只留亮度
+    const pointerOn = !isScrollBrand;
+    const pointer = { x: 0, y: 0, active: false };
+    let dispX = new Float32Array(0);
+    let dispY = new Float32Array(0);
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const POINTER_R = 110; // 力场半径（逻辑 px）
+    const POINTER_AMP = reduceMotion ? 0 : 14; // 最大斥力位移（逻辑 px）
+    const POINTER_EASE = 0.12; // 位移向目标回弹速度
+
     const sample = () => {
       const sc = document.createElement("canvas");
       const sctx = sc.getContext("2d");
@@ -92,6 +107,8 @@ export default function PixelWaveTitle({
         }
         grid.push(row);
       }
+      dispX = new Float32Array(cols * rows);
+      dispY = new Float32Array(cols * rows);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(cols * cell * dpr);
       canvas.height = Math.round(rows * cell * dpr);
@@ -122,11 +139,39 @@ export default function PixelWaveTitle({
           const sweep = Math.max(0, 1 - Math.abs(x - sweepCenter) / 6); // 0..1
           // 垂直微浮
           const bob = Math.sin(0.18 * y + 0.004 * t) * 0.1 * ws; // -0.1ws..0.1ws
+          const cx0 = x * cell + cell / 2;
+          const cy0 = y * cell + cell / 2 + bob * cell;
+          // 指针力场：径向斥力（向目标 lerp 回弹）+ 场内提亮放大
+          let dxp = 0;
+          let dyp = 0;
+          let f = 0;
+          if (pointerOn) {
+            let fx = 0;
+            let fy = 0;
+            if (pointer.active) {
+              const vx = cx0 - pointer.x;
+              const vy = cy0 - pointer.y;
+              const d = Math.sqrt(vx * vx + vy * vy);
+              if (d < POINTER_R) {
+                f = 1 - d / POINTER_R;
+                f = f * f * (3 - 2 * f); // smoothstep 衰减
+                if (POINTER_AMP > 0 && d > 0.01) {
+                  fx = (vx / d) * POINTER_AMP * f;
+                  fy = (vy / d) * POINTER_AMP * f;
+                }
+              }
+            }
+            const idx = y * cols + x;
+            dispX[idx] += (fx - dispX[idx]) * POINTER_EASE;
+            dispY[idx] += (fy - dispY[idx]) * POINTER_EASE;
+            dxp = dispX[idx];
+            dyp = dispY[idx];
+          }
           // 波动项乘以 ws：compact 态收敛（更安静、更小），hero 态保持原观感
-          const alpha = Math.min(1, 0.58 + (0.28 * s + 0.14 * sweep) * ws);
-          const size = cell * (0.76 + (0.14 * s + 0.08 * sweep) * ws);
-          const cx = x * cell + cell / 2;
-          const cy = y * cell + cell / 2 + bob * cell;
+          const alpha = Math.min(1, 0.58 + (0.28 * s + 0.14 * sweep) * ws + 0.22 * f);
+          const size = cell * (0.76 + (0.14 * s + 0.08 * sweep) * ws) * (1 + 0.16 * f);
+          const cx = cx0 + dxp;
+          const cy = cy0 + dyp;
           ctx.globalAlpha = alpha;
           ctx.fillStyle = color;
           ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
@@ -143,8 +188,25 @@ export default function PixelWaveTitle({
       cancelAnimationFrame(raf);
       if (animated && !document.hidden) raf = requestAnimationFrame(draw);
     };
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      // 显示尺寸与绘制逻辑尺寸（cols*cell）不一致，按比例换算
+      pointer.x = (e.clientX - rect.left) * ((cols * cell) / rect.width);
+      pointer.y = (e.clientY - rect.top) * ((rows * cell) / rect.height);
+      pointer.active = true;
+    };
+    const onPointerEnd = () => {
+      pointer.active = false;
+    };
     if (animated && isScrollBrand) window.addEventListener("brand-progress", onBrandProgress);
     if (animated) document.addEventListener("visibilitychange", onVisibilityChange);
+    if (pointerOn) {
+      canvas.addEventListener("pointermove", onPointerMove);
+      canvas.addEventListener("pointerleave", onPointerEnd);
+      canvas.addEventListener("pointercancel", onPointerEnd);
+    }
 
     const start = () => {
       const begin = () => {
@@ -183,6 +245,11 @@ export default function PixelWaveTitle({
       cancelAnimationFrame(raf);
       if (animated && isScrollBrand) window.removeEventListener("brand-progress", onBrandProgress);
       if (animated) document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (pointerOn) {
+        canvas.removeEventListener("pointermove", onPointerMove);
+        canvas.removeEventListener("pointerleave", onPointerEnd);
+        canvas.removeEventListener("pointercancel", onPointerEnd);
+      }
     };
   }, [text, cell, sampleCell, fontPx, fontFamily, waveScale, animated, className]);
 
