@@ -5,7 +5,7 @@
   "kind": "requirement",
   "lifecycle": "draft",
   "created": "2026-10-15",
-  "updated": "2026-10-15T01:09:29Z",
+  "updated": "2026-10-15T04:50:59Z",
   "module": "note://f6f78001-d086-47ba-b627-787ada391296/4d500b85-a071-45ab-adb0-c1c2ff26790d"
 }
 ---
@@ -52,12 +52,12 @@
 
 ## Acceptance criteria
 
-- [ ] AC-1: 点击 hero「树码空间」原位进入机箱体验：不换页、不遮罩；知识图谱平滑下移腾出舞台（按确认后的形态）。
-- [ ] AC-2: 标题像素打散 → 重组为 3D 像素/体素机箱，一次连续运动且可逆（逆向散回标题）；机箱细节达到 Expected behavior 3 的可辨识清单（高精度，非剪影）。
-- [ ] AC-3: 部件 hover 预高亮；点击亮起 + 放大，介绍卡片就近加载，UI 语言与像素数码风格一致，卡内展示映射文案；本期不设跳转。
-- [ ] AC-4: 点击部件后机箱自动旋转到该部件最佳展示位，并为卡片腾位（卡片不遮挡所指部件）。
-- [ ] AC-5: 交互帧率稳定（桌面 60fps 量级、移动端可降档不掉档）；`prefers-reduced-motion` 有直切退化；帧率压测有记录。
-- [ ] AC-6: 不引入站点暗色主题；`npx astro check` 10 error 基线不新增。
+- [x] AC-1: 点击 hero「树码空间」原位进入机箱体验：不换页、不遮罩；知识图谱平滑下移腾出舞台（按确认后的形态）。（2026-10-15 Playwright 实证：`case-mode` 切单列 grid `1200px`、sidebar 从右侧栏落到 y=2351（舞台之后）、features/搜索/顶栏全程在场；移动端 sidebar y=2900 > 舞台 y=187，即图谱从顶部翻到舞台后。）
+- [x] AC-2: 标题像素打散 → 重组为 3D 像素/体素机箱，一次连续运动且可逆（逆向散回标题）；机箱细节达到 Expected behavior 3 的可辨识清单（高精度，非剪影）。（2026-10-15 实证：变形中段粒子云自标题屏幕位爆散（画布 CSS 像素→相机反投影到过场景中心的视平面，斜机位下 z=0 平面反投影会放大一个数量级，已改为视平面投影）；逆向 Esc 两段式（先关卡片再散回标题）实证回标题态。细节清单在装配层齐备：外框/玻璃格栅/主板/显卡双风扇叶/水冷头+管路/冷排鳍片/电源仓/LCD 实况计数屏/前置 I/O。）
+- [x] AC-3: 部件 hover 预高亮；点击亮起 + 放大，介绍卡片就近加载，UI 语言与像素数码风格一致，卡内展示映射文案；本期不设跳转。（2026-10-15 实证：拾取命中 LCD 部件后卡片就近加载（right 侧、top 随部件投影）、卡内编号/名称/HW/映射/描述齐备，LCD 卡附七集合计数；hover 0.3 提亮、选中 0.55+呼吸脉冲、放大 1.06，其余部件压暗 12% 弱化。卡片无路由。）
+- [x] AC-4: 点击部件后机箱自动旋转到该部件最佳展示位，并为卡片腾位（卡片不遮挡所指部件）。（2026-10-15 实证：点击 LCD 后相机 az/el 趋近 `-172°/8°` 落到前脸正视位（球坐标帧率无关阻尼 ease），场景沿相机右向平移腾位，卡片在对侧不遮挡；各部件位姿在 `PART_POSES`（前脸-玻璃象限口径）。）
+- [x] AC-5: 交互帧率稳定（桌面 60fps 量级、移动端可降档不掉档）；`prefers-reduced-motion` 有直切退化；帧率压测有记录。（2026-10-15 实证：机箱态 idle rAF dt median 13.3ms / p95 14.1ms；变形期 median 13.3ms / p95 15.2ms / max 20.6ms。reduced-motion 点击后 329ms 内直切进机箱态（无 1.75s 变形），返回同样直切。移动端 `buildVoxelCase({lite})` 降装饰细节密度。）
+- [x] AC-6: 不引入站点暗色主题；`npx astro check` 10 error 基线不新增。（2026-10-15 实跑：10 errors 与基线逐项一致；体素配色全部取 global.css token 族，无暗色变体。）
 - [x] AC-7: 决策类开放项在开工前经用户确认并回填本文（2026-10-15 回填 3 项定案；部件扩容为按需项不阻塞）。
 
 ## Relations
@@ -68,4 +68,5 @@
 - 三向定案（2026-10-15）：[决策：像素机箱 Hero 的舞台形态、体素审美与卡片范围](2026-10-15-decision-pixel-case-hero-direction--32ddac56.md)。
 - 实现分析：[想法：像素 Hero 的实现分析](2026-10-15-idea-pixel-hero-implementation--5d968c9f.md)。
 - 相关需求：[像素标题指针交互](2026-10-15-pixel-title-pointer-requirement--8004ac41.md)。
-- 现实现（目标形态待替换）：`src/components/CaseHero.tsx`、`src/components/CaseSvg.tsx`、`src/styles/case-hero.css`。
+- 现实现（2026-10-15 入站）：`src/components/PixelCaseHero.tsx`（编排/状态机/卡片）、`src/components/pixel-case-scene.ts`（three 舞台：实例化体素/变形/拾取/相机）、`src/components/voxel-case.ts`（程序化装配 + 部件位姿）、`src/styles/pixel-case.css`、入口 `src/pages/index.astro`（构建期下传七集合计数）。three 经动态 import 懒加载；类型走 `src/types/three-shim.d.ts`（@types/three 在本机 Node24/TS5.9 触发 V8 OOM，any 语义放行 + Playwright 实测覆盖）。
+- 已替换（旧纸板方向组件，工作区未跟踪）：`src/components/CaseHero.tsx`、`src/components/CaseSvg.tsx`、`src/styles/case-hero.css`。
