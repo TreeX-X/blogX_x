@@ -1,0 +1,22 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ServerCase from "../components/server/ServerCase";
+import "../styles/server-case.css";
+---
+
+<BaseLayout
+	title="服务器 | BlogX_x"
+	description="树码空间的服务器——线条画风 3D 可交互机箱。"
+>
+	{/* Note: 「服务器」tab（线条机箱）— see .agents/notes/2026-10-15-server-tab-linecase-requirement--103be143.md */}
+	<div class="server-page">
+		<div class="server-head">
+			<p class="server-kicker">THE MACHINE / 服务器</p>
+			<h1>服务器</h1>
+			<p class="server-sub">
+				这座数字花园的另一面。从水冷到电源，逐一看清这台机器的内部结构。
+			</p>
+		</div>
+		<ServerCase client:load />
+	</div>
+</BaseLayout>

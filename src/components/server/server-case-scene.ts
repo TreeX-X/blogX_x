@@ -11,11 +11,27 @@ type Any3 = any;
 
 export type { PartKey };
 
+/** S4：部件锚点在画布内的投影（CSS 像素，取整防抖），供引线标注跟随相机。 */
+export interface AnchorScreen {
+  key: PartKey;
+  x: number;
+  y: number;
+  visible: boolean;
+}
+
 export interface ServerSceneApi {
   resize(): void;
   dispose(): void;
   /** 手绘加载完成后 resolve（reduced-motion 立即）。 */
   whenDrawn: Promise<void>;
+  /** S4 交互：设置激活部件（高亮），null 清除。 */
+  setActivePart(key: PartKey | null): void;
+  /** S4：hover 命中变化回调（null=离开部件）。 */
+  onHover(cb: (key: PartKey | null) => void): void;
+  /** S4：点击命中回调（null=点空白）；由宿主决定选中/收起。 */
+  onSelect(cb: (key: PartKey | null) => void): void;
+  /** S4：每帧回调部件锚点投影，供标注层定位。 */
+  onFrame(cb: (anchors: AnchorScreen[]) => void): void;
 }
 
 export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<ServerSceneApi> {
@@ -35,22 +51,65 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
   scene.add(model.root);
   const lines = buildCaseLines(model);
 
-  /* 手绘加载（S3）：线条一笔一笔绘出；色块在后段随笔迹淡入。
+  /* S4 交互层：可交互部件（风扇为纯结构件，不参与拾取/标注/卡片）。 */
+  const INTERACTIVE: PartKey[] = ["cpu", "gpu", "ram", "mb", "psu"];
+  const pickables: Any3[] = [];
+  for (const key of INTERACTIVE) {
+    model.partGroups[key].traverse((o: Any3) => {
+      if (!o.isMesh) return;
+      o.userData.partKey = key;
+      pickables.push(o);
+    });
+  }
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let hoverKey: PartKey | null = null;
+  let activeKey: PartKey | null = null;
+  let hoverCb: (key: PartKey | null) => void = () => {};
+  let selectCb: (key: PartKey | null) => void = () => {};
+  let frameCb: (anchors: AnchorScreen[]) => void = () => {};
+
+  /* 手绘加载（S3）：线条一笔一笔绘出；色块按同一空间扫描序跟笔渐显。
      reduced-motion 直切静态全显，无笔尖、无渐进。 */
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (reduceMotion) lines.setDrawProgress(1); // 直切静态全显（AC-3）
-  const fillMats = new Set<Any3>();
-  model.root.traverse((o: Any3) => {
-    if (o.isMesh && o.material && !o.material.isLineMaterial) fillMats.add(o.material);
-  });
-  const baseFillOpacity = new Map<Any3, number>();
-  for (const mat of fillMats) {
-    baseFillOpacity.set(mat, mat.opacity);
-    if (!reduceMotion) {
-      mat.transparent = true;
-      mat.opacity = 0;
-    }
+  type FillRec = { mats: Any3[]; base: number[]; key: number };
+  const fills: FillRec[] = [];
+  const fillClones: Any3[] = [];
+  if (!reduceMotion) {
+    const v = new THREE.Vector3();
+    model.root.traverse((o: Any3) => {
+      if (!o.isMesh || !o.material || o.material.isLineMaterial) return;
+      // 材质数组（如显卡鳍片按面配色）逐面处理：整包塞 Set 会漏掉透明度控制
+      const src: Any3[] = Array.isArray(o.material) ? o.material : [o.material];
+      const cloned = src.map((m: Any3) => {
+        const c = m.clone();
+        fillClones.push(c);
+        return c;
+      });
+      o.material = Array.isArray(o.material) ? cloned : cloned[0];
+      // 扫描键取世界包围盒底部中心：笔扫到件底时该件开始上色（自下而上）
+      o.updateWorldMatrix(true, false);
+      o.geometry.computeBoundingBox();
+      const bb = o.geometry.boundingBox;
+      v.set((bb.min.x + bb.max.x) / 2, bb.min.y, (bb.min.z + bb.max.z) / 2).applyMatrix4(o.matrixWorld);
+      fills.push({
+        mats: cloned,
+        base: cloned.map((m: Any3) => m.opacity),
+        key: lines.sweepNorm(v.x, v.y, v.z),
+      });
+      for (const m of cloned) { m.transparent = true; m.opacity = 0; }
+    });
   }
+  /** 色块随扫描阈值渐显（软边 0.1，色略滞后于线） */
+  const applyFill = (t: number) => {
+    const th = lines.layerThreshold("part", t);
+    for (const f of fills) {
+      const r = THREE.MathUtils.clamp((th - f.key) / 0.1, 0, 1);
+      for (let i = 0; i < f.mats.length; i++) f.mats[i].opacity = f.base[i] * r;
+    }
+    shadowMaterial.opacity = THREE.MathUtils.clamp(th / 0.12, 0, 1);
+  };
   let drawResolve!: () => void;
   const whenDrawn = new Promise<void>((resolve) => { drawResolve = resolve; });
 
@@ -112,25 +171,57 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
   };
   applyCam();
 
-  let dragging = false, px = 0, py = 0;
+  let dragging = false, moved = false, px = 0, py = 0, downX = 0, downY = 0;
   let drawn = reduceMotion;
-  canvas.style.cursor = drawn ? "grab" : "default";
+
+  const setCursor = () => {
+    if (!drawn) { canvas.style.cursor = "default"; return; }
+    canvas.style.cursor = dragging ? "grabbing" : hoverKey ? "pointer" : "grab";
+  };
+  const setHover = (key: PartKey | null) => {
+    if (key === hoverKey) return;
+    hoverKey = key;
+    hoverCb(key);
+    setCursor();
+  };
+  /** 射线拾取：命中可交互部件（线条过细，拾取走同形实体网格）。 */
+  const pickAt = (clientX: number, clientY: number): PartKey | null => {
+    if (!drawn) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(ndc, camera);
+    const hit = raycaster.intersectObjects(pickables, false)[0];
+    return hit ? (hit.object.userData.partKey as PartKey) : null;
+  };
+  setCursor();
+
   canvas.addEventListener("pointerdown", (e) => {
     if (!drawn) return;
-    dragging = true; px = e.clientX; py = e.clientY;
-    canvas.style.cursor = "grabbing";
+    dragging = true; moved = false;
+    px = downX = e.clientX; py = downY = e.clientY;
+    setCursor();
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener("pointermove", (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - px, dy = e.clientY - py;
-    px = e.clientX; py = e.clientY;
-    camGoal.az = THREE.MathUtils.clamp(camGoal.az - dx * 0.0042, 15 * D2R, 75 * D2R);
-    camGoal.el = THREE.MathUtils.clamp(camGoal.el + dy * 0.0032, 2 * D2R, 30 * D2R);
+    if (dragging) {
+      const dx = e.clientX - px, dy = e.clientY - py;
+      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 4) moved = true;
+      px = e.clientX; py = e.clientY;
+      camGoal.az = THREE.MathUtils.clamp(camGoal.az - dx * 0.0042, 15 * D2R, 75 * D2R);
+      camGoal.el = THREE.MathUtils.clamp(camGoal.el + dy * 0.0032, 2 * D2R, 30 * D2R);
+      return;
+    }
+    setHover(pickAt(e.clientX, e.clientY));
   });
-  const endDrag = () => { dragging = false; if (drawn) canvas.style.cursor = "grab"; };
-  canvas.addEventListener("pointerup", endDrag);
+  const endDrag = () => { dragging = false; setCursor(); };
+  canvas.addEventListener("pointerup", (e) => {
+    if (dragging && !moved && drawn) selectCb(pickAt(e.clientX, e.clientY));
+    endDrag();
+  });
   canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("pointerleave", () => { if (!dragging) setHover(null); });
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault();
     if (!drawn) return;
@@ -148,6 +239,22 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
   };
   resize();
 
+  /* S4 标注层：部件锚点每帧投影到画布像素（引线标注跟随相机）。
+     投影坐标取整到 CSS 像素——亚像素浮点噪声会抖动 SVG 描边与标签排版。 */
+  const anchorVec = new THREE.Vector3();
+  const anchorOut: AnchorScreen[] = INTERACTIVE.map((key) => ({ key, x: 0, y: 0, visible: true }));
+  const emitFrame = () => {
+    const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
+    for (let i = 0; i < INTERACTIVE.length; i++) {
+      const a = anchorOut[i];
+      anchorVec.copy(model.partAnchors[INTERACTIVE[i]]).applyMatrix4(model.root.matrixWorld).project(camera);
+      a.x = Math.round((anchorVec.x * 0.5 + 0.5) * w);
+      a.y = Math.round((-anchorVec.y * 0.5 + 0.5) * h);
+      a.visible = anchorVec.z < 1;
+    }
+    frameCb(anchorOut);
+  };
+
   /* 渲染循环（阻尼趋近；无自转；驱动 draw-on 时间轴） */
   const DRAW_MS = 2000; // 1.5–2.5s 量级（AC-3）
   let drawElapsed = reduceMotion ? DRAW_MS : 0;
@@ -159,34 +266,44 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
     const dt = Math.min(64, now - last);
     last = now;
 
-    /* 手绘加载：线性偏机械缓动，色块在 55% 后随笔迹淡入 */
+    /* 手绘加载：线性偏机械缓动；线扫到哪、色上到哪（同一空间序） */
     if (drawElapsed < DRAW_MS) {
       drawElapsed = Math.min(DRAW_MS, drawElapsed + dt);
       const t = drawElapsed / DRAW_MS;
+      canvas.dataset.drawT = t.toFixed(3); // 验证探针（可读、无副作用）
       lines.setDrawProgress(t);
+      applyFill(t);
       const frontier = lines.getDrawFrontier();
       if (frontier) tip.position.set(frontier.x, frontier.y, frontier.z);
       tipMaterial.opacity = t > 0.92 ? (1 - t) / 0.08 * 0.9 : 0.9;
-      const fill = THREE.MathUtils.clamp((t - 0.55) / 0.45, 0, 1);
-      const fillEase = fill * fill * (3 - 2 * fill);
-      for (const mat of fillMats) mat.opacity = (baseFillOpacity.get(mat) ?? 1) * fillEase;
-      shadowMaterial.opacity = fillEase;
       if (drawElapsed >= DRAW_MS) {
         lines.setDrawProgress(1);
-        for (const mat of fillMats) mat.opacity = baseFillOpacity.get(mat) ?? 1;
-        shadowMaterial.opacity = 1;
+        applyFill(1);
+        canvas.dataset.drawT = "1";
         tip.visible = false;
         drawn = true;
-        canvas.style.cursor = "grab";
+        setCursor();
         drawResolve();
       }
     }
 
+    /* 阻尼趋近；残差小于阈值即吸附到目标——渐近尾巴会让投影无限蠕动（引线抖动源） */
     const k = 1 - Math.pow(0.002, dt / 1000);
-    cam.az += (camGoal.az - cam.az) * k;
-    cam.el += (camGoal.el - cam.el) * k;
-    cam.dist += (camGoal.dist - cam.dist) * k;
+    const damp = (cur: number, goal: number) => {
+      const next = cur + (goal - cur) * k;
+      return Math.abs(goal - next) < 1e-4 ? goal : next;
+    };
+    cam.az = damp(cam.az, camGoal.az);
+    cam.el = damp(cam.el, camGoal.el);
+    cam.dist = damp(cam.dist, camGoal.dist);
     applyCam();
+
+    /* S4：激活/悬停强调（线色向牛血红偏移、线宽提升） */
+    for (const key of INTERACTIVE) {
+      lines.setPartEmphasis(key, key === activeKey ? 1 : key === hoverKey ? 0.45 : 0);
+    }
+    emitFrame();
+
     renderer.render(scene, camera);
     raf = requestAnimationFrame(tick);
   };
@@ -196,10 +313,15 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
   return {
     resize,
     whenDrawn,
+    setActivePart(key) { activeKey = key; },
+    onHover(cb) { hoverCb = cb; },
+    onSelect(cb) { selectCb = cb; },
+    onFrame(cb) { frameCb = cb; },
     dispose() {
       disposed = true;
       cancelAnimationFrame(raf);
       lines.dispose();
+      for (const m of fillClones) m.dispose();
       tipTexture.dispose();
       tipMaterial.dispose();
       shadowTexture.dispose();

@@ -20,6 +20,12 @@ export interface CaseLinesApi {
   setDrawProgress(t: number): void;
   /** 当前笔尖（前沿已绘段中点），未开始或已绘完返回 null。 */
   getDrawFrontier(): { x: number; y: number; z: number } | null;
+  /** 归一化空间扫描键 0..1（与线序同一坐标），供色块同序渐显。 */
+  sweepNorm(x: number, y: number, z: number): number;
+  /** 该层在绘线进度 t 下的扫描阈值 0..1。 */
+  layerThreshold(layer: "shell" | "part", t: number): number;
+  /** S4 交互：某部件线集强调度 0..1（配色向牛血红偏移、线宽提升，0 为原态）。 */
+  setPartEmphasis(key: PartKey, level: number): void;
   dispose(): void;
 }
 
@@ -57,6 +63,10 @@ export function buildCaseLines(model: CaseModel): CaseLinesApi {
   const geometries: Any3[] = [];
   const materials: Any3[] = [];
   const v = new THREE.Vector3();
+
+  /* S4 交互：按部件记录主笔材质与基准色/线宽，供 hover/激活强调回读。 */
+  const EMPHASIS = new THREE.Color(0xb93b28);
+  const partMats: Partial<Record<PartKey, { mats: Any3[]; base: Any3[]; width: number[] }>> = {};
 
   /* 确定性顶点抖动：按原坐标取哈希 → 共享顶点抖动一致，笔迹连贯；草稿手绘感来源 */
   const hash3 = (x: number, y: number, z: number, seed: number) => {
@@ -130,6 +140,12 @@ export function buildCaseLines(model: CaseModel): CaseLinesApi {
     if (partKey) ls.userData.partKey = partKey;
     geometries.push(geo);
     materials.push(mat);
+    if (partKey) {
+      const entry = (partMats[partKey] ??= { mats: [], base: [], width: [] });
+      entry.mats.push(mat);
+      entry.base.push(mat.color.clone());
+      entry.width.push(mat.linewidth);
+    }
     model.root.add(ls);
     recs.push({ geo, keys: data.keys, mids: data.mids, layer, ghost, count: data.keys.length });
   };
@@ -181,6 +197,19 @@ export function buildCaseLines(model: CaseModel): CaseLinesApi {
       for (const m of materials) m.resolution.set(w, h);
     },
     setDrawProgress: applyProgress,
+    sweepNorm(x: number, y: number, z: number) {
+      return THREE.MathUtils.clamp((sweepKey(x, y, z) - keyMin) / span, 0, 1);
+    },
+    layerThreshold: thresholdFor,
+    setPartEmphasis(key, level) {
+      const entry = partMats[key];
+      if (!entry) return;
+      const l = THREE.MathUtils.clamp(level, 0, 1);
+      for (let i = 0; i < entry.mats.length; i++) {
+        entry.mats[i].color.copy(entry.base[i]).lerp(EMPHASIS, l * 0.85);
+        entry.mats[i].linewidth = entry.width[i] * (1 + l * 0.5);
+      }
+    },
     getDrawFrontier() {
       if (drawT <= 0 || drawT >= 1) return null;
       let best: { x: number; y: number; z: number } | null = null;
