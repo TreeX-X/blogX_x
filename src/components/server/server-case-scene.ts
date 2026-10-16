@@ -236,6 +236,8 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
     const h = canvas.clientHeight || 1;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
+    // 狭长的中间画布仍完整展示机箱，给两侧标识保留独立空间。
+    camera.zoom = Math.min(1, camera.aspect / 0.85);
     camera.updateProjectionMatrix();
     lines.setResolution(w, h); // fat lines 线宽按屏幕像素
   };

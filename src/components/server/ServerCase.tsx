@@ -26,13 +26,13 @@ const PARTS: PartInfo[] = [
   { key: "cpu", no: "01", title: "CPU 水冷头", hw: "思考核心 · 泵头", map: "WorkFlowX · 我怎么工作",
     desc: "这台机器的思考核心。多智能体编排方法论从这里出发——先想清楚，再动手。", side: "right", y: 0.24 },
   { key: "gpu", no: "02", title: "显卡 · 渲染单元", hw: "渲染输出", map: "JanusX · 我的作品台",
-    desc: "显卡负责渲染与输出，对应我的作品台 JanusX 工作台——想法在这里被渲染成看得见的东西。", side: "left", y: 0.44 },
+    desc: "显卡负责渲染与输出，对应我的作品台 JanusX 工作台——想法在这里被渲染成看得见的东西。", side: "left", y: 0.66 },
   { key: "ram", no: "03", title: "内存条 ×4", hw: "记忆体", map: "知识库 · 我的记忆",
     desc: "四根内存条是记忆体，对应知识库与笔记——文章、Wiki、作品库都存放在这里。", side: "right", y: 0.4 },
   { key: "psu", no: "04", title: "电源仓", hw: "能量来源", map: "关于我",
     desc: "整机能量从这里供给，对应「关于我」——我是谁、在造什么、怎么找到我。", side: "right", y: 0.78 },
   { key: "mb", no: "05", title: "主板", hw: "总线枢纽", map: "中转站（建设中）",
-    desc: "主板是贯通所有部件的总线枢纽，预留给独立产品「中转站」——一句话定位，内容待补。", side: "left", y: 0.66 },
+    desc: "主板是贯通所有部件的总线枢纽，预留给独立产品「中转站」——一句话定位，内容待补。", side: "left", y: 0.44 },
 ];
 
 export default function ServerCase() {
@@ -84,17 +84,25 @@ export default function ServerCase() {
     }
     const activeKey = activeRef.current;
     const card = cardRef.current;
-    const slotWidth = Math.min(240, (w - 32) * 0.42);
+    const stacked = window.matchMedia("(max-width: 720px)").matches;
+    const slotWidth = stacked ? (w - 32) * 0.44 : Math.min(240, w * 0.22);
+    const canvas = canvasRef.current;
+    const canvasX = canvas?.offsetLeft ?? 0, canvasY = canvas?.offsetTop ?? 0;
     for (const p of PARTS) {
       const anchor = anchors.find((a) => a.key === p.key);
       const label = labelRefs.current[p.key];
       if (!anchor || !label) continue;
+      const ax = Number((anchor.x + canvasX).toFixed(2));
+      const ay = Number((anchor.y + canvasY).toFixed(2));
 
       /* 槽位端：标签始终占位（激活时隐藏但保持定位，收起后不跳位）；
          卡片与标签的内缘重合，引线端点不变。 */
       const { lw = 0, lh = 0 } = labelSizeRef.current[p.key] ?? {};
       const lx = p.side === "left" ? 16 + slotWidth - lw : w - 16 - slotWidth;
-      const ly = Math.max(8, Math.min(p.y * h - lh / 2, h - lh - 8));
+      const row = stacked
+        ? ({ cpu: 64, ram: 208, gpu: h - 184, mb: 112, psu: h - 112 })[p.key]
+        : p.y * h;
+      const ly = Math.max(8, Math.min(row - lh / 2, h - lh - 8));
       const pos = `${Math.round(lx)},${Math.round(ly)}`;
       if (pos !== cache.labelPos[p.key]) {
         cache.labelPos[p.key] = pos;
@@ -108,7 +116,10 @@ export default function ServerCase() {
         if (card.style.width !== cardWidth) card.style.width = cardWidth;
         const ch = card.offsetHeight;
         const cx0 = p.side === "left" ? 16 : lx;
-        const cy0 = Math.max(8, Math.min(ly, h - ch - 8));
+        const upper = p.key === "cpu" || p.key === "ram" || p.key === "mb";
+        const cy0 = stacked
+          ? Math.max(upper ? 8 : h - 310, Math.min(ly, (upper ? 310 : h - 8) - ch))
+          : Math.max(8, Math.min(ly, h - ch - 8));
         const cpos = `${Math.round(cx0)},${Math.round(cy0)}`;
         if (cpos !== cache.cardPos) {
           cache.cardPos = cpos;
@@ -118,20 +129,21 @@ export default function ServerCase() {
       }
 
       /* 直角横折：水平离开部件 → 垂直折转 → 水平接入固定槽位。 */
-      const bx = p.side === "left" ? ex + 28 : ex - 28;
-      const pts = `${anchor.x},${anchor.y} ${bx},${anchor.y} ${bx},${ey} ${ex},${ey}`;
+      const lane = ({ gpu: 14, mb: 36, cpu: 14, ram: 36, psu: 58 })[p.key];
+      const bx = p.side === "left" ? ex + lane : ex - lane;
+      const pts = `${ax},${ay} ${bx},${ay} ${bx},${ey} ${ex},${ey}`;
       const poly = polyRefs.current[p.key];
       if (poly && pts !== cache.leadPts[p.key]) {
         cache.leadPts[p.key] = pts;
         poly.setAttribute("points", pts);
       }
-      const dot = `${anchor.x},${anchor.y}`;
+      const dot = `${ax},${ay}`;
       if (dot !== cache.dotPos[p.key]) {
         cache.dotPos[p.key] = dot;
         for (const node of [ringRefs.current[p.key], coreRefs.current[p.key]]) {
           if (!node) continue;
-          node.setAttribute("cx", `${anchor.x}`);
-          node.setAttribute("cy", `${anchor.y}`);
+          node.setAttribute("cx", `${ax}`);
+          node.setAttribute("cy", `${ay}`);
         }
       }
       const vis = anchor.visible ? "1" : "0";

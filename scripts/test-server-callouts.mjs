@@ -53,6 +53,25 @@ try {
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 960 });
     await page.waitForTimeout(200);
+    const clearance = await page.evaluate(() => {
+      const canvas = document.querySelector('.server-canvas').getBoundingClientRect();
+      const labels = [...document.querySelectorAll('.case-lbl')].map(el => el.getBoundingClientRect());
+      const lanes = [...document.querySelectorAll('g[data-part]')].map(el => {
+        const points = el.querySelector('.case-lead').points;
+        return { key: el.getAttribute('data-part'), x: points.getItem(1).x };
+      });
+      return {
+        separate: labels.every(r => r.right + 20 <= canvas.left || r.left - 20 >= canvas.right
+          || r.bottom + 20 <= canvas.top || r.top - 20 >= canvas.bottom),
+        leftLanes: Math.abs(lanes.find(l => l.key === 'gpu').x - lanes.find(l => l.key === 'mb').x),
+        rightLanes: new Set(lanes.filter(l => ['cpu', 'ram', 'psu'].includes(l.key)).map(l => l.x)).size,
+      };
+    });
+    assert.ok(clearance.separate, `${width}px: labels must clear model canvas by at least 20px`);
+    assert.ok(clearance.leftLanes >= 20 && clearance.rightLanes === 3, 'parts must use separate elbow lanes');
+    if ([1440, 390].includes(width)) {
+      await page.screenshot({ path: join(tmpdir(), `server-labels-${width}.png`), fullPage: true });
+    }
     for (const part of parts) {
       const before = await snapshot();
       await page.locator(`.case-lbl[data-part="${part}"]`).click();
@@ -64,6 +83,7 @@ try {
         const card = document.querySelector('.case-card');
         const stage = document.querySelector('.server-case').getBoundingClientRect();
         const l = label.getBoundingClientRect(), c = card.getBoundingClientRect();
+        const canvas = document.querySelector('.server-canvas').getBoundingClientRect();
         const points = document.querySelector(`g[data-part="${part}"] .case-lead`).points;
         const endpoint = points.getItem(points.numberOfItems - 1);
         const left = part === 'gpu' || part === 'mb';
@@ -71,11 +91,14 @@ try {
           hidden: getComputedStyle(label).visibility === 'hidden',
           edge: Math.abs(left ? c.right - l.right : c.left - l.left),
           connected: stage.y + endpoint.y >= c.top && stage.y + endpoint.y <= c.bottom,
+          labelConnection: Math.abs(stage.y + endpoint.y - (l.top + l.height / 2)) < 1,
           inside: c.left >= stage.left && c.right <= stage.right + 1 && c.top >= stage.top && c.bottom <= stage.bottom + 1,
           overflow: document.documentElement.scrollWidth > innerWidth,
+          clear: c.right + 20 <= canvas.left || c.left - 20 >= canvas.right
+            || c.bottom + 8 <= canvas.top || c.top - 8 >= canvas.bottom,
         };
       }, part);
-      assert.ok(geometry.hidden && geometry.edge < 1 && geometry.connected && geometry.inside && !geometry.overflow,
+      assert.ok(geometry.hidden && geometry.edge < 1 && geometry.connected && geometry.labelConnection && geometry.inside && !geometry.overflow && geometry.clear,
         `${width}px ${part}: ${JSON.stringify(geometry)}`);
       if (part === 'cpu' && [1440, 390].includes(width)) {
         await page.screenshot({ path: join(tmpdir(), `server-callout-${width}.png`), fullPage: true });
