@@ -11,7 +11,7 @@ type Any3 = any;
 
 export type { PartKey };
 
-/** S4：部件锚点在画布内的投影（CSS 像素，取整防抖），供引线标注跟随相机。 */
+/** S4：部件锚点在画布内的投影（CSS 像素），与当前渲染帧同步。 */
 export interface AnchorScreen {
   key: PartKey;
   x: number;
@@ -168,6 +168,8 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
       target.z + cam.dist * Math.cos(cam.el) * Math.cos(cam.az)
     );
     camera.lookAt(target);
+    // project() 读取 matrixWorldInverse；必须在投影前更新，不能等 renderer.render。
+    camera.updateMatrixWorld();
   };
   applyCam();
 
@@ -239,8 +241,7 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
   };
   resize();
 
-  /* S4 标注层：部件锚点每帧投影到画布像素（引线标注跟随相机）。
-     投影坐标取整到 CSS 像素——亚像素浮点噪声会抖动 SVG 描边与标签排版。 */
+  /* 保留亚像素精度，避免拖转时整像素阶跃；相机收敛后坐标保持不变。 */
   const anchorVec = new THREE.Vector3();
   const anchorOut: AnchorScreen[] = INTERACTIVE.map((key) => ({ key, x: 0, y: 0, visible: true }));
   const emitFrame = () => {
@@ -248,9 +249,9 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
     for (let i = 0; i < INTERACTIVE.length; i++) {
       const a = anchorOut[i];
       anchorVec.copy(model.partAnchors[INTERACTIVE[i]]).applyMatrix4(model.root.matrixWorld).project(camera);
-      a.x = Math.round((anchorVec.x * 0.5 + 0.5) * w);
-      a.y = Math.round((-anchorVec.y * 0.5 + 0.5) * h);
-      a.visible = anchorVec.z < 1;
+      a.x = Number(((anchorVec.x * 0.5 + 0.5) * w).toFixed(2));
+      a.y = Number(((-anchorVec.y * 0.5 + 0.5) * h).toFixed(2));
+      a.visible = anchorVec.z >= -1 && anchorVec.z <= 1;
     }
     frameCb(anchorOut);
   };
@@ -302,9 +303,8 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
     for (const key of INTERACTIVE) {
       lines.setPartEmphasis(key, key === activeKey ? 1 : key === hoverKey ? 0.45 : 0);
     }
-    emitFrame();
-
     renderer.render(scene, camera);
+    emitFrame();
     raf = requestAnimationFrame(tick);
   };
   raf = requestAnimationFrame(tick);

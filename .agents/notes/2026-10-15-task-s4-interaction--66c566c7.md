@@ -5,7 +5,7 @@
   "kind": "task",
   "lifecycle": "draft",
   "created": "2026-10-15",
-  "updated": "2026-10-16T09:26:28Z",
+  "updated": "2026-10-16T09:39:53Z",
   "module": "note://f6f78001-d086-47ba-b627-787ada391296/4d500b85-a071-45ab-adb0-c1c2ff26790d",
   "work": {
     "scope": [{"repoId": "f6f78001-d086-47ba-b627-787ada391296", "paths": ["src/components/server/"]}],
@@ -40,16 +40,18 @@
 **全景态交互已实施（2026-10-16 xdo；同日按用户反馈细化引线与卡片，待用户验收）**：
 
 - 拾取与相机：`server-case-scene.ts` 复用限角轨道相机（拖拽 ±、俯仰限幅、滚轮缩放，禁自转不变），新增射线拾取——以部件同形实体网格（`partGroups` 内 mesh 挂 `userData.partKey`）为命中层，线条过细不参与拾取；`drawn` 前禁交互。拖拽与点击按位移阈值（>4px）区分。相机阻尼残差小于阈值即吸附目标值，消除渐近蠕动。
-- 标注：`onFrame` 每帧把五部件锚点（`partAnchors`）投影到画布像素（`AnchorScreen`，坐标取整到 CSS 像素），`ServerCase.tsx` 据此定位**横折引线**（锚点→斜段→折点→水平段接入槽位端的三折点折线）与标签；DOM 写入带变更检测（静置零写入，消除亚像素抖动），标签尺寸只在容器尺寸变化与字体就绪时测量。锚点离开视锥/在相机后方时该组隐藏。
+- 标注：投影前显式更新相机矩阵，并在同帧模型渲染后发出 `onFrame`，消除读取上一帧矩阵造成的跟随滞后；投影保留 0.01 CSS 像素精度，避免整像素阶跃。引线为水平—垂直—水平的四顶点直角折线；DOM 坐标写入带变更检测，标签尺寸在舞台尺寸变化与字体就绪后测量。锚点超出深度裁剪范围时隐藏引线组。
 - hover/选中：`onHover`/`onSelect` 回调；`case-lines.ts` 新增 `setPartEmphasis(key, level)`，线色向牛血红偏移、线宽提升（hover 0.45 / 激活 1）。
-- 卡片：点击后信息卡**原位替换**该部件标签（同一侧槽位、标签隐藏），引线水平段改接卡片内缘；内容为需求「机箱即我」五模块文案，无路由跳转；Esc/关闭按钮/点空白收起，收起时卡片归位（避免残留坐标在窄视口溢出）。
+- 卡片：标签和卡片共用固定槽位内缘，展开和收起保持整条引线几何不变；卡片直接替换文字，不再位移动画或淡入叠字。使用 `useLayoutEffect` 在浏览器绘制前定位，避免切换时闪现旧位置；靠近底部向上避让，手机保留原位卡片，标签允许换行。内容与 Esc/关闭/空白收起逻辑沿用原实现。
 - 内容映射落到部件组：**新增 `ram` 部件组**并从 `mb` 拆出四条 DIMM（需求实现注记所要求的独立拾取组与锚点，避免与主板卡命中冲突），`mb` 锚点改为主板托盘位；**风扇为纯结构件**不参与拾取/标注/卡片。
 - 标注文案（编号+名称）：01 CPU 水冷头 / 02 显卡·渲染单元 / 03 内存条 ×4 / 04 电源仓 / 05 主板。需求映射表 03↔内存条、04↔电源仓、05↔主板编号照此落地。
 
 ## Evidence
 
-- `node _temp/verify-server-interaction.mjs`（Playwright + Edge，本机现有外部安装，`npm` 无新增依赖）全 17 项通过，日志 `_temp/server-interaction-check.json`：五模块标注常驻、引线横折三折点且静置 1s points 字符串零变化（无抖动）、拖转后锚点投影变化（引线跟随）、hover 命中 `pointer`/`is-hover`、点击部件出卡且卡片原位替换标签（标签透明、与标签同侧槽位对齐 ±4px）、点空白/Esc/关闭收起、五标签逐项点击出卡、idle 漂移 0（无自转）、390×844 无横向溢出且移动卡片可用、reduced-motion 直切、页面与控制台错误 0。截图 `_temp/design-demos/server-interaction-desktop.png`、`server-interaction-mobile.png`、`server-card-open-desktop.png`、`server-card-open-gpu.png`，已目视桌面与手机。
-- `npx astro check`：**139 files / 10 errors**，与既有基线同数（全部落在 kv-messages / fun-messages / index.astro / nav-particles 既有文件），本轮服务器文件 0 诊断。注：本机 `astro check` 默认堆会 OOM，需 `NODE_OPTIONS=--max-old-space-size=8192` 方能跑完。
+- 当前回归：`scripts/test-server-callouts.mjs`（外部 Playwright + Edge，`PLAYWRIGHT_MODULE` 指向本机安装）通过：四顶点直角几何、拖转后 90 帧锚点方向不反复、阻尼结束后静置 1.2s 全部引线字符串不变；五部件 × 1440/768/390/320px 展开与收起的引线几何完全一致，标签隐藏、卡片内缘对齐、端点仍连接卡片且卡片在舞台内、文档无横向溢出；reduced-motion 点击与关闭、浏览器错误 0。桌面/手机截图位于系统临时目录 `server-callout-1440.png` / `server-callout-390.png`，已目视。本轮是主 Agent 自验，独立复核仍待履行。
+
+- 旧临时回归 `node _temp/verify-server-interaction.mjs` 本轮复跑：hover、实体点击出卡、空白/Esc 收起、五标签点击、idle 漂移 0、390×844 手机交互与 reduced-motion 均通过；其中“三顶点折线”断言已不符合当前四顶点设计，不作为当前几何证据，当前几何由正式脚本验证。
+- `npx astro check`：**140 files / 10 errors**，与既有基线同数（全部落在 kv-messages / fun-messages / index.astro / nav-particles 既有文件），本轮服务器文件 0 诊断。日志 `_temp/server-callouts-astro-check.txt`。注：本机 `astro check` 默认堆会 OOM，需 `NODE_OPTIONS=--max-old-space-size=8192` 方能跑完。
 
 ## Handoff
 

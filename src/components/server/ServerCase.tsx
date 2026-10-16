@@ -1,11 +1,11 @@
 /*-- 「服务器」机箱岛（S1 舞台 / S3 绘线 / S4 全景交互层）
    底模与限角轨道相机在 server-case-scene；此层承载部件 hover/点击、
-   常驻横折引线标注（编号+名称，锚点投影跟随相机、量化防抖）与
+   常驻直角横折引线标注（编号+名称，锚点与渲染帧同步）与
    就近信息卡（点击后原位替换对应标签，「机箱即我」五模块）。
    「点击拉近 × 细节丰富」归 S5。
    Note: see .agents/notes/2026-10-15-server-tab-linecase-requirement--103be143.md --*/
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AnchorScreen, PartKey, ServerSceneApi } from "./server-case-scene";
 
 type PartId = "cpu" | "gpu" | "ram" | "mb" | "psu";
@@ -51,7 +51,7 @@ export default function ServerCase() {
   const [active, setActive] = useState<PartId | null>(null);
   const [hover, setHover] = useState<PartId | null>(null);
   const activeRef = useRef<PartId | null>(null);
-  useEffect(() => { activeRef.current = active; }, [active]);
+  const anchorsRef = useRef<AnchorScreen[]>([]);
 
   /* 标签尺寸缓存：内容不变，仅在容器尺寸变化、字体就绪后测量，
      避免每帧 offsetWidth 强制布局。 */
@@ -68,9 +68,9 @@ export default function ServerCase() {
     vis: {} as Record<string, string>,
   });
 
-  /* 每帧把锚点投影写进 DOM：坐标已在场景侧取整，槽位整数量化 + 变更检测
-     （静置时零写入，消除亚像素抖动）。激活部件的卡片原位替换其标签。 */
+  /* 固定槽位与引线端点；卡片向槽位外侧展开，不改变引线几何。 */
   const layout = (anchors: AnchorScreen[]) => {
+    anchorsRef.current = anchors;
     const container = containerRef.current;
     const svg = svgRef.current;
     if (!container || !svg) return;
@@ -84,15 +84,16 @@ export default function ServerCase() {
     }
     const activeKey = activeRef.current;
     const card = cardRef.current;
+    const slotWidth = Math.min(240, (w - 32) * 0.42);
     for (const p of PARTS) {
       const anchor = anchors.find((a) => a.key === p.key);
       const label = labelRefs.current[p.key];
       if (!anchor || !label) continue;
 
       /* 槽位端：标签始终占位（激活时隐藏但保持定位，收起后不跳位）；
-         激活部件由卡片接管同一槽位，引线水平段改接卡片内缘。 */
+         卡片与标签的内缘重合，引线端点不变。 */
       const { lw = 0, lh = 0 } = labelSizeRef.current[p.key] ?? {};
-      const lx = p.side === "left" ? 28 : w - 28 - lw;
+      const lx = p.side === "left" ? 16 + slotWidth - lw : w - 16 - slotWidth;
       const ly = Math.max(8, Math.min(p.y * h - lh / 2, h - lh - 8));
       const pos = `${Math.round(lx)},${Math.round(ly)}`;
       if (pos !== cache.labelPos[p.key]) {
@@ -100,25 +101,25 @@ export default function ServerCase() {
         label.style.left = `${Math.round(lx)}px`;
         label.style.top = `${Math.round(ly)}px`;
       }
-      let ex = p.side === "left" ? lx + lw + 6 : lx - 6;
-      let ey = ly + lh / 2;
+      const ex = Math.round(p.side === "left" ? lx + lw + 6 : lx - 6);
+      const ey = Math.round(ly + lh / 2);
       if (p.key === activeKey && card) {
-        const cw = card.offsetWidth || 300, ch = card.offsetHeight || 180;
-        const cx0 = Math.max(12, Math.min(p.side === "left" ? 28 : w - 28 - cw, w - cw - 12));
-        const cy0 = Math.max(8, Math.min(p.y * h - ch / 2, h - ch - 8));
+        const cardWidth = `${slotWidth}px`;
+        if (card.style.width !== cardWidth) card.style.width = cardWidth;
+        const ch = card.offsetHeight;
+        const cx0 = p.side === "left" ? 16 : lx;
+        const cy0 = Math.max(8, Math.min(ly, h - ch - 8));
         const cpos = `${Math.round(cx0)},${Math.round(cy0)}`;
         if (cpos !== cache.cardPos) {
           cache.cardPos = cpos;
           card.style.left = `${Math.round(cx0)}px`;
           card.style.top = `${Math.round(cy0)}px`;
         }
-        ex = p.side === "left" ? cx0 + cw + 6 : cx0 - 6;
-        ey = cy0 + ch / 2;
       }
 
-      /* 横折线：锚点 → 斜段 → 折点 → 水平段接入槽位端（工业图解引线语汇） */
+      /* 直角横折：水平离开部件 → 垂直折转 → 水平接入固定槽位。 */
       const bx = p.side === "left" ? ex + 28 : ex - 28;
-      const pts = `${anchor.x},${anchor.y} ${Math.round(bx)},${Math.round(ey)} ${Math.round(ex)},${Math.round(ey)}`;
+      const pts = `${anchor.x},${anchor.y} ${bx},${anchor.y} ${bx},${ey} ${ex},${ey}`;
       const poly = polyRefs.current[p.key];
       if (poly && pts !== cache.leadPts[p.key]) {
         cache.leadPts[p.key] = pts;
@@ -146,6 +147,12 @@ export default function ServerCase() {
       card.style.top = "12px";
     }
   };
+
+  // 在浏览器绘制前完成卡片定位，切换部件时不会闪现上一张卡片的位置。
+  useLayoutEffect(() => {
+    activeRef.current = active;
+    layout(anchorsRef.current);
+  }, [active]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -201,7 +208,7 @@ export default function ServerCase() {
               data-part={p.key}
               ref={(el) => { groupRefs.current[p.key] = el; }}
             >
-              <polyline className="case-lead" ref={(el) => { polyRefs.current[p.key] = el; }} points="0,0 0,0 0,0" />
+              <polyline className="case-lead" ref={(el) => { polyRefs.current[p.key] = el; }} points="0,0 0,0 0,0 0,0" />
               <circle className="case-anchor-ring" r="8" cx="0" cy="0" ref={(el) => { ringRefs.current[p.key] = el; }} />
               <circle className="case-anchor-core" r="2.6" cx="0" cy="0" ref={(el) => { coreRefs.current[p.key] = el; }} />
             </g>
@@ -213,6 +220,9 @@ export default function ServerCase() {
             type="button"
             className={`case-lbl${active === p.key ? " is-active" : ""}${active && active !== p.key ? " is-dim" : ""}${hover === p.key ? " is-hover" : ""}`}
             data-part={p.key}
+            aria-expanded={active === p.key}
+            aria-controls="server-part-card"
+            tabIndex={active === p.key ? -1 : 0}
             ref={(el) => { labelRefs.current[p.key] = el; }}
             onClick={() => setActive((prev) => (prev === p.key ? null : p.key))}
           >
@@ -222,6 +232,7 @@ export default function ServerCase() {
         ))}
       </div>
       <aside
+        id="server-part-card"
         className={`case-card${active ? " is-show" : ""}`}
         ref={cardRef}
         data-active-part={active ?? ""}

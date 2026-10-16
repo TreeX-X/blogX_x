@@ -85,13 +85,14 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  max-width: min(240px, calc((100% - 32px) * 0.42));
   margin: 0;
   padding: 0;
   background: none;
   border: 0;
   font: inherit;
   text-align: left;
-  white-space: nowrap;
+  white-space: normal;
   cursor: pointer;
   pointer-events: auto;
   opacity: 1;
@@ -113,6 +114,7 @@
   transition: background 0.2s ease, color 0.2s ease;
 }
 .case-txt {
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 0.72rem;
   line-height: 1.35;
@@ -126,7 +128,7 @@
 .case-lbl.is-hover .case-num,
 .case-lbl:hover .case-num { background: var(--accent-light); }
 /* 激活时标签原位让位：信息卡接管同一引线槽位 */
-.case-lbl.is-active { opacity: 0; pointer-events: none; }
+.case-lbl.is-active { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
 .case-lbl.is-dim { opacity: 0.42; }
 
 .case-card {
@@ -142,11 +144,10 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow-card-hover);
   opacity: 0;
-  transform: translateY(6px);
   pointer-events: none;
-  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  visibility: hidden;
 }
-.case-card.is-show { opacity: 1; transform: none; pointer-events: auto; }
+.case-card.is-show { opacity: 1; visibility: visible; pointer-events: auto; }
 .case-card-close {
   position: absolute;
   top: 0.5rem;
