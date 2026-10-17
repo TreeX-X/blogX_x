@@ -1,5 +1,5 @@
 /*-- 「服务器」机箱舞台（S1）：three 场景 + 限角轨道相机（默认 45°，禁自转）
-   与 public/3d-poc 同源的相机/灯光骨架；提线渲染（S2）与交互层（S4/S5）后续叠加。
+   与 public/3d-poc 同源的相机骨架；点击驱动部件聚焦、L2 手绘与上下文淡化。
    Note: see .agents/notes/2026-10-15-server-tab-linecase-requirement--103be143.md --*/
 
 import * as THREE from "three";
@@ -24,14 +24,14 @@ export interface ServerSceneApi {
   dispose(): void;
   /** 手绘加载完成后 resolve（reduced-motion 立即）。 */
   whenDrawn: Promise<void>;
-  /** S4 交互：设置激活部件（高亮），null 清除。 */
+  /** 聚焦部件并绘出 L2；null 收回细节、回到默认全景。 */
   setActivePart(key: PartKey | null): void;
   /** S4：hover 命中变化回调（null=离开部件）。 */
   onHover(cb: (key: PartKey | null) => void): void;
   /** S4：点击命中回调（null=点空白）；由宿主决定选中/收起。 */
   onSelect(cb: (key: PartKey | null) => void): void;
   /** S4：每帧回调部件锚点投影，供标注层定位。 */
-  onFrame(cb: (anchors: AnchorScreen[]) => void): void;
+  onFrame(cb: (anchors: AnchorScreen[], focusProgress: number) => void): void;
 }
 
 export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<ServerSceneApi> {
@@ -67,16 +67,17 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
   let activeKey: PartKey | null = null;
   let hoverCb: (key: PartKey | null) => void = () => {};
   let selectCb: (key: PartKey | null) => void = () => {};
-  let frameCb: (anchors: AnchorScreen[]) => void = () => {};
+  let frameCb: (anchors: AnchorScreen[], focusProgress: number) => void = () => {};
+  let cardProgress = 1;
 
   /* 手绘加载（S3）：线条一笔一笔绘出；色块按同一空间扫描序跟笔渐显。
      reduced-motion 直切静态全显，无笔尖、无渐进。 */
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (reduceMotion) lines.setDrawProgress(1); // 直切静态全显（AC-3）
-  type FillRec = { mats: Any3[]; base: number[]; key: number };
+  type FillRec = { mats: Any3[]; base: number[]; depth: boolean[]; owner: PartKey | "shell"; key: number };
   const fills: FillRec[] = [];
   const fillClones: Any3[] = [];
-  if (!reduceMotion) {
+  {
     const v = new THREE.Vector3();
     model.root.traverse((o: Any3) => {
       if (!o.isMesh || !o.material || o.material.isLineMaterial) return;
@@ -88,6 +89,9 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
         return c;
       });
       o.material = Array.isArray(o.material) ? cloned : cloned[0];
+      let parent = o;
+      while (parent.parent && parent.parent !== model.root) parent = parent.parent;
+      const owner = parent === model.shell ? "shell" : parent.userData.partKey as PartKey;
       // 扫描键取世界包围盒底部中心：笔扫到件底时该件开始上色（自下而上）
       o.updateWorldMatrix(true, false);
       o.geometry.computeBoundingBox();
@@ -96,17 +100,28 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
       fills.push({
         mats: cloned,
         base: cloned.map((m: Any3) => m.opacity),
+        depth: cloned.map((m: Any3) => m.depthWrite),
+        owner,
         key: lines.sweepNorm(v.x, v.y, v.z),
       });
-      for (const m of cloned) { m.transparent = true; m.opacity = 0; }
+      for (const m of cloned) { m.transparent = true; if (!reduceMotion) m.opacity = 0; }
     });
   }
   /** 色块随扫描阈值渐显（软边 0.1，色略滞后于线） */
+  let contextLevel = 0;
+  let contextKey: PartKey | null = null;
+  let contextMotion: { from: number; to: number; elapsed: number } | null = null;
   const applyFill = (t: number) => {
     const th = lines.layerThreshold("part", t);
     for (const f of fills) {
       const r = THREE.MathUtils.clamp((th - f.key) / 0.1, 0, 1);
-      for (let i = 0; i < f.mats.length; i++) f.mats[i].opacity = f.base[i] * r;
+      const muted = f.owner === "shell" || f.owner !== contextKey;
+      const factor = 1 - contextLevel * (f.owner === "shell" ? 0.88 : muted ? 0.7 : 0);
+      for (let i = 0; i < f.mats.length; i++) {
+        f.mats[i].opacity = f.base[i] * r * factor;
+        // 透明度只控制淡化；切换深度写入会让被遮挡结构在过渡末帧跳变。
+        f.mats[i].depthWrite = f.depth[i];
+      }
     }
     shadowMaterial.opacity = THREE.MathUtils.clamp(th / 0.12, 0, 1);
   };
@@ -161,6 +176,56 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
   const D2R = Math.PI / 180;
   const cam = { az: 45 * D2R, el: 15 * D2R, dist: 225 };
   const camGoal = { ...cam };
+  const overview = { ...cam };
+  const overviewTarget = target.clone();
+  const detailProgress: Partial<Record<PartKey, number>> = {};
+  const preferredDistance = { cpu: 58, gpu: 100, ram: 76, mb: 132, psu: 92 };
+  // 取完整部件（含冷排、水管和线束）的世界包围盒，不再只对准手工锚点。
+  const partBounds = Object.fromEntries(INTERACTIVE.map(key => {
+    const box = new THREE.Box3().setFromObject(model.partGroups[key]);
+    const corners: Any3[] = [];
+    for (const x of [box.min.x, box.max.x])
+      for (const y of [box.min.y, box.max.y])
+        for (const z of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(x, y, z));
+    return [key, { center: box.getCenter(new THREE.Vector3()), corners }];
+  })) as Record<PartKey, { center: Any3; corners: Any3[] }>;
+  const direction = new THREE.Vector3(), right = new THREE.Vector3(), up = new THREE.Vector3();
+  const offset = new THREE.Vector3(), worldUp = new THREE.Vector3(0, 1, 0);
+  const fitDistance = (key: PartKey, view: typeof cam, center: Any3) => {
+    direction.set(Math.cos(view.el) * Math.sin(view.az), Math.sin(view.el), Math.cos(view.el) * Math.cos(view.az));
+    right.crossVectors(worldUp, direction).normalize();
+    up.crossVectors(direction, right);
+    // 包围盒投影最多占画面 84%，为描边和拖转保留安全边距。
+    const tanV = Math.tan(camera.fov * D2R / 2) / camera.zoom * 0.84;
+    const tanH = tanV * camera.aspect;
+    let distance = 0;
+    for (const corner of partBounds[key].corners) {
+      offset.copy(corner).sub(center);
+      distance = Math.max(distance, offset.dot(direction)
+        + Math.max(Math.abs(offset.dot(right)) / tanH, Math.abs(offset.dot(up)) / tanV));
+    }
+    return distance;
+  };
+  let motion: { from: typeof cam; to: typeof cam; fromTarget: Any3; toTarget: Any3; elapsed: number } | null = null;
+  const focusPart = (key: PartKey | null, reframe = false) => {
+    if ((!reframe && key === activeKey) || key === "fans") return;
+    activeKey = key;
+    if (!reframe) cardProgress = reduceMotion ? 1 : 0;
+    // 返回期间保留原部件身份，避免按 Esc 时原选中件立即被当作背景淡化。
+    if (key) contextKey = key;
+    contextMotion = reduceMotion ? null : { from: contextLevel, to: key ? 1 : 0, elapsed: 0 };
+    const to = { ...overview, dist: key ? preferredDistance[key] : overview.dist };
+    const toTarget = key ? partBounds[key].center.clone() : overviewTarget.clone();
+    if (key) to.dist = Math.max(to.dist, fitDistance(key, to, toTarget));
+    Object.assign(camGoal, to);
+    if (reduceMotion) {
+      Object.assign(cam, to);
+      target.copy(toTarget);
+      motion = null;
+    } else {
+      motion = { from: { ...cam }, to, fromTarget: target.clone(), toTarget, elapsed: 0 };
+    }
+  };
   const applyCam = () => {
     camera.position.set(
       target.x + cam.dist * Math.cos(cam.el) * Math.sin(cam.az),
@@ -210,6 +275,7 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
     if (dragging) {
       const dx = e.clientX - px, dy = e.clientY - py;
       if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 4) moved = true;
+      if (moved && motion) { motion = null; Object.assign(camGoal, cam); }
       px = e.clientX; py = e.clientY;
       camGoal.az = THREE.MathUtils.clamp(camGoal.az - dx * 0.0042, 15 * D2R, 75 * D2R);
       camGoal.el = THREE.MathUtils.clamp(camGoal.el + dy * 0.0032, 2 * D2R, 30 * D2R);
@@ -227,7 +293,8 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault();
     if (!drawn) return;
-    camGoal.dist = THREE.MathUtils.clamp(camGoal.dist + e.deltaY * 0.09, 150, 280);
+    if (motion) { motion = null; Object.assign(camGoal, cam); }
+    camGoal.dist = THREE.MathUtils.clamp(camGoal.dist + e.deltaY * 0.09, activeKey ? 45 : 150, 280);
   }, { passive: false });
 
   /* 尺寸 */
@@ -240,6 +307,7 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
     camera.zoom = Math.min(1, camera.aspect / 0.85);
     camera.updateProjectionMatrix();
     lines.setResolution(w, h); // fat lines 线宽按屏幕像素
+    if (activeKey) focusPart(activeKey, true);
   };
   resize();
 
@@ -253,9 +321,9 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
       anchorVec.copy(model.partAnchors[INTERACTIVE[i]]).applyMatrix4(model.root.matrixWorld).project(camera);
       a.x = Number(((anchorVec.x * 0.5 + 0.5) * w).toFixed(2));
       a.y = Number(((-anchorVec.y * 0.5 + 0.5) * h).toFixed(2));
-      a.visible = anchorVec.z >= -1 && anchorVec.z <= 1;
+      a.visible = anchorVec.z >= -1 && anchorVec.z <= 1 && Math.abs(anchorVec.x) <= 1 && Math.abs(anchorVec.y) <= 1;
     }
-    frameCb(anchorOut);
+    frameCb(anchorOut, cardProgress);
   };
 
   /* 渲染循环（阻尼趋近；无自转；驱动 draw-on 时间轴） */
@@ -296,10 +364,68 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
       const next = cur + (goal - cur) * k;
       return Math.abs(goal - next) < 1e-4 ? goal : next;
     };
-    cam.az = damp(cam.az, camGoal.az);
-    cam.el = damp(cam.el, camGoal.el);
-    cam.dist = damp(cam.dist, camGoal.dist);
+    if (motion) {
+      motion.elapsed = Math.min(1000, motion.elapsed + dt);
+      const t = motion.elapsed / 1000;
+      const ease = t * t * (3 - 2 * t);
+      cardProgress = Math.max(cardProgress, ease);
+      for (const key of ["az", "el", "dist"] as const) cam[key] = motion.from[key] + (motion.to[key] - motion.from[key]) * ease;
+      target.copy(motion.fromTarget).lerp(motion.toTarget, ease);
+      if (t === 1) motion = null;
+    } else {
+      cardProgress = 1;
+      cam.az = damp(cam.az, camGoal.az);
+      cam.el = damp(cam.el, camGoal.el);
+      cam.dist = damp(cam.dist, camGoal.dist);
+    }
+    if (activeKey && !motion) {
+      // 手动拖转和滚轮也不能把已选部件推到视窗之外。
+      const minimum = fitDistance(activeKey, cam, target);
+      cam.dist = Math.max(cam.dist, minimum);
+      camGoal.dist = Math.max(camGoal.dist, minimum);
+    }
     applyCam();
+
+    let nextContext = reduceMotion ? (activeKey ? 1 : 0) : contextLevel;
+    if (contextMotion) {
+      contextMotion.elapsed = Math.min(1000, contextMotion.elapsed + dt);
+      const t = contextMotion.elapsed / 1000;
+      const ease = t * t * (3 - 2 * t);
+      nextContext = contextMotion.from + (contextMotion.to - contextMotion.from) * ease;
+      if (t === 1) contextMotion = null;
+    }
+    if (contextLevel !== nextContext || drawElapsed < DRAW_MS || activeKey) {
+      contextLevel = nextContext;
+      if (contextLevel === 0) contextKey = null;
+      applyFill(drawElapsed / DRAW_MS);
+      lines.setContext(contextKey, contextLevel);
+    }
+    for (const key of INTERACTIVE) {
+      const before = detailProgress[key] ?? 0;
+      const wanted = key === activeKey ? 1 : 0;
+      const after = reduceMotion ? wanted : THREE.MathUtils.clamp(before + (wanted ? dt / 1000 : -dt / 400), 0, 1);
+      detailProgress[key] = after;
+      const detail = lines.setDetailProgress(key, after);
+      canvas.dataset[`detail${key[0].toUpperCase()}${key.slice(1)}`] = `${detail.visible}/${detail.total}`;
+      if (key === activeKey && after > 0 && after < 1 && detail.frontier && !reduceMotion) {
+        tip.visible = true;
+        tip.position.set(detail.frontier.x, detail.frontier.y, detail.frontier.z);
+        tipMaterial.opacity = 0.65;
+      }
+    }
+    if (drawn && (!activeKey || detailProgress[activeKey] === 1 || reduceMotion)) tip.visible = false;
+    canvas.dataset.focus = activeKey ?? "";
+    canvas.dataset.cameraDistance = cam.dist.toFixed(2);
+    canvas.dataset.cameraTarget = `${target.x.toFixed(2)},${target.y.toFixed(2)},${target.z.toFixed(2)}`;
+    canvas.dataset.context = contextLevel.toFixed(3);
+    if (activeKey) {
+      let extent = 0;
+      for (const corner of partBounds[activeKey].corners) {
+        anchorVec.copy(corner).project(camera);
+        extent = Math.max(extent, Math.abs(anchorVec.x), Math.abs(anchorVec.y));
+      }
+      canvas.dataset.focusExtent = extent.toFixed(4);
+    } else delete canvas.dataset.focusExtent;
 
     /* S4：激活/悬停强调（线色向牛血红偏移、线宽提升） */
     for (const key of INTERACTIVE) {
@@ -315,7 +441,7 @@ export async function createServerCaseScene(canvas: HTMLCanvasElement): Promise<
   return {
     resize,
     whenDrawn,
-    setActivePart(key) { activeKey = key; },
+    setActivePart: focusPart,
     onHover(cb) { hoverCb = cb; },
     onSelect(cb) { selectCb = cb; },
     onFrame(cb) { frameCb = cb; },

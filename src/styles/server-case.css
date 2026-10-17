@@ -47,9 +47,9 @@
 }
 .server-canvas {
   position: absolute;
-  left: calc(var(--callout-width) + 76px);
+  left: calc(var(--callout-width) + 40px);
   display: block;
-  width: calc(100% - 2 * (var(--callout-width) + 76px));
+  width: calc(100% - 2 * (var(--callout-width) + 40px));
   height: 100%;
   touch-action: none;
 }
@@ -141,7 +141,7 @@
 .case-lbl:hover .case-num { background: var(--accent-light); }
 /* 激活时标签原位让位：信息卡接管同一引线槽位 */
 .case-lbl.is-active { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
-.case-lbl.is-dim { opacity: 0.42; }
+.case-lbl.is-dim { opacity: 0.72; }
 
 .case-card {
   position: absolute;
@@ -150,6 +150,8 @@
   top: 12px;
   width: 300px;
   max-width: calc(100% - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1rem 1rem 0.85rem;
   background: var(--surface-raised);
   border: 1px solid var(--line-strong);
@@ -160,6 +162,14 @@
   visibility: hidden;
 }
 .case-card.is-show { opacity: 1; visibility: visible; pointer-events: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  /* 直接使用相机同帧的缓动进度，淡入、微移与推近一起停稳。 */
+  .case-card.is-show {
+    opacity: var(--focus-progress, 0);
+    transform: translateY(calc((1 - var(--focus-progress, 0)) * 8px))
+      scale(calc(0.98 + var(--focus-progress, 0) * 0.02));
+  }
+}
 .case-card-close {
   position: absolute;
   top: 0.5rem;

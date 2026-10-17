@@ -26,6 +26,8 @@ export interface CaseLinesApi {
   layerThreshold(layer: "shell" | "part", t: number): number;
   /** S4 交互：某部件线集强调度 0..1（配色向牛血红偏移、线宽提升，0 为原态）。 */
   setPartEmphasis(key: PartKey, level: number): void;
+  setContext(key: PartKey | null, level: number): void;
+  setDetailProgress(key: PartKey, t: number): { visible: number; total: number; frontier: { x: number; y: number; z: number } | null };
   dispose(): void;
 }
 
@@ -54,6 +56,8 @@ type DrawRec = {
   layer: "shell" | "part";
   ghost: boolean;
   count: number;
+  mat: Any3;
+  partKey?: PartKey;
 };
 
 export function buildCaseLines(model: CaseModel): CaseLinesApi {
@@ -76,7 +80,7 @@ export function buildCaseLines(model: CaseModel): CaseLinesApi {
 
   let keyMin = Infinity, keyMax = -Infinity;
 
-  const collect = (group: Any3, threshold: number, amp: number, seed: number): SegData => {
+  const collect = (group: Any3, threshold: number, amp: number, seed: number, detail = false): SegData => {
     const segs: number[][] = []; // [key, x1,y1,z1, x2,y2,z2, mx,my,mz]
     const v2 = new THREE.Vector3();
     /** 长线段切小段后按「原坐标哈希」抖动：共享端点一致 → 连续手绘起伏（非整根倾斜） */
@@ -90,13 +94,16 @@ export function buildCaseLines(model: CaseModel): CaseLinesApi {
         const jx1 = x1 + hash3(x1, y1, z1, seed) * amp, jy1 = y1 + hash3(x1, y1, z1, seed + 1) * amp, jz1 = z1 + hash3(x1, y1, z1, seed + 2) * amp;
         const mx = (jx0 + jx1) / 2, my = (jy0 + jy1) / 2, mz = (jz0 + jz1) / 2;
         const key = sweepKey(mx, my, mz);
-        if (key < keyMin) keyMin = key;
-        if (key > keyMax) keyMax = key;
+        if (!detail && key < keyMin) keyMin = key;
+        if (!detail && key > keyMax) keyMax = key;
         segs.push([key, jx0, jy0, jz0, jx1, jy1, jz1, mx, my, mz]);
       }
     };
     group.traverse((o: Any3) => {
-      if (!o.isMesh || !o.geometry || o.userData.sketch === false) return;
+      if (!o.isMesh || !o.geometry) return;
+      if (detail ? o.userData.sketch !== false : o.userData.sketch === false) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      if (detail && mats.some((m: Any3) => m.map)) return; // 丝印由真实纹理保留，不描矩形边。
       const eg = new THREE.EdgesGeometry(o.geometry, threshold);
       const pos = eg.attributes.position;
       for (let i = 0; i < pos.count; i += 2) {
@@ -107,12 +114,14 @@ export function buildCaseLines(model: CaseModel): CaseLinesApi {
       eg.dispose();
     });
     segs.sort((a, b) => a[0] - b[0]);
-    const n = segs.length;
+    // 微型几何的管线/叶片可能很密；按扫描序均匀采样，限制每部件成本。
+    const selected = detail ? segs.filter((_, i) => i % Math.max(1, Math.ceil(segs.length / 2400)) === 0) : segs;
+    const n = selected.length;
     const positions = new Float32Array(n * 6);
     const keys = new Float32Array(n);
     const mids = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
-      const s = segs[i];
+      const s = selected[i];
       keys[i] = s[0];
       positions.set([s[1], s[2], s[3], s[4], s[5], s[6]], i * 6);
       mids.set([s[7], s[8], s[9]], i * 3);
@@ -147,7 +156,7 @@ export function buildCaseLines(model: CaseModel): CaseLinesApi {
       entry.width.push(mat.linewidth);
     }
     model.root.add(ls);
-    recs.push({ geo, keys: data.keys, mids: data.mids, layer, ghost, count: data.keys.length });
+    recs.push({ geo, mat, partKey, keys: data.keys, mids: data.mids, layer, ghost, count: data.keys.length });
   };
 
   /** 双层笔迹：实线主笔 + 抖动虚线草稿辅笔 */
@@ -192,6 +201,24 @@ export function buildCaseLines(model: CaseModel): CaseLinesApi {
   };
   applyProgress(0);
 
+  // L2 只提取全景刻意省略的真实微结构，默认隐藏；与 L1 分开驱动。
+  const details: Partial<Record<PartKey, { line: Any3; geo: Any3; mids: Float32Array; count: number }>> = {};
+  for (const key of ["cpu", "gpu", "ram", "mb", "psu"] as PartKey[]) {
+    const data = collect(model.partGroups[key], 35, 0.018, 3, true);
+    const geo = new LineSegmentsGeometry();
+    geo.setPositions(data.positions);
+    geo.instanceCount = 0;
+    const mat = new LineMaterial({ color: LINE.part, linewidth: 0.85, transparent: true, opacity: 0.88, depthWrite: false });
+    const line = new LineSegments2(geo, mat);
+    line.name = `detail-${key}`;
+    line.visible = false;
+    line.renderOrder = 2;
+    model.root.add(line);
+    geometries.push(geo);
+    materials.push(mat);
+    details[key] = { line, geo, mids: data.mids, count: data.keys.length };
+  }
+
   return {
     setResolution(w: number, h: number) {
       for (const m of materials) m.resolution.set(w, h);
@@ -201,6 +228,24 @@ export function buildCaseLines(model: CaseModel): CaseLinesApi {
       return THREE.MathUtils.clamp((sweepKey(x, y, z) - keyMin) / span, 0, 1);
     },
     layerThreshold: thresholdFor,
+    setContext(key, level) {
+      for (const rec of recs) {
+        const base = rec.ghost ? 0.2 : 0.95;
+        rec.mat.opacity = base * (1 - level * (rec.layer === "shell" ? 0.84 : rec.partKey !== key ? 0.66 : 0));
+      }
+    },
+    setDetailProgress(key, t) {
+      const detail = details[key];
+      if (!detail) return { visible: 0, total: 0, frontier: null };
+      const n = Math.floor(detail.count * THREE.MathUtils.clamp(t, 0, 1));
+      detail.geo.instanceCount = n;
+      detail.line.visible = n > 0;
+      return {
+        visible: n, total: detail.count,
+        frontier: n > 0 && n < detail.count
+          ? { x: detail.mids[(n - 1) * 3], y: detail.mids[(n - 1) * 3 + 1], z: detail.mids[(n - 1) * 3 + 2] } : null,
+      };
+    },
     setPartEmphasis(key, level) {
       const entry = partMats[key];
       if (!entry) return;

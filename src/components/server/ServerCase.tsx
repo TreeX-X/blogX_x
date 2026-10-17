@@ -2,7 +2,7 @@
    底模与限角轨道相机在 server-case-scene；此层承载部件 hover/点击、
    常驻直角横折引线标注（编号+名称，锚点与渲染帧同步）与
    就近信息卡（点击后原位替换对应标签，「机箱即我」五模块）。
-   「点击拉近 × 细节丰富」归 S5。
+   点击同步相机拉近与 L2 手绘；卡片展开时相邻标识让位。
    Note: see .agents/notes/2026-10-15-server-tab-linecase-requirement--103be143.md --*/
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -69,7 +69,7 @@ export default function ServerCase() {
   });
 
   /* 固定槽位与引线端点；卡片向槽位外侧展开，不改变引线几何。 */
-  const layout = (anchors: AnchorScreen[]) => {
+  const layout = (anchors: AnchorScreen[], focusProgress = 0) => {
     anchorsRef.current = anchors;
     const container = containerRef.current;
     const svg = svgRef.current;
@@ -84,10 +84,44 @@ export default function ServerCase() {
     }
     const activeKey = activeRef.current;
     const card = cardRef.current;
+    if (card) card.style.setProperty("--focus-progress", `${focusProgress}`);
     const stacked = window.matchMedia("(max-width: 720px)").matches;
     const slotWidth = stacked ? (w - 32) * 0.44 : Math.min(240, w * 0.22);
     const canvas = canvasRef.current;
     const canvasX = canvas?.offsetLeft ?? 0, canvasY = canvas?.offsetTop ?? 0;
+    const baseRow = (key: PartId, y: number) => stacked
+      ? ({ cpu: 64, ram: 208, gpu: h - 184, mb: 112, psu: h - 112 })[key] : y * h;
+    const slots = PARTS.map(p => ({
+      ...p,
+      row: baseRow(p.key, p.y),
+      height: labelSizeRef.current[p.key]?.lh ?? 28,
+      top: baseRow(p.key, p.y) - (labelSizeRef.current[p.key]?.lh ?? 28) / 2,
+    }));
+    const selected = slots.find(p => p.key === activeKey);
+    if (selected && card) {
+      const width = `${slotWidth}px`;
+      if (card.style.width !== width) card.style.width = width;
+      const upper = selected.row < 320;
+      const peers = slots.filter(p => p.side === selected.side && (!stacked || (p.row < 320) === upper));
+      peers.sort((a, b) => a.row - b.row);
+      const start = stacked && !upper ? h - 310 : 8;
+      const end = stacked && upper ? 310 : h - 8;
+      const otherHeight = peers.filter(p => p !== selected).reduce((sum, p) => sum + p.height + 16, 0);
+      const maxHeight = `${end - start - otherHeight}px`;
+      if (card.style.maxHeight !== maxHeight) card.style.maxHeight = maxHeight;
+      selected.height = card.offsetHeight;
+      // 先依原顺序向下排，底端超界时再从下向上收拢。只移动同侧相邻标识。
+      let next = start;
+      for (const p of peers) {
+        p.top = Math.max(p.top, next);
+        next = p.top + p.height + 16;
+      }
+      next = end;
+      for (const p of peers.slice().reverse()) {
+        p.top = Math.min(p.top, next - p.height);
+        next = p.top - 16;
+      }
+    }
     for (const p of PARTS) {
       const anchor = anchors.find((a) => a.key === p.key);
       const label = labelRefs.current[p.key];
@@ -99,10 +133,8 @@ export default function ServerCase() {
          卡片与标签的内缘重合，引线端点不变。 */
       const { lw = 0, lh = 0 } = labelSizeRef.current[p.key] ?? {};
       const lx = p.side === "left" ? 16 + slotWidth - lw : w - 16 - slotWidth;
-      const row = stacked
-        ? ({ cpu: 64, ram: 208, gpu: h - 184, mb: 112, psu: h - 112 })[p.key]
-        : p.y * h;
-      const ly = Math.max(8, Math.min(row - lh / 2, h - lh - 8));
+      const slot = slots.find(s => s.key === p.key)!;
+      const ly = Math.max(8, Math.min(p.key === activeKey ? slot.row - lh / 2 : slot.top, h - lh - 8));
       const pos = `${Math.round(lx)},${Math.round(ly)}`;
       if (pos !== cache.labelPos[p.key]) {
         cache.labelPos[p.key] = pos;
@@ -110,16 +142,11 @@ export default function ServerCase() {
         label.style.top = `${Math.round(ly)}px`;
       }
       const ex = Math.round(p.side === "left" ? lx + lw + 6 : lx - 6);
-      const ey = Math.round(ly + lh / 2);
+      const ey = Math.round(p.key === activeKey
+        ? Math.max(slot.top + 12, Math.min(slot.row, slot.top + slot.height - 12)) : ly + lh / 2);
       if (p.key === activeKey && card) {
-        const cardWidth = `${slotWidth}px`;
-        if (card.style.width !== cardWidth) card.style.width = cardWidth;
-        const ch = card.offsetHeight;
         const cx0 = p.side === "left" ? 16 : lx;
-        const upper = p.key === "cpu" || p.key === "ram" || p.key === "mb";
-        const cy0 = stacked
-          ? Math.max(upper ? 8 : h - 310, Math.min(ly, (upper ? 310 : h - 8) - ch))
-          : Math.max(8, Math.min(ly, h - ch - 8));
+        const cy0 = slot.top;
         const cpos = `${Math.round(cx0)},${Math.round(cy0)}`;
         if (cpos !== cache.cardPos) {
           cache.cardPos = cpos;
@@ -163,6 +190,8 @@ export default function ServerCase() {
   // 在浏览器绘制前完成卡片定位，切换部件时不会闪现上一张卡片的位置。
   useLayoutEffect(() => {
     activeRef.current = active;
+    // 切换部件会重建卡片，必须同步写入新节点的位置。
+    writeCacheRef.current.cardPos = "";
     layout(anchorsRef.current);
   }, [active]);
 
@@ -174,6 +203,7 @@ export default function ServerCase() {
       const { createServerCaseScene } = await import("./server-case-scene");
       if (cancelled) return;
       const api = await createServerCaseScene(canvas);
+      if (cancelled) { api.dispose(); return; }
       sceneRef.current = api;
       api.resize();
       api.setActivePart(activeRef.current);
@@ -244,17 +274,19 @@ export default function ServerCase() {
         ))}
       </div>
       <aside
+        key={active ?? "closed"}
         id="server-part-card"
         className={`case-card${active ? " is-show" : ""}`}
         ref={cardRef}
         data-active-part={active ?? ""}
+        style={{ transformOrigin: activePart?.side === "left" ? "right center" : "left center" }}
         aria-hidden={!active}
         aria-live="polite"
       >
         {activePart && (
           <>
             <button type="button" className="case-card-close" aria-label="关闭" onClick={() => setActive(null)}>×</button>
-            <div className="case-card-no">{activePart.no}</div>
+            <div className="case-card-no">{activePart.no} / 部件特写</div>
             <h2 className="case-card-title">{activePart.title}</h2>
             <div className="case-card-hw">HW — {activePart.hw}</div>
             <p className="case-card-map"><span className="arrow">→</span>{activePart.map}</p>
