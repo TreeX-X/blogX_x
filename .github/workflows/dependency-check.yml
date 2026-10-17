@@ -1,0 +1,30 @@
+name: Check deployment lockfile
+
+on:
+  push:
+    paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "package-lock.json"
+      - ".github/workflows/dependency-check.yml"
+  pull_request:
+    paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "package-lock.json"
+      - ".github/workflows/dependency-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate Vercel dependency lockfile
+        run: npx --yes pnpm@10 install --lockfile-only --frozen-lockfile --ignore-scripts
