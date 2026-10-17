@@ -1,10 +1,14 @@
 ---
-schema: harness-note/1
-id: 617f02c5-4375-42bc-8527-3548064f7a34
-kind: decision
-lifecycle: implemented
-created: 2026-10-07
-class: feature
+{
+  "schema": "harness-note/2",
+  "id": "617f02c5-4375-42bc-8527-3548064f7a34",
+  "kind": "decision",
+  "lifecycle": "implemented",
+  "created": "2026-10-07",
+  "updated": "2026-10-16T06:39:12Z",
+  "class": "feature",
+  "module": "note://f6f78001-d086-47ba-b627-787ada391296/4d500b85-a071-45ab-adb0-c1c2ff26790d"
+}
 ---
 
 # 项目展示使用真实预览和精选 README 快照
@@ -21,7 +25,7 @@ class: feature
 
 项目的 `readmeSnapshot` 与手动 `summary`、`highlights`、`coverImage`、`coverAlt`、`demoUrl` 分开存储。展示优先使用非空手动字段，其次使用快照，缺少快照时仍显示已有描述。`/admin/projects` 的“从 README 更新”只预览数据，用户点击保存后才写入 LanceDB `content` 表；读取失败保留当前内容，更换仓库且未提交新快照时清除旧快照。项目编辑保留正文、翻译字段和发布状态。
 
-访客读取已保存快照，不发起 GitHub 内容请求。JanusX 与 WorkFlowX 的封面和演示来自上游真实素材，来源版本与许可见 [素材说明](../../public/projects/ATTRIBUTION.md)。两张 WebP 静态预览合计约 84KB，GIF 仅在点击播放后加载，停止时恢复静态预览。图片失败显示文字占位并保留仓库入口。本地素材需要人工更新；读取 README 不会下载或转换新的封面。
+访客读取已保存快照，不发起 GitHub 内容请求。JanusX 与 WorkFlowX 的封面和演示来自上游真实素材，来源版本与许可见 [素材说明](../../public/projects/ATTRIBUTION.md)。按用户 2026-10-16 的要求，有演示时默认显示 GIF，通过原生图片懒加载在接近可视区域时加载；两个现有 GIF 均声明无限循环。保留停止与重新播放按钮，停止时恢复静态封面；没有演示时显示封面。两张 WebP 静态预览合计约 84KB。图片失败显示文字占位并保留仓库入口。本地素材需要人工更新；读取 README 不会下载或转换新的封面，新 GIF 的循环次数由素材自身决定。
 
 CLI `node scripts/sync-project-readmes.mjs --all --dry-run` 预览全部项目，`--slug <slug>` 选择单项；去掉 `--dry-run` 保存快照并保留其他字段。内容拉取和发布沿用现有链路，生成的 `src/content/projects` 文件不是真相源。
 
@@ -35,9 +39,13 @@ CLI `node scripts/sync-project-readmes.mjs --all --dry-run` 预览全部项目�
 
 ## Consequences
 
-展示内容可以独立编辑，GitHub 暂时不可用时仍有已有快照。提取采用规则，不理解所有 Markdown 变体，章节和能力可能需要手动调整；能力可在后台覆盖，完整文档通过外链阅读。GIF 最大约 3.3MB，按需加载限制默认流量，但播放仍消耗对应带宽。
+展示内容可以独立编辑，GitHub 暂时不可用时仍有已有快照。提取采用规则，不理解所有 Markdown 变体，章节和能力可能需要手动调整；能力可在后台覆盖，完整文档通过外链阅读。GIF 最大约 3.3MB，自动播放会在浏览到项目区域时消耗下载带宽和动画解码资源，用户可手动停止。
 
 ## Verification
+
+2026-10-16 执行 `node scripts/test-project-showcase.mjs` 通过：两项演示无点击自动加载、GIF 文件循环次数为 0（无限）、停止恢复封面、再次播放、键盘展开、390px 手机排列、GIF 失败占位和访客零 GitHub 内容请求；后台模拟接口回归亦通过。使用已有外部 Playwright 与 Edge，对 `http://localhost:4321` 开发服务器执行。
+
+以下为初版实现时的历史验证记录，其中点击后加载行为已被上述自动播放要求取代。
 
 `node scripts/test-project-readme.mjs` 的五项测试通过，覆盖素材和章节提取、相对路径、空文档、请求地址限制、提交版本固定、429 失败，以及字段边界和链接校验。
 

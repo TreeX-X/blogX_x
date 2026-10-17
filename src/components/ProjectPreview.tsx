@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 type Props = { title: string; coverImage?: string; coverAlt?: string; demoUrl?: string };
 
 export default function ProjectPreview({ title, coverImage, coverAlt, demoUrl }: Props) {
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(Boolean(demoUrl));
   const [failed, setFailed] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const source = playing ? demoUrl : coverImage;

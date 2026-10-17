@@ -1,0 +1,122 @@
+/* Shared finishing for the industrial drawing language. Marks belong to
+   content boundaries; typography and controls keep their normal geometry. */
+.section-title,
+.footer-brand,
+.feature-title,
+.card h3,
+.repo-name,
+.project-copy h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+}
+
+.section-header {
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--line-strong);
+}
+.section-header .section-title { margin-bottom: 0; }
+.hero-badge,
+.section-link,
+.meta,
+.article-card-meta,
+.repo-card-foot,
+.footer-bottom,
+.toc-title,
+.kb-sidebar-title,
+.kg-header,
+.share-label {
+  font-family: var(--font-mono);
+}
+
+.card,
+.feature-card,
+.repo-card,
+.skill-card,
+.related-card,
+.project-showcase {
+  border-color: var(--line-strong);
+  border-radius: 3px 1px 4px 2px;
+  box-shadow: var(--shadow-card);
+}
+.card:hover,
+.feature-card:hover,
+.repo-card:hover,
+.skill-card:hover,
+.related-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+.feature-icon {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+}
+.feature-icon svg { width: 24px; height: 24px; stroke-width: 1.25; }
+.feature-desc { color: var(--text-secondary); }
+.tag,
+.lang-badge,
+.share-btn {
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+.hero-search-container,
+.search-form,
+.ai-search-container {
+  background: var(--surface-raised);
+  border-color: var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+.hero-search-hint { opacity: 1; }
+.hero-search-btn,
+.btn-primary,
+.btn-secondary,
+.skill-download-btn,
+.share-btn { font-family: var(--font-mono); }
+
+.home-sidebar .kg-panel {
+  border-color: var(--line-strong);
+  border-radius: var(--radius);
+}
+.kg-header { border-bottom: 1px solid var(--line); padding-bottom: 0.75rem; }
+.kg-stat-dot { box-shadow: none; }
+.home-sidebar .kg-expanded { background: var(--bg); }
+.toc-panel,
+.skill-toc,
+.kb-sidebar {
+  background: var(--glass-bg);
+  backdrop-filter: none;
+  border-radius: var(--radius);
+}
+.preview-popover-body {
+  border-color: var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 2px 4px 0 rgba(89, 71, 45, 0.16);
+}
+.preview-cover { border-radius: var(--radius) var(--radius) 0 0; }
+.prose-wrap :where(h1, h2, h3, h4) { font-family: var(--font-serif); }
+.prose-wrap pre,
+.skill-content pre { border-radius: var(--radius); }
+.site-footer { border-top: 3px double var(--line-strong); }
+.footer-bottom { border-top-style: dashed; }
+.brand .pixel-wave-title.brand-wave { filter: none; }
+
+/* The closed menu stays inside the viewport and out of the focus order. */
+@media (max-width: 768px) {
+  .nav-links {
+    right: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 180ms ease, visibility 180ms ease;
+  }
+  .nav-links[data-open="true"] {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .menu-toggle { position: relative; z-index: 31; }
+  .skills-grid { grid-template-columns: minmax(0, 1fr); }
+}

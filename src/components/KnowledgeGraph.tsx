@@ -35,11 +35,11 @@ type Props = {
   apiUrl: string;
 };
 
-/*-- 配色：ljj.world light — 暗红主色 + 暖赭石辅色 --*/
+/*-- 配色：暖纸工业图解 — 牛血 / 赭石 / 墨棕区分内容类型 --*/
 const NODE_COLORS: Record<string, { core: string; glow: string; text: string }> = {
-  posts:            { core: "#b93b28", glow: "rgba(185,59,40,0.20)", text: "#151613" },
-  "knowledge-base": { core: "#a87530", glow: "rgba(168,117,48,0.18)", text: "#151613" },
-  wiki:             { core: "#8A8780", glow: "rgba(138,135,128,0.16)", text: "#151613" },
+  posts:            { core: "#b93b28", glow: "rgba(185,59,40,0.20)", text: "#493c2b" },
+  "knowledge-base": { core: "#9a7748", glow: "rgba(154,119,72,0.18)", text: "#493c2b" },
+  wiki:             { core: "#81725a", glow: "rgba(129,114,90,0.16)", text: "#493c2b" },
 };
 
 function getNodeStyle(collection: string) {
@@ -164,7 +164,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .selectAll("line")
       .data(links)
       .join("line")
-      .attr("stroke", "rgba(21,22,19,0.35)")
+      .attr("stroke", "rgba(89,71,45,0.35)")
       .attr("stroke-width", (d: any) => Math.max(0.6, Math.min(2.0, (d.similarity || 0) * 3.5)));
 
     const nodeGroups = select(nodesG)
@@ -191,7 +191,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .attr("class", "kg-core")
       .attr("r", 5)
       .attr("fill", (d: any) => getNodeStyle(d.collection).core)
-      .attr("stroke", "rgba(255,255,255,0.6)")
+      .attr("stroke", "rgba(248,240,220,0.8)")
       .attr("stroke-width", 1);
 
     /*-- 文字标签 --*/
@@ -207,7 +207,7 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
       .attr("font-family", '"IBM Plex Sans", "Noto Sans SC", -apple-system, sans-serif')
       .attr("fill", (d: any) => getNodeStyle(d.collection).text)
       .attr("paint-order", "stroke")
-      .attr("stroke", "rgba(245,240,235,0.85)")
+      .attr("stroke", "rgba(239,229,207,0.9)")
       .attr("stroke-width", 3);
 
     /*-- 点击预览（拖拽结束后短路） --*/
@@ -252,12 +252,12 @@ export default function KnowledgeGraph({ apiUrl }: Props) {
         .transition()
         .duration(160)
         .attr("stroke", (l: any) => {
-          if (!id) return "rgba(21,22,19,0.35)";
+          if (!id) return "rgba(89,71,45,0.35)";
           const s = idOf(l.source);
           const t = idOf(l.target);
           return s === id || t === id
-            ? edgeColor || "rgba(21,22,19,0.7)"
-            : "rgba(21,22,19,0.12)";
+            ? edgeColor || "rgba(89,71,45,0.7)"
+            : "rgba(89,71,45,0.12)";
         })
         .style("opacity", (l: any) => {
           if (!id) return 1;

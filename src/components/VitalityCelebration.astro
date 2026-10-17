@@ -1,0 +1,82 @@
+---
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const players = [
+  { id: "apEX", x: 100, y: 143, tilt: -7, rx: 17, ry: 19, hairColor: "#544534", arms: "M-26 36 -45 10 -42 -23 M26 36 51 24 72 31", legs: "M-10 77 -19 105 -36 121 M10 77 20 104 24 121", hair: "M-16 -4 -17 -15 Q-13 -28 0 -26 Q17 -25 17 -12 L13 -5 10 -14 Q-2 -9 -12 -10Z", brows: "M-10 -5 -4 -3 M4 -3 10 -5", beard: "M-11 9  -8 15 0 18 8 15 11 9 M-4 6 0 5 4 6", mouth: "M-5 7 Q0 3 5 7 L4 13 Q0 17 -4 13Z", glasses: false },
+  { id: "flameZ", x: 205, y: 133, tilt: -4, rx: 17, ry: 19, hairColor: "#473b2e", arms: "M-26 36 -50 23 -66 31 M26 36 48 8 71 -37", legs: "M-10 77 -16 109 -24 131 M10 77 21 108 33 131", hair: "M-17 -3 Q-23 -22 -4 -23 Q11 -28 19 -13 L9 -5 11 -13 Q0 -4 -13 -6 L-14 2Z", brows: "M-10 -6 -4 -7 M4 -7 10 -6", beard: "M-8 12 Q0 25 8 12 M-5 7Q0 5 5 7", mouth: "M-8 6 Q0 10 8 6 Q5 17 -3 15Z", glasses: false },
+  { id: "ZywOo", x: 310, y: 139, tilt: 0, rx: 21, ry: 19, hairColor: "#5c4932", arms: "M-26 36 -48 5 -27 -70 M26 36 48 5 27 -70", legs: "M-10 77 -19 104 -24 125 M10 77 19 104 24 125", hair: "M-20 -1 Q-26 -9 -20 -14 Q-24 -23 -15 -23 Q-12 -31 -5 -25 Q1 -32 7 -25 Q17 -30 18 -21 Q28 -18 21 -10 L18 -5 14 -13 7 -10 2 -15 -4 -10 -11 -14 -16 -7 -17 0Z", brows: "M-13 -5 -6 -6 M6 -6 13 -5", beard: "M-16 8 Q-13 23 0 23 Q13 23 16 8 L11 14 5 13 0 16 -5 13 -11 14Z", mouth: "M-7 8Q0 14 7 8", glasses: true },
+  { id: "mezii", x: 415, y: 133, tilt: 4, rx: 16, ry: 20, hairColor: "#705638", arms: "M-26 36 -48 8 -71 -37 M26 36 50 23 66 31", legs: "M-10 77 -21 108 -33 131 M10 77 16 109 24 131", hair: "M-15 -4 -17 -13 Q-16 -23 -7 -21 Q1 -29 9 -21 Q18 -22 17 -9 L13 -4 10 -14 Q2 -9 -3 -14 L-12 -8Z", brows: "M-10 -6 -4 -4 M4 -4 10 -6", beard: "M-4 6Q0 3 4 6 M-7 16Q0 21 7 16", mouth: "M-4 9 Q0 5 4 9 L4 14 Q0 19 -4 14Z", glasses: false },
+  { id: "ropz", x: 520, y: 143, tilt: 7, rx: 16, ry: 19, hairColor: "#a38a60", arms: "M-26 36 -51 24 -72 31 M26 36 45 10 42 -23", legs: "M-10 77 -20 104 -24 121 M10 77 19 105 36 121", hair: "M-15 -6 -16 -14 -10 -21 -4 -18 -1 -25 4 -19 9 -22 14 -14 16 -5 10 -12 5 -10 1 -15 -4 -11 -10 -14Z", brows: "M-10 -5h6 M4 -5h6", beard: "", mouth: "M-5 8Q0 11 5 7", glasses: false },
+];
+const star = "M0-2 0.6-0.6 2-0.6 0.9 0.4 1.3 2 0 1.1 -1.3 2 -0.9 0.4 -2-0.6 -0.6-0.6Z";
+---
+
+<!-- Stylized player portraits; four crest stars are the user's requested fan design. -->
+<svg class="vitality-celebration" viewBox="0 0 620 310" fill="none" aria-hidden="true" focusable="false">
+  <g stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M55 271 Q309 266 565 271" opacity=".18" stroke-width="1.5" />
+    {players.map((player) => (
+      <g class="celebration-player" data-player={player.id} transform={`translate(${player.x} ${player.y}) rotate(${player.tilt})`}>
+        <path d={player.arms} />
+        <path d={player.legs} />
+        <path d="M-13 23 -30 33 -24 48 -18 44 -19 77 Q0 81 19 77 L18 44 24 48 30 33 13 23Z" fill="#353026" />
+        <path d="M-13 23 -30 33 -24 43 -11 34 M13 23 30 33 24 43 11 34" fill="#e3be3d" stroke="#e3be3d" stroke-width="2" />
+        <path d="M-7 23 0 30 7 23" stroke="#e3be3d" stroke-width="2" />
+        <g class="celebration-crest" transform="translate(-2 6)">
+          {[6, 10, 14, 18].map(x => <path class="crest-star" d={star} transform={`translate(${x} 37)`} fill="#e3be3d" stroke="none" />)}
+          <circle cx="12" cy="51" r="8" stroke="#e3be3d" stroke-width=".6" />
+          <image href={`${base}/about/vitality-logo-white.png`} x="6" y="44" width="12" height="14" />
+        </g>
+        <text x="0" y="73" text-anchor="middle" fill="#f4e9ce" stroke="none" font-family="Arial, sans-serif" font-size="5.4" letter-spacing=".6">VITALITY</text>
+        <path d="M0 16V23" />
+        <ellipse rx={player.rx} ry={player.ry} fill="var(--bg)" stroke-width="2.5" />
+        <path class="player-hair" d={player.hair} fill={player.hairColor} stroke-width="1.5" />
+        <path d={player.brows} stroke-width="1.6" />
+        <path d="M-7 0h.1 M7 0h.1" stroke-width="2.8" />
+        <path d="M0 1 -1 5 1 5" stroke-width="1" opacity=".6" />
+        {player.beard && <path class="player-beard" d={player.beard} stroke-width="1.7" fill={player.id === "ZywOo" ? player.hairColor : "none"} opacity=".8" />}
+        <path d={player.mouth} fill={player.id === "apEX" || player.id === "mezii" ? "#544534" : "var(--bg)"} stroke-width="1.5" />
+        {player.glasses && <g class="player-glasses" stroke-width="2">
+          <rect x="-17" y="-6" width="14" height="11" rx="3" fill="#e3be3d" fill-opacity=".5" />
+          <rect x="3" y="-6" width="14" height="11" rx="3" fill="#e3be3d" fill-opacity=".5" />
+          <path d="M-3 -3Q0 -5 3 -3" />
+        </g>}
+      </g>
+    ))}
+    <g class="celebration-trophy">
+      <path d="M284 36H269V49Q269 69 291 69 M336 36H351V49Q351 69 329 69" stroke="#a17a27" stroke-width="4" />
+      <path d="M282 27H338L333 61Q330 78 310 81Q290 78 287 61Z" fill="#e3be3d" />
+      <path d="M292 34 296 58" stroke="#fff0b0" stroke-width="3" />
+      <path d="M307 82V96H296L291 104H329L324 96H313V82" fill="#d0a640" />
+      <path d="M282 27Q310 32 338 27" stroke-width="2" />
+      <path d="m310 43 3 6 7 1 -5 5 1 7 -6 -3 -6 3 1 -7 -5 -5 7 -1Z" fill="#fff0b0" stroke-width="1.3" />
+    </g>
+    {players.map(player => <text class="player-id" x={player.x} y="296" text-anchor="middle" fill="currentColor" stroke="none" font-family="var(--font-mono), monospace" font-size="17" font-weight="600">{player.id}</text>)}
+    <g stroke-width="2" opacity=".65">
+      <path d="m250 24 -5 -9 M370 24l5 -9 M310 13V4" stroke="#a17a27" />
+      <path d="m157 63 -6 -7 M451 56l7 -9 M66 99l-8 -2 M555 97l8 -4" />
+      <path d="m187 35 3 7 M423 29l-3 7 M112 72l5 -4 M502 63l-4 -6" stroke="#a17a27" />
+    </g>
+  </g>
+</svg>
+
+<style>
+  .vitality-celebration {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: min(72%, 580px);
+    height: auto;
+    color: var(--text);
+    opacity: .88;
+    pointer-events: none;
+    user-select: none;
+  }
+  @media (max-width: 600px) {
+    .vitality-celebration {
+      width: min(100%, 420px);
+      right: 50%;
+      bottom: 49px;
+      transform: translateX(50%);
+    }
+  }
+</style>

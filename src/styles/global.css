@@ -1,63 +1,57 @@
 @import "tailwindcss";
 
-/* ===== Warm Paper + Dark Red — ref. ljj.world (light only) ===== */
-/* Single light theme; oxblood accent on warm paper background + blueprint grid */
+/* ===== Warm Paper / Industrial Illustration — shared with the 3D case ===== */
+/* Paper, brown ink, fine structural rules and restrained oxblood accents. */
 
 :root {
-  /* === Warm Paper + Dark Red (light only, ref. ljj.world) === */
-  --bg: #f3f4f1;
-  --bg-soft: #ebeae4;
-  --bg-card: rgba(243, 244, 241, 0.7);
-  --surface: #e9eae6;
-  --surface-raised: #f8f9f6;
-  --surface-deep: #d9dad5;
+  /* Shared paper and ink palette; reading surfaces remain light. */
+  --bg: #efe5cf;
+  --bg-soft: #e7d9bd;
+  --bg-card: rgba(248, 240, 220, 0.66);
+  --surface: #e8dcc2;
+  --surface-raised: #f8f0dc;
+  --surface-deep: #d8c6a3;
 
-  --text: #151613;
-  --text-secondary: #383a35;
-  --text-muted: #696b64;
-  --muted-strong: #383a35;
+  --text: #3e3425;
+  --text-secondary: #615039;
+  --text-muted: #746149;
+  --muted-strong: #615039;
 
-  --line: #15161329;        /* 1px alpha line, ljj 风格 */
-  --line-strong: #15161375;
+  --line: #59472d40;        /* Fine brown ink on paper. */
+  --line-strong: #59472d85;
 
-  /* Accent: ljj 暗红/牛血红 — 真正主色 */
+  /* Oxblood is the single accent across paper and illustration. */
   --accent: #b93b28;
   --accent-hover: #9f2f1f;
   --accent-light: #f3d8d0;
   --accent-warm: #7a2418;   /* 深牛血，渐变暗端 */
   --accent-soft: #f3d8d0;   /* 淡粉填充 */
-  --accent-ink: #f8f9f6;    /* accent 上的浅色文字 */
+  --accent-ink: #f8f0dc;    /* accent 上的浅色文字 */
 
-  /* Radius: 小圆角（用户决策 4-6px） */
-  --radius: 6px;
-  --radius-sm: 4px;
-  --radius-lg: 8px;
+  /* Small corners recall cut paper rather than floating glass. */
+  --radius: 3px;
+  --radius-sm: 2px;
+  --radius-lg: 5px;
 
-  /* Glass — 按 new bg 重调暖偏 */
-  --glass-bg: rgba(243, 244, 241, 0.95);
-  --glass-border: rgba(21, 22, 19, 0.12);
-  --glass-border-hover: rgba(21, 22, 19, 0.22);
+  /* Legacy glass token names now describe opaque paper surfaces. */
+  --glass-bg: #f3e9d3;
+  --glass-border: rgba(89, 71, 45, 0.32);
+  --glass-border-hover: rgba(89, 71, 45, 0.64);
 
-  /* Shadows — 暖灰、低强度 */
-  --shadow-card: 0 1px 3px rgba(21, 22, 19, 0.08);
-  --shadow-card-hover: 0 4px 12px rgba(21, 22, 19, 0.14);
+  /* Short offset edges, no diffuse card glow. */
+  --shadow-card: 1px 2px 0 rgba(89, 71, 45, 0.1);
+  --shadow-card-hover: 2px 3px 0 rgba(89, 71, 45, 0.16);
 
-  /* Transitions — 对齐 ljj expo-out 缓动 */
+  /* Restrained movement with the existing expo-out easing. */
   --transition-fast: 200ms cubic-bezier(.16, 1, .3, 1);
   --transition-base: 350ms cubic-bezier(.16, 1, .3, 1);
   --transition-slow: 500ms cubic-bezier(.16, 1, .3, 1);
 
-  /* Typography — Geist 正文/UI + Manrope 标题(display) + Geist Mono 等宽 */
+  /* Legible sans body, bookish section headings, technical mono labels. */
   --font-sans: 'Geist', 'Noto Sans SC', 'PingFang SC', system-ui, -apple-system, sans-serif;
-  --font-serif: 'Manrope', 'Geist', 'Noto Sans SC', sans-serif;   /* 标题 → Manrope，保留 var 名以最小化改动 */
+  --font-serif: 'Noto Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
   --font-mono: 'Geist Mono', 'SFMono-Regular', Consolas, monospace;
   --font-display: 'Manrope', 'Geist', 'Noto Sans SC', sans-serif;
-
-  /* === 蓝图网格背景 token === */
-  --grid-line: rgba(0, 0, 0, 0.022);        /* 细网格线 ~2.2% */
-  --grid-line-strong: rgba(0, 0, 0, 0.045); /* 主网格线 ~4.5% */
-  --grid-size: 40px;
-  --grid-size-major: 200px;
 }
 
 html {
@@ -73,18 +67,7 @@ html {
 body {
   margin: 0;
   background-color: var(--bg);
-  background-image:
-    linear-gradient(var(--grid-line-strong) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line-strong) 1px, transparent 1px),
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size:
-    var(--grid-size-major) var(--grid-size-major),
-    var(--grid-size-major) var(--grid-size-major),
-    var(--grid-size) var(--grid-size),
-    var(--grid-size) var(--grid-size);
-  background-position: 0 0;
-  background-attachment: fixed;
+  background-image: none;
   color: var(--text);
   font-family: var(--font-sans);
   line-height: 1.6;
@@ -94,7 +77,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Claude Design - Clean background, no texture */
+/* Content and drawings sit on one continuous sheet. */
 
 /* Remove old dark theme elements */
 .starfield-canvas,
@@ -122,11 +105,11 @@ a {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(243, 244, 241, 0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg);
+  border-bottom-style: double;
+  border-bottom-width: 3px;
   border-bottom: 1px solid var(--line);
-  box-shadow: 0 8px 24px rgba(21, 22, 19, calc(0.04 * var(--brand-progress)));
+  box-shadow: none;
 }
 
 .site-header[data-brand-state="hero"] {
@@ -394,6 +377,7 @@ a {
 }
 
 .hero-badge {
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -432,7 +416,7 @@ a {
   align-items: center;
   gap: 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: transparent;
   padding: 0.3rem 0.3rem 0.3rem 1.2rem;
   transition: border-color var(--transition-base), box-shadow var(--transition-base);
@@ -463,7 +447,7 @@ a {
 .hero-search-btn {
   padding: 0.55rem 1.4rem;
   border: 1px solid var(--accent);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--accent);
   font-weight: 500;
@@ -542,38 +526,22 @@ a {
 .feature-card {
   background: var(--bg-card);
   border: 1px solid var(--glass-border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 1.75rem;
   transition: all var(--transition-base);
   position: relative;
 }
 
-.feature-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(185, 59, 40,0.2), transparent);
-  opacity: 0;
-  transition: opacity var(--transition-base);
-}
-
 .feature-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-card-hover);
   border-color: var(--glass-border-hover);
-}
-
-.feature-card:hover::before {
-  opacity: 1;
 }
 
 .feature-icon {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -653,14 +621,14 @@ a {
   display: block;
   background: var(--bg-card);
   border: 1px solid var(--glass-border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 1.25rem 1.5rem;
   transition: all var(--transition-base);
   position: relative;
 }
 
 .card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-card-hover);
   border-color: var(--glass-border-hover);
 }
@@ -720,7 +688,7 @@ a {
   flex-direction: column;
   background: var(--bg-card);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 1.25rem 1.4rem;
   text-decoration: none;
   color: var(--text);
@@ -812,8 +780,8 @@ a {
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   column-gap: clamp(1.5rem, 4vw, 3rem);
   padding: 1.5rem;
-  border: 1px solid rgba(21, 22, 19, 0.1);
-  border-radius: 8px;
+  border: 1px solid rgba(74, 58, 37, 0.1);
+  border-radius: var(--radius);
   background: var(--bg-card);
 }
 .project-media { min-width: 0; margin: 0; align-self: start; }
@@ -841,7 +809,7 @@ a {
 .project-readme-content p { white-space: pre-line; font-size: 0.8rem; line-height: 1.9; color: var(--text-secondary); margin: 0; overflow-wrap: anywhere; }
 .project-readme-content > a { grid-column: 1 / -1; font-size: 0.75rem; color: var(--text-muted); }
 .project-showcase :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
-.admin-readme-preview { padding: 1rem; background: var(--bg-soft); border-radius: 6px; font-size: 0.8rem; line-height: 1.8; }
+.admin-readme-preview { padding: 1rem; background: var(--bg-soft); border-radius: var(--radius); font-size: 0.8rem; line-height: 1.8; }
 .admin-readme-preview[hidden] { display: none; }
 .admin-readme-preview ul { padding-left: 1.2rem; }
 .admin-readme-images { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -867,7 +835,7 @@ a {
   top: 92px;
 }
 
-/* ===== Knowledge Graph Panel — Claude Design ===== */
+/* ===== Knowledge map / technical drawing ===== */
 
 .kg-panel {
   padding: 0;
@@ -1008,7 +976,7 @@ a {
 .ai-search-container input,
 .ai-search-container button {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-card);
   color: var(--text);
   padding: 0.6rem 0.8rem;
@@ -1050,7 +1018,7 @@ a {
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   background: var(--bg-card);
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin-top: 0.3rem;
 }
 
@@ -1084,7 +1052,7 @@ a {
 .ai-chat-context {
   margin-top: 1rem;
   border: 1px solid var(--glass-border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-card);
   overflow: hidden;
 }
@@ -1226,7 +1194,7 @@ a {
 .footer-bottom {
   margin-top: 2rem;
   padding-top: 1.25rem;
-  border-top: 1px solid rgba(21, 22, 19,0.25);
+  border-top: 1px solid rgba(74, 58, 37,0.25);
   color: var(--text-muted);
   font-size: 0.75rem;
   display: flex;
@@ -1252,7 +1220,7 @@ main {
   gap: 0.5rem;
   padding: 0.7rem 1.5rem;
   border: 1px solid var(--accent);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--accent);
   font-weight: 500;
@@ -1275,7 +1243,7 @@ main {
   gap: 0.5rem;
   padding: 0.7rem 1.5rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-card);
   color: var(--text-secondary);
   font-weight: 500;
@@ -1397,7 +1365,7 @@ main {
 
 .prose-wrap pre {
   border: 1px solid var(--glass-border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.85rem;
   overflow: auto;
   background: var(--bg-soft);
@@ -1532,7 +1500,7 @@ main {
   top: 92px;
   align-self: start;
   border: 1px solid var(--glass-border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.7rem;
   background: var(--bg-card);
   max-height: calc(100vh - 100px);
@@ -1594,7 +1562,7 @@ main {
 .toolbox-icon {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   border: 1px solid var(--glass-border);
   background: var(--bg-soft);
   display: inline-flex;
@@ -1665,7 +1633,7 @@ main {
   gap: 0.6rem;
   padding: 0.45rem 0.9rem 0.45rem 0.5rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-card);
   transition: all var(--transition-base);
   overflow: hidden;
@@ -1716,7 +1684,7 @@ main {
 .github-entry:focus-visible {
   transform: translateY(-2px);
   border-color: var(--accent);
-  box-shadow: 0 4px 16px rgba(21, 22, 19,0.06);
+  box-shadow: 0 4px 16px rgba(74, 58, 37,0.06);
 }
 
 .github-entry:hover .github-entry-text,
@@ -2024,9 +1992,9 @@ main {
   max-height: min(70vh, 460px);
   overflow-y: auto;
   background: var(--surface-raised);
-  border: 1px solid rgba(21, 22, 19, 0.12);
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(21, 22, 19, 0.07), 0 18px 44px rgba(21, 22, 19, 0.16);
+  border: 1px solid rgba(74, 58, 37, 0.12);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 6px rgba(74, 58, 37, 0.07), 0 18px 44px rgba(74, 58, 37, 0.16);
 }
 
 /* 封面铺满顶部：顶边即封面，圆角跟随容器 */
@@ -2083,7 +2051,7 @@ main {
   padding: 0.5rem 0.65rem;
   list-style: none;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--bg-soft);
   display: grid;
   gap: 0.28rem;
@@ -2134,7 +2102,7 @@ main {
   margin-top: 2rem;
   padding: 1.25rem;
   border: 1px solid var(--glass-border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-card);
 }
 
@@ -2151,7 +2119,7 @@ main {
   overflow: hidden;
   margin-bottom: 1.25rem;
   background: var(--bg-soft);
-  border-radius: 8px;
+  border-radius: var(--radius);
   border: 1px solid var(--line);
   --message-track-step: 40px;
   --message-track-top: 12px;
@@ -2174,7 +2142,7 @@ main {
   padding: 0.4rem 0.85rem;
   border-radius: 20px;
   border: 1px solid rgba(185, 59, 40,0.1);
-  box-shadow: 0 1px 4px rgba(21, 22, 19,0.04);
+  box-shadow: 0 1px 4px rgba(74, 58, 37,0.04);
   max-width: min(280px, calc(100vw - 4rem));
   display: inline-block;
   overflow: hidden;
@@ -2209,7 +2177,7 @@ main {
   min-width: 120px;
   padding: 0.5rem 0.85rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-card);
   color: var(--text);
   font-size: 0.88rem;
@@ -2227,7 +2195,7 @@ main {
 .form-row button {
   padding: 0.5rem 1.25rem;
   border: 1px solid var(--accent);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--accent);
   font-size: 0.88rem;
@@ -2322,8 +2290,8 @@ main {
   height: min(560px, calc(100dvh - 112px));
   min-height: 0;
   background: transparent;
-  border: 1px solid rgba(21, 22, 19, 0.1);
-  border-radius: 8px;
+  border: 1px solid rgba(74, 58, 37, 0.1);
+  border-radius: var(--radius);
   padding: 0.5rem 0.75rem;
   box-sizing: border-box;
   box-shadow: none;
@@ -2354,10 +2322,10 @@ main {
 .home-sidebar .kg-expanded {
   position: fixed; inset: 5vh 5vw; z-index: 100; width: auto; height: 90dvh; max-height: none;
   background: var(--bg);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.75rem 1rem;
   box-sizing: border-box;
-  box-shadow: 0 0 0 100vmax rgba(21, 22, 19, 0.5), var(--shadow-card);
+  box-shadow: 0 0 0 100vmax rgba(74, 58, 37, 0.5), var(--shadow-card);
 }
 main:has(.kg-expanded) { z-index: 100; }
 .home-sidebar:has(.kg-expanded) { z-index: 100; }
@@ -2393,7 +2361,7 @@ main:has(.kg-expanded) { z-index: 100; }
 .search-form input,
 .search-form button {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-card);
   color: var(--text);
   padding: 0.55rem 0.75rem;
@@ -2444,7 +2412,7 @@ main:has(.kg-expanded) { z-index: 100; }
   flex-direction: column;
   background: var(--bg-card);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 1.25rem 1.4rem;
   text-decoration: none;
   color: var(--text);
@@ -2592,7 +2560,7 @@ main:has(.kg-expanded) { z-index: 100; }
   color: var(--text-muted);
   text-decoration: none;
   padding: 0.3rem 0.5rem;
-  border-radius: 6px;
+  border-radius: var(--radius);
   border-left: 2px solid transparent;
   transition: all 0.15s;
   line-height: 1.4;
@@ -2657,7 +2625,7 @@ main:has(.kg-expanded) { z-index: 100; }
   background: transparent;
   border: 1px solid var(--accent);
   color: var(--accent);
-  border-radius: 8px;
+  border-radius: var(--radius);
   font-size: 0.85rem;
   font-weight: 500;
   text-decoration: none;
@@ -2925,7 +2893,7 @@ main:has(.kg-expanded) { z-index: 100; }
 
 .admin-table td {
   padding: 0.6rem 0.8rem;
-  border-bottom: 1px solid rgba(21, 22, 19,0.4);
+  border-bottom: 1px solid rgba(74, 58, 37,0.4);
   color: var(--text);
   vertical-align: top;
 }
@@ -3079,7 +3047,7 @@ main:has(.kg-expanded) { z-index: 100; }
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: rgba(243, 244, 241, 0.6);
+  background: var(--surface-raised);
   color: var(--text);
   font-family: inherit;
   font-size: 0.85rem;
@@ -3221,7 +3189,7 @@ main:has(.kg-expanded) { z-index: 100; }
 .admin-modal-content {
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   max-width: 480px;
   width: 90%;
   max-height: 80vh;
@@ -3366,7 +3334,7 @@ main:has(.kg-expanded) { z-index: 100; }
   overflow: hidden;
   flex: 0 0 auto;
   background: var(--bg-soft);
-  box-shadow: 0 4px 12px rgba(21, 22, 19,0.06);
+  box-shadow: 0 4px 12px rgba(74, 58, 37,0.06);
 }
 
 .about-avatar img {
@@ -3391,7 +3359,7 @@ main:has(.kg-expanded) { z-index: 100; }
   gap: 0.85rem;
   padding: 1rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-card);
   color: var(--text);
   overflow: hidden;
@@ -3432,7 +3400,7 @@ main:has(.kg-expanded) { z-index: 100; }
   overflow-y: hidden;
   padding: 0.75rem;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--bg-soft);
   scrollbar-width: thin;
   scrollbar-color: var(--accent) transparent;
@@ -3459,7 +3427,7 @@ main:has(.kg-expanded) { z-index: 100; }
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  border: 1px solid rgba(21, 22, 19,0.3);
+  border: 1px solid rgba(74, 58, 37,0.3);
 }
 
 .github-contrib-dot.level-0 { background: rgba(185, 59, 40,0.08); }

@@ -4,6 +4,7 @@ import FunMessages from "../components/FunMessages";
 import IdeaBox from "../components/IdeaBox";
 import { getProjects } from "../lib/content";
 import ProjectPreview from "../components/ProjectPreview";
+import VitalityCelebration from "../components/VitalityCelebration.astro";
 
 const base = import.meta.env.BASE_URL;
 const toBase = (path = "") => {
@@ -24,7 +25,10 @@ const imageUrl = (url?: string) => url?.startsWith("/") ? toBase(url) : url;
 <BaseLayout title="BlogX_x | 关于" description="关于 BlogX_x 和作者。">
   <!-- About Me -->
   <section>
-    <h1 class="section-title">关于我</h1>
+    <div class="about-title-scene">
+      <VitalityCelebration />
+      <h1 class="section-title">关于我</h1>
+    </div>
     <div class="card about-profile-card">
       <div class="about-profile-head">
         <div class="about-avatar">
@@ -157,3 +161,22 @@ const imageUrl = (url?: string) => url?.startsWith("/") ? toBase(url) : url;
     <IdeaBox apiUrl={ideasApi} client:load />
   </section>
 </BaseLayout>
+
+<style>
+  .about-title-scene {
+    position: relative;
+    isolation: isolate;
+    min-height: clamp(220px, 34vw, 300px);
+    display: flex;
+    align-items: flex-end;
+    margin-top: -1rem;
+  }
+  .about-title-scene h1 {
+    position: relative;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 600px) {
+    .about-title-scene { min-height: clamp(220px, 66vw, 290px); }
+    .about-title-scene h1 { margin-bottom: 1rem; }
+  }
+</style>

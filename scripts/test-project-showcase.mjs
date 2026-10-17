@@ -19,12 +19,25 @@ try {
     await card.locator('.project-media img').evaluate(img => img.decode());
   }
   await page.locator('astro-island[component-url*="ProjectPreview"]:not([ssr])').first().waitFor();
-  assert.equal(requests.filter(url => /\.gif(?:$|\?)/i.test(url)).length, 0);
+  assert.equal(requests.filter(url => /\.gif(?:$|\?)/i.test(url)).length, 2);
   assert.equal(requests.filter(url => /api\.github\.com|raw\.githubusercontent\.com/.test(url)).length, 0);
+  for (const card of await cards.all()) {
+    const src = await card.locator('.project-media img').getAttribute('src');
+    assert.match(src, /\.gif$/i);
+    const response = await page.request.get(new URL(src, site).href);
+    assert.ok(response.ok());
+    const bytes = await response.body();
+    const loop = bytes.indexOf('NETSCAPE2.0');
+    assert.ok(loop >= 0, 'GIF must declare looping');
+    assert.equal(bytes.readUInt16LE(loop + 13), 0, 'GIF must loop indefinitely');
+  }
   const preview = cards.first().locator('.project-media img');
+  const demo = await preview.getAttribute('src');
+  await cards.first().getByRole('button', { name: '停止演示' }).click();
   const poster = await preview.getAttribute('src');
+  assert.match(poster, /preview\.webp$/);
   await cards.first().getByRole('button', { name: '播放演示' }).click();
-  await page.waitForFunction(() => document.querySelector('.project-media img')?.getAttribute('src').endsWith('.gif'));
+  assert.equal(await preview.getAttribute('src'), demo);
   await cards.first().getByRole('button', { name: '停止演示' }).click();
   assert.equal(await preview.getAttribute('src'), poster);
   const details = cards.first().locator('details');
@@ -50,13 +63,13 @@ try {
   await screenshotStyle.evaluate(style => style.remove());
   assert.deepEqual(errors, []);
   const broken = await browser.newPage();
-  await broken.route('**/projects/*preview.webp', route => route.abort());
+  await broken.route('**/projects/*demo.gif', route => route.abort());
   await broken.goto(`${site}/about`);
   await broken.locator('.project-showcase').first().scrollIntoViewIfNeeded();
   await broken.locator('.project-media-fallback').first().waitFor();
   assert.match(await broken.locator('.project-media-fallback').first().innerText(), /暂时无法加载/);
   await broken.close();
-  console.log('PASS: real posters, deferred GIF, keyboard details, mobile layout, image failure fallback; no visitor GitHub fetch.');
+  console.log('PASS: automatic infinite-loop GIFs, stop/replay, keyboard details, mobile layout, image failure fallback; no visitor GitHub fetch.');
 
   const admin = await browser.newPage();
   const snapshot = { summary: 'README 简介 <img src=x>', highlights: ['能力一'], sections: [{ title: '功能', text: '功能介绍' }], images: [{ url: 'https://example.com/cover.png', alt: '封面' }], sourceUrl: 'https://github.com/owner/repo/blob/abc/README.md', revision: 'abc', fetchedAt: new Date().toISOString() };

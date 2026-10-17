@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import "../styles/paper-ui.css";
 import PixelWaveTitle from "../components/PixelWaveTitle";
 
 interface Props {
@@ -36,7 +37,16 @@ const isActive = (path: string) => {
     <link rel="icon" type="image/png" href={toBase("logo/treeXLogo.png")} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    {/* 字体表非阻塞加载：googleapis 不可达的网络下首屏立即可见（回退系统字），可达时照常套用 */}
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600&family=Noto+Serif+SC:wght@400;500;600&display=swap"
+      rel="stylesheet"
+      media="print"
+      onload="this.media='all'; this.onload=null;"
+    />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600&family=Noto+Serif+SC:wght@400;500;600&display=swap" rel="stylesheet" />
+    </noscript>
     <title>{title}</title>
     <slot name="head" />
     <script is:inline>
@@ -83,6 +93,8 @@ const isActive = (path: string) => {
           <a href={toBase("repos")} class:list={{ active: isActive("repos") }}>仓库</a>
           <a href={toBase("skills")} class:list={{ active: isActive("skills") }}>Skills</a>
           <a href={toBase("toolbox")} class:list={{ active: isActive("toolbox") }}>工具箱</a>
+          {/* Note: 「服务器」tab（线条机箱）— see .agents/notes/2026-10-15-server-tab-linecase-requirement--103be143.md */}
+          <a href={toBase("server")} class:list={{ active: isActive("server") }}>服务器</a>
           <a href={toBase("about")} class:list={{ active: isActive("about") }}>关于</a>
         </nav>
       </div>
