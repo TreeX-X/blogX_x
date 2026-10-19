@@ -1725,13 +1725,26 @@ main {
 .js-reveal .stagger > * {
   opacity: 0;
   transform: translateY(12px);
-  transition: opacity 500ms cubic-bezier(0.4, 0, 0.2, 1), transform 500ms cubic-bezier(0.4, 0, 0.2, 1);
-  transition-delay: var(--stagger-delay, 0ms);
+  transition: opacity 500ms cubic-bezier(0.4, 0, 0.2, 1), transform 500ms cubic-bezier(0.4, 0, 0.2, 1), filter 250ms ease;
+  transition-delay: var(--stagger-delay, 0ms), var(--stagger-delay, 0ms), 0ms;
 }
 
 .js-reveal .stagger > *.is-visible {
   opacity: 1;
   transform: none;
+}
+
+/* 聚焦卡片时同级变灰（对齐 claude.dev 列表聚焦语言）：
+   压暗走 filter 而非 opacity，避免与上面的入场动画互相覆盖；
+   仅在卡片本体悬停/聚焦时触发，网格间隙悬停不压暗。 */
+@media (hover: hover) and (pointer: fine) {
+  :is(.stagger, .related-grid, .search-results, .toolbox-grid, .kg-group > div):has(> :is(.card, .skill-card, .repo-card, .feature-card):hover) > :is(.card, .skill-card, .repo-card, .feature-card):not(:hover) {
+    filter: opacity(0.35);
+  }
+}
+
+:is(.stagger, .related-grid, .search-results, .toolbox-grid, .kg-group > div):has(> :is(.card, .skill-card, .repo-card, .feature-card):focus-visible) > :is(.card, .skill-card, .repo-card, .feature-card):not(:focus-visible) {
+  filter: opacity(0.35);
 }
 
 .stagger > *:nth-child(2) { --stagger-delay: 80ms; }
