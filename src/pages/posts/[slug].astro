@@ -4,6 +4,7 @@ import { render } from "astro:content";
 import { getPublishedPosts, formatDate, getEntrySlug, getContentTitle, getContentSummary, getContentDate } from "../../lib/content";
 import { getArticleBySlug, getRelatedContent, estimateReadingTime, extractDomain } from "../../lib/article-db";
 import ArticleReader from "../../components/ArticleReader";
+import ReadingRail from "../../components/ReadingRail";
 
 export const prerender = true;
 
@@ -45,14 +46,12 @@ const hasPostBody = 'body' in post && typeof post.body === 'string' && post.body
 
 /*-- 如果有 LanceDB 数据，直接用 ArticleReader 渲染，否则降级为 Markdown 渲染 --*/
 let Content: any = null;
-let headings: any[] = [];
 if (!hasArticleContent) {
   /*-- 仅当 post 有实际 body 内容时才调用 render()，避免空内容导致崩溃 --*/
   if (hasPostBody) {
     try {
       const rendered = await render(post);
       Content = rendered.Content;
-      headings = rendered.headings ?? [];
     } catch (error) {
       /*-- render() 可能因内容为空或格式问题失败，降级为 null --*/
       console.error(`[slug] render(post) 失败，将显示降级 UI: ${error}`);
@@ -61,7 +60,6 @@ if (!hasArticleContent) {
     console.warn(`[slug] post "${params.slug}" 无 body 内容，跳过 render()`);
   }
 }
-const toc = headings.filter((item: any) => item.depth >= 2 && item.depth <= 4);
 
 /*-- SSR 语言感知 OG 标签：从 URL 参数读取语言，服务端条件渲染 --*/
 const lang = Astro.url.searchParams.get("lang");
@@ -129,8 +127,14 @@ const relatedCollectionLabel = (collection: string) =>
   </Fragment>
   {hasArticleContent ? (
     /*-- 外链文章：使用 ArticleReader 渲染 LanceDB 内容 --*/
-    <div class="article-layout">
-      <article class="article-reader-wrap">
+    <div class="article-layout article-layout--rail">
+      <ReadingRail
+        client:load
+        targetSelector="#article-body .article-content"
+        title={title}
+        minutes={articleData!.wordCount > 0 ? estimateReadingTime(articleData!.wordCount) : undefined}
+      />
+      <article class="article-reader-wrap" id="article-body">
         <header class="post-head">
           <p class="meta">{formatDate(pubDate)} 收录</p>
           <h1 style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;">
@@ -162,24 +166,16 @@ const relatedCollectionLabel = (collection: string) =>
           }}
         />
       </article>
-
-      {toc.length > 0 ? (
-        <aside class="toc-panel" aria-label="文章目录">
-          <p class="toc-title">快速跳转</p>
-          <nav class="toc-list">
-            {toc.map((item: any) => (
-              <a class={`toc-item depth-${item.depth}`} href={`#${item.slug}`}>
-                {item.text}
-              </a>
-            ))}
-          </nav>
-        </aside>
-      ) : null}
     </div>
   ) : (
     /*-- 降级：无 LanceDB 数据时用原始 Markdown 渲染 --*/
-    <div class="article-layout">
-      <article class="prose-wrap">
+    <div class="article-layout article-layout--rail">
+      <ReadingRail
+        client:load
+        targetSelector="#article-body"
+        title={title}
+      />
+      <article class="prose-wrap" id="article-body">
         <header class="post-head">
           <p class="meta">{formatDate(pubDate)}</p>
           <h1 style="font-size: clamp(1.8rem, 1.55rem + 1.4vw, 2.5rem); margin: 0.2rem 0 1rem;">
@@ -215,19 +211,6 @@ const relatedCollectionLabel = (collection: string) =>
           </div>
         )}
       </article>
-
-      {toc.length > 0 ? (
-        <aside class="toc-panel" aria-label="文章目录">
-          <p class="toc-title">快速跳转</p>
-          <nav class="toc-list">
-            {toc.map((item: any) => (
-              <a class={`toc-item depth-${item.depth}`} href={`#${item.slug}`}>
-                {item.text}
-              </a>
-            ))}
-          </nav>
-        </aside>
-      ) : null}
     </div>
   )}
 
