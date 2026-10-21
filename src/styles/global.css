@@ -2212,6 +2212,30 @@ main {
   border: 1px solid rgba(74, 58, 37, 0.12);
   border-radius: var(--radius-lg);
   box-shadow: 0 2px 6px rgba(74, 58, 37, 0.07), 0 18px 44px rgba(74, 58, 37, 0.16);
+  /* 滚动条按纸质界面自绘：细墨条 + 透明轨道，hover 染 accent，替换系统默认样式 */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-muted) 34%, transparent) transparent;
+}
+
+.preview-popover-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.preview-popover-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.preview-popover-body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted) 34%, transparent);
+  border-radius: 999px;
+}
+
+.preview-popover-body::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.preview-popover-body::-webkit-scrollbar-button {
+  display: none;
 }
 
 /* 封面铺满顶部：顶边即封面，圆角跟随容器 */
