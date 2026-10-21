@@ -51,7 +51,8 @@ function ensureHeadingIds(headings: HTMLElement[]): void {
   });
 }
 
-/*-- 把标题序列分组：h2 作组头，其后的 h3/h4 折叠为子项；无前置 h2 的首个标题提升为组头 --*/
+/*-- 把标题序列分组：不深于当前组头层级的标题开新组（h2 恒开新组；无 h2 的文章里同级
+     h3 各自成组，而不是全塞进首组的收起子树），更深的折叠为组头的子项 --*/
 function buildGroups(headings: HTMLElement[]): TreeGroup[] {
   const groups: TreeGroup[] = [];
   let current: TreeGroup | null = null;
@@ -62,7 +63,7 @@ function buildGroups(headings: HTMLElement[]): TreeGroup[] {
       text: (el.textContent || "").trim(),
       depth,
     };
-    if (depth === 2 || !current) {
+    if (!current || depth <= current.head.depth) {
       current = { head: item, subs: [] };
       groups.push(current);
     } else {

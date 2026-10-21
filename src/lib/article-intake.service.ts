@@ -302,6 +302,49 @@ async function parseBody(html: string): Promise<DomTree> {
   return { document: window.document, body: window.document.body };
 }
 
+/*-- 相对 URL 按 base 绝对化；已是绝对地址 / 锚点 / 带 scheme（mailto:、data: 等）时原样返回。
+     镜像文章里的 /media/...、/_next/... 等站内相对路径在自己站点上是 404，必须在抓取期定格 --*/
+function resolveUrl(value: string, base: URL): string {
+  const v = value.trim();
+  if (!v || v.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(v)) return v;
+  try {
+    return new URL(v, base).href;
+  } catch {
+    return v;
+  }
+}
+
+/*-- 正文媒体统一走站内代理 /api/media?u=...：部分源站（如 claude.dev）对图片响应带
+     Cross-Origin-Resource-Policy: same-origin，浏览器拒绝跨站嵌入，绝对 URL 也显示不出来。
+     服务端取回后同站输出，绕开 CORP；正文链接（a href）不走代理，保持原始目标 --*/
+function proxifyMediaUrl(absUrl: string): string {
+  if (!/^https:\/\//i.test(absUrl)) return absUrl;
+  return `/api/media?u=${encodeURIComponent(absUrl)}`;
+}
+
+/** 就地改写：媒体元素 src 走代理，a href 只绝对化 */
+function absolutizeElementUrls(document: Document, base: URL): void {
+  const mediaPairs: Array<[string, string]> = [
+    ["img", "src"],
+    ["source", "src"],
+    ["video", "src"],
+    ["audio", "src"],
+    ["iframe", "src"],
+  ];
+  for (const [tag, attr] of mediaPairs) {
+    for (const el of Array.from(document.querySelectorAll(tag))) {
+      const value = el.getAttribute(attr);
+      if (!value) continue;
+      el.setAttribute(attr, proxifyMediaUrl(resolveUrl(value, base)));
+    }
+  }
+  for (const el of Array.from(document.querySelectorAll("a"))) {
+    const value = el.getAttribute("href");
+    if (!value) continue;
+    el.setAttribute("href", resolveUrl(value, base));
+  }
+}
+
 async function fetchPage(url: string, onProgress: (message: string) => void): Promise<FetchedPage> {
   onProgress(`抓取 ${url}`);
   const controller = new AbortController();
@@ -318,6 +361,9 @@ async function fetchPage(url: string, onProgress: (message: string) => void): Pr
          SSR bundle（与 content-store 动态导入 lancedb 同一考虑）--*/
     const { Readability } = await import("@mozilla/readability");
     const { document } = await parseBody(html);
+    /*-- 先绝对化再进 Readability：parsed.content、双语 Markdown 与后续所有链接都继承绝对 URL --*/
+    const base = new URL(resp.url || url);
+    absolutizeElementUrls(document, base);
     const parsed = new Readability(document).parse();
     if (!parsed || !parsed.textContent?.trim()) {
       throw new Error("Readability 解析失败（页面可能需登录或无可读正文）");
@@ -334,7 +380,7 @@ async function fetchPage(url: string, onProgress: (message: string) => void): Pr
         parsed.excerpt ||
         "",
       author: meta('meta[name="author"]') || meta('meta[property="article:author"]') || parsed.byline || "",
-      coverImage: meta('meta[property="og:image"]'),
+      coverImage: proxifyMediaUrl(resolveUrl(meta('meta[property="og:image"]'), base)),
       publishedTime:
         meta('meta[property="article:published_time"]') || meta('meta[name="date"]'),
       keywords: meta('meta[name="keywords"]')

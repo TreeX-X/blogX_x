@@ -1439,7 +1439,12 @@ main {
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: thin;
+  /* 目录可滚但不露滚动条：子树收起时的焦点环外溢与长目录都会溢出，纸质界面不装滚动条 */
+  scrollbar-width: none;
+}
+
+.read-tree::-webkit-scrollbar {
+  display: none;
 }
 
 .read-tree a {
