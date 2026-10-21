@@ -54,13 +54,16 @@ const toBase = (path = "") => {
 					data-scope="site"
 				>
 					<div class="hero-search-container">
-						<input
-							id="siteSearchInput"
-							name="q"
-							type="search"
-							placeholder="搜索文章、知识库、概念..."
-							autocomplete="off"
-						/>
+						<div class="search-field">
+							<input
+								id="siteSearchInput"
+								name="q"
+								type="search"
+								placeholder="搜索文章、知识库、概念..."
+								autocomplete="off"
+							/>
+							<button type="button" id="searchClearBtn" class="search-clear-btn" aria-label="清除输入" hidden>✕</button>
+						</div>
 						<button type="submit" class="hero-search-btn" id="searchButton">
 							搜索
 						</button>
@@ -77,15 +80,15 @@ const toBase = (path = "") => {
 				<p class="hero-search-hint">支持自然语言提问，AI 自动检索并生成回答</p>
 			</div>
 
-			<div id="aiChatContext" class="ai-chat-context" style="display: none; max-width: 520px; margin: 1rem 0 0;">
+			<div id="aiChatContext" class="ai-chat-context" style="display: none;">
 				<div class="chat-header">
 					<h3>AI 对话</h3>
 					<button id="clearChat" class="clear-chat-btn">清除对话</button>
 				</div>
 				<div id="chatMessages" class="chat-messages"></div>
 			</div>
-			<div id="searchStatus" class="meta" style="margin: 0.5rem 0 0.75rem;"></div>
-			<div id="searchResults" class="search-results" style="max-width: 520px;" aria-live="polite"></div>
+			<div id="searchStatus" class="meta search-status"></div>
+			<div id="searchResults" class="search-results search-results-wide" aria-live="polite"></div>
 		</div>
 
 	</section>
@@ -184,6 +187,16 @@ const toBase = (path = "") => {
 			var chatMessages = document.getElementById("chatMessages");
 			var clearChatBtn = document.getElementById("clearChat");
 			var chatHistory = [];
+			var clearBtn = document.getElementById("searchClearBtn");
+			var abortController = null;
+
+			/*-- 输入框 ✕ 的双态：生成中显示为「停止回答」，平时显示为「清除输入」 --*/
+			function refreshClearBtn() {
+				if (!clearBtn) return;
+				var active = abortController !== null || input.value.length > 0;
+				clearBtn.hidden = !active;
+				clearBtn.setAttribute("aria-label", abortController !== null ? "停止回答" : "清除输入");
+			}
 
 			function escapeHtml(value) {
 				return value
@@ -242,6 +255,8 @@ const toBase = (path = "") => {
 			}
 
 			if (form && input && status && results && typingIndicator && chatContext && chatMessages) {
+				input.addEventListener("input", refreshClearBtn);
+
 				form.addEventListener("submit", function(event) {
 					event.preventDefault();
 					event.stopPropagation();
@@ -267,12 +282,20 @@ const toBase = (path = "") => {
 
 					addChatMessage(query, true);
 
+					/*-- 上一次还没回来就先停掉：✕ 的「停止」语义要求同一时刻只有一路请求 --*/
+					if (abortController) {
+						abortController.abort();
+					}
+					abortController = new AbortController();
+					refreshClearBtn();
+
 					fetch(api, {
 						method: "POST",
 						headers: {
 							"Content-Type": "application/json",
 						},
 							body: JSON.stringify({ q: query, limit: 6, scope: scope }),
+						signal: abortController.signal,
 					})
 					.then(function(response) {
 						return response.json();
@@ -289,10 +312,32 @@ const toBase = (path = "") => {
 					})
 					.catch(function(error) {
 						typingIndicator.style.display = "none";
+						/*-- 用户点 ✕ 停止不是失败，不报「搜索失败」 --*/
+						if (error && error.name === "AbortError") {
+							status.textContent = "已停止本次回答。";
+							return;
+						}
 						status.textContent = "搜索失败：" + error.message;
 						results.innerHTML = "";
+					})
+					.finally(function() {
+						abortController = null;
+						refreshClearBtn();
 					});
 				});
+
+				if (clearBtn) {
+					clearBtn.addEventListener("click", function() {
+						/*-- 生成中 = 停止本次回答；平时 = 清空输入 --*/
+						if (abortController) {
+							abortController.abort();
+							return;
+						}
+						input.value = "";
+						refreshClearBtn();
+						input.focus();
+					});
+				}
 
 				if (clearChatBtn) {
 					clearChatBtn.addEventListener("click", function() {
@@ -302,6 +347,7 @@ const toBase = (path = "") => {
 						status.textContent = "";
 						results.innerHTML = "";
 						input.value = "";
+						refreshClearBtn();
 						input.focus();
 					});
 				}

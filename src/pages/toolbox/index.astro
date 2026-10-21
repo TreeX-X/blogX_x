@@ -37,13 +37,16 @@ const toBase = (path = "") => {
 			data-scope="toolbox"
 		>
 			<div class="ai-search-container">
-				<input
-					id="toolboxSearchInput"
-					name="q"
-					type="search"
-					placeholder="搜索工具名称、分类或简介"
-					autocomplete="off"
-				/>
+				<div class="search-field">
+					<input
+						id="toolboxSearchInput"
+						name="q"
+						type="search"
+						placeholder="搜索工具名称、分类或简介"
+						autocomplete="off"
+					/>
+					<button type="button" id="toolboxSearchClearBtn" class="search-clear-btn" aria-label="清除输入" hidden>✕</button>
+				</div>
 				<button type="submit" id="toolboxSearchButton">搜索</button>
 			</div>
 			<div id="toolboxTypingIndicator" class="ai-typing-indicator" style="display: none;">
@@ -62,7 +65,7 @@ const toBase = (path = "") => {
 			</div>
 			<div id="toolboxChatMessages" class="chat-messages"></div>
 		</div>
-		<div id="toolboxSearchStatus" class="meta" style="margin: 0.55rem 0 0.9rem;"></div>
+		<div id="toolboxSearchStatus" class="meta search-status"></div>
 		<div id="toolboxSearchResults" class="search-results" aria-live="polite"></div>
 	</section>
 
@@ -119,6 +122,16 @@ const toBase = (path = "") => {
 			var chatMessages = document.getElementById("toolboxChatMessages");
 			var clearChatBtn = document.getElementById("toolboxClearChat");
 			var chatHistory = [];
+			var clearBtn = document.getElementById("toolboxSearchClearBtn");
+			var abortController = null;
+
+			/*-- 输入框 ✕ 的双态：生成中显示为「停止回答」，平时显示为「清除输入」 --*/
+			function refreshClearBtn() {
+				if (!clearBtn) return;
+				var active = abortController !== null || input.value.length > 0;
+				clearBtn.hidden = !active;
+				clearBtn.setAttribute("aria-label", abortController !== null ? "停止回答" : "清除输入");
+			}
 
 			function escapeHtml(value) {
 				return value
@@ -180,6 +193,8 @@ const toBase = (path = "") => {
 			}
 
 			if (form && input && status && results && typingIndicator && chatContext && chatMessages) {
+				input.addEventListener("input", refreshClearBtn);
+
 				form.addEventListener("submit", function(event) {
 					event.preventDefault();
 					event.stopPropagation();
@@ -204,12 +219,20 @@ const toBase = (path = "") => {
 
 					addChatMessage(query, true);
 
+					/*-- 上一次还没回来就先停掉：✕ 的「停止」语义要求同一时刻只有一路请求 --*/
+					if (abortController) {
+						abortController.abort();
+					}
+					abortController = new AbortController();
+					refreshClearBtn();
+
 					fetch(api, {
 						method: "POST",
 						headers: {
 							"Content-Type": "application/json",
 						},
 						body: JSON.stringify({ q: query, limit: 6, scope: scope }),
+						signal: abortController.signal,
 					})
 					.then(function(response) {
 						return response.json();
@@ -226,9 +249,31 @@ const toBase = (path = "") => {
 					})
 					.catch(function(error) {
 						typingIndicator.style.display = "none";
+						/*-- 用户点 ✕ 停止不是失败，不报「搜索失败」 --*/
+						if (error && error.name === "AbortError") {
+							status.textContent = "已停止本次回答。";
+							return;
+						}
 						status.textContent = "搜索失败：" + (error && error.message ? error.message : "未知错误");
+					})
+					.finally(function() {
+						abortController = null;
+						refreshClearBtn();
 					});
 				});
+
+				if (clearBtn) {
+					clearBtn.addEventListener("click", function() {
+						/*-- 生成中 = 停止本次回答；平时 = 清空输入 --*/
+						if (abortController) {
+							abortController.abort();
+							return;
+						}
+						input.value = "";
+						refreshClearBtn();
+						input.focus();
+					});
+				}
 
 				if (clearChatBtn) {
 					clearChatBtn.addEventListener("click", function() {
@@ -237,6 +282,7 @@ const toBase = (path = "") => {
 						chatContext.style.display = "none";
 						status.textContent = "";
 						input.value = "";
+						refreshClearBtn();
 						results.innerHTML = "";
 					});
 				}
