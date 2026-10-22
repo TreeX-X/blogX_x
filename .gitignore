@@ -70,3 +70,6 @@ opencode.json
 # local scratch (_temp scripts, logs, session backups — never commit)
 _temp/
 _temp-*.js
+
+# local agent locks
+.agents/.local/
