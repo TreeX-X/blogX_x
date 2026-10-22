@@ -1344,54 +1344,7 @@ main {
   align-items: start;
 }
 
-.toc-panel {
-  position: sticky;
-  top: 92px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  padding: 0.75rem;
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-}
-
-.toc-title {
-  margin: 0 0 0.5rem;
-  font-size: 0.78rem;
-  color: var(--accent);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-weight: 500;
-}
-
-.toc-list {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.toc-item {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  padding-left: 0.4rem;
-  border-left: 2px solid transparent;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
-}
-
-.toc-item:hover,
-.toc-item:focus-visible {
-  color: var(--accent);
-  border-left-color: rgba(185, 59, 40,0.4);
-}
-
-.toc-item.depth-3 { padding-left: 0.9rem; font-size: 0.82rem; }
-.toc-item.depth-4 { padding-left: 1.3rem; font-size: 0.78rem; }
-
-.toc-item.active {
-  color: var(--accent);
-  border-left-color: var(--accent);
-  font-weight: 500;
-}
-
-/* ===== Reading Rail：左栏章节树 + 阅读进度（文章页） ===== */
+/* ===== Reading Rail：左栏章节树 + 阅读进度（文章 / 知识库 / Wiki 页） ===== */
 
 .article-layout--rail { grid-template-columns: 236px minmax(0, 1fr); }
 

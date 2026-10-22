@@ -21,7 +21,6 @@
 .article-card-meta,
 .repo-card-foot,
 .footer-bottom,
-.toc-title,
 .kb-sidebar-title,
 .kg-header,
 .share-label {
@@ -83,7 +82,6 @@
 .kg-header { border-bottom: 1px solid var(--line); padding-bottom: 0.75rem; }
 .kg-stat-dot { box-shadow: none; }
 .home-sidebar .kg-expanded { background: var(--bg); }
-.toc-panel,
 .skill-toc,
 .kb-sidebar {
   background: var(--glass-bg);

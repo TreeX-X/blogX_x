@@ -21,6 +21,8 @@ interface ReadingRailProps {
   targetSelector: string;
   title: string;
   minutes?: number;
+  /*-- article：仅当前组展开，服务线性阅读；reference：子树常开，服务查阅跳转 --*/
+  variant?: "article" | "reference";
 }
 
 const PROG_CELLS = 28;
@@ -73,7 +75,7 @@ function buildGroups(headings: HTMLElement[]): TreeGroup[] {
   return groups;
 }
 
-export default function ReadingRail({ targetSelector, title, minutes }: ReadingRailProps) {
+export default function ReadingRail({ targetSelector, title, minutes, variant = "article" }: ReadingRailProps) {
   const [groups, setGroups] = useState<TreeGroup[]>([]);
   const navRef = useRef<HTMLElement>(null);
   const progFillRef = useRef<HTMLElement>(null);
@@ -130,8 +132,12 @@ export default function ReadingRail({ targetSelector, title, minutes }: ReadingR
           if (on) a.setAttribute("aria-current", "true");
           else a.removeAttribute("aria-current");
         });
-        /*-- 当前章节所在组（或组头自身激活时）的子树展开，其余收起 --*/
+        /*-- 当前章节所在组（或组头自身激活时）的子树展开，其余收起；reference 常开 --*/
         nav.querySelectorAll<HTMLElement>(".read-subs").forEach((el) => {
+          if (variant === "reference") {
+            el.classList.add("open");
+            return;
+          }
           const head = el.previousElementSibling as HTMLElement | null;
           const headOn = head?.classList.contains("on") ?? false;
           const contains = el.querySelector("a.on") !== null;
@@ -187,7 +193,7 @@ export default function ReadingRail({ targetSelector, title, minutes }: ReadingR
       if (raf) cancelAnimationFrame(raf);
       if (mutationRaf) cancelAnimationFrame(mutationRaf);
     };
-  }, [targetSelector]);
+  }, [targetSelector, variant]);
 
   /*-- 点击树项：平滑滚动到对应标题并记录 hash --*/
   const jumpTo = (id: string) => {
@@ -216,7 +222,7 @@ export default function ReadingRail({ targetSelector, title, minutes }: ReadingR
                   {group.head.text}
                 </a>
                 {group.subs.length > 0 && (
-                  <div className="read-subs">
+                  <div className={variant === "reference" ? "read-subs open" : "read-subs"}>
                     <div>
                       {group.subs.map((sub) => (
                         <a

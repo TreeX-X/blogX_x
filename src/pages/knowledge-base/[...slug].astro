@@ -9,6 +9,7 @@ import {
   getEntryPath,
   formatDate,
 } from "../../lib/content";
+import ReadingRail from "../../components/ReadingRail";
 
 export const prerender = true;
 
@@ -24,16 +25,21 @@ const entries = await getKnowledgeBaseEntries();
 const entry = entries.find((item) => getEntryPath(item) === paramSlug);
 
 if (!entry) throw new Error(`Knowledge entry not found: ${paramSlug}`);
-const { Content, headings } = await render(entry);
-const toc = (headings ?? []).filter((item) => item.depth >= 2 && item.depth <= 4);
+const { Content } = await render(entry);
 ---
 
 <BaseLayout
   title={`${getContentTitle(entry)} | 知识库 | BlogX_x`}
   description={getContentSummary(entry, 120)}
 >
-  <div class="article-layout">
-    <article class="prose-wrap kb-prose">
+  <div class="article-layout article-layout--rail">
+    <ReadingRail
+      client:load
+      targetSelector="#kb-body"
+      title={getContentTitle(entry)}
+      variant="reference"
+    />
+    <article class="prose-wrap kb-prose" id="kb-body">
       <header class="post-head">
         <p class="meta">{formatDate(getContentDate(entry))}</p>
         <h1
@@ -45,18 +51,5 @@ const toc = (headings ?? []).filter((item) => item.depth >= 2 && item.depth <= 4
       </header>
       <Content />
     </article>
-
-    {toc.length > 0 ? (
-      <aside class="toc-panel" aria-label="知识库目录">
-        <p class="toc-title">快速跳转</p>
-        <nav class="toc-list">
-          {toc.map((item) => (
-            <a class={`toc-item depth-${item.depth}`} href={`#${item.slug}`}>
-              {item.text}
-            </a>
-          ))}
-        </nav>
-      </aside>
-    ) : null}
   </div>
 </BaseLayout>
