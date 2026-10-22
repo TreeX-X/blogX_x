@@ -2525,6 +2525,33 @@ main {
 }
 main:has(.kg-expanded) { z-index: 100; }
 .home-sidebar:has(.kg-expanded) { z-index: 100; }
+
+/* 鼠标移入知识图谱（或键盘聚焦进图谱）时周围场景压暗，专注态聚焦图谱本身：
+   压暗走 filter 而非 opacity，避免与入场动画互相覆盖（同「同级卡片聚焦变灰」语言）；
+   键盘触发用 :focus-visible，鼠标点击按钮离开后不会留下持续压暗。 */
+.home-experience > .home-main {
+  transition: filter 260ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-experience:has(.kg-panel:hover) > .home-main {
+    filter: opacity(0.35);
+  }
+}
+
+.home-experience:has(.kg-panel :focus-visible) > .home-main {
+  filter: opacity(0.35);
+}
+
+/* 周围压暗时图谱边框轻微提亮，锚定「焦点在这」 */
+.home-sidebar .kg-panel {
+  transition: border-color 260ms ease;
+}
+
+.home-sidebar .kg-panel:hover,
+.home-sidebar .kg-panel:focus-within {
+  border-color: rgba(74, 58, 37, 0.22);
+}
 .kg-expanded .kg-body { flex-direction: row; overflow: hidden; }
 .kg-expanded .kg-canvas { min-width: 0; }
 .kg-expanded .kg-detail { width: 260px; padding: 1rem; overflow: auto; }

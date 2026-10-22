@@ -5,7 +5,7 @@
   "kind": "decision",
   "lifecycle": "accepted",
   "created": "2026-10-15",
-  "updated": "2026-10-15T01:09:29Z",
+  "updated": "2026-10-22T06:40:15Z",
   "module": "note://f6f78001-d086-47ba-b627-787ada391296/4d500b85-a071-45ab-adb0-c1c2ff26790d"
 }
 ---
@@ -41,4 +41,4 @@
 - 需求与验收：[像素数码 3D 机箱 Hero 需求](2026-10-15-pixel-case-hero-requirement--f47e324c.md)
 - 实现分析：[想法：像素 Hero 的实现分析](2026-10-15-idea-pixel-hero-implementation--5d968c9f.md)
 - 前序决策（原位形态、就近卡片交互模型仍有效）：[决策：机箱 Hero 的画风、形态与变形编排](2026-10-14-decision-case-hero-design--b56db041.md)
-- 约束来源：`wiki/08-constraints.md`（暖纸 token、不引入暗色主题）。
+- 约束来源：`.agents/notes/constraints.md`（暖纸 token、不引入暗色主题）。

@@ -59,7 +59,8 @@ export async function createPixelCaseScene(
   /* ---------- 实例化体素 ---------- */
   const root = new THREE.Group();
   scene.add(root);
-  const geo = new THREE.BoxGeometry(0.94, 0.94, 0.94);
+  const cell = model.cellSize;
+  const geo = new THREE.BoxGeometry(0.94 * cell, 0.94 * cell, 0.94 * cell);
   const mat = new THREE.MeshLambertMaterial();
   const mesh = new THREE.InstancedMesh(geo, mat, N);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -102,10 +103,10 @@ export async function createPixelCaseScene(
     pickByPart.set(key, pm);
   }
 
-  /* ---------- LCD 纹理屏 ---------- */
+  /* ---------- LCD 纹理屏（嵌在体素唇边框内，遮住接缝） ---------- */
   let lcdMesh: Mesh3;
   const lcdCanvas = document.createElement("canvas");
-  lcdCanvas.width = 256;
+  lcdCanvas.width = 240;
   lcdCanvas.height = 160;
   const lcdTex = new THREE.CanvasTexture(lcdCanvas);
   lcdTex.magFilter = THREE.NearestFilter;
@@ -114,13 +115,13 @@ export async function createPixelCaseScene(
     const g = lcdCanvas.getContext("2d");
     if (!g) return;
     g.fillStyle = "#151613";
-    g.fillRect(0, 0, 256, 160);
+    g.fillRect(0, 0, 240, 160);
     // 扫描线
     g.fillStyle = "rgba(185,59,40,0.12)";
-    for (let y = 0; y < 160; y += 4) g.fillRect(0, y, 256, 1);
+    for (let y = 0; y < 160; y += 4) g.fillRect(0, y, 240, 1);
     g.fillStyle = "#f3d8d0";
-    g.font = "bold 22px monospace";
-    g.fillText("TREEBOX // LIVE", 12, 30);
+    g.font = "bold 20px monospace";
+    g.fillText("TREEBOX // LIVE", 10, 28);
     const rows: [string, number][] = [
       ["POSTS", opts.counts.posts ?? 0],
       ["KB", opts.counts.knowledgeBase ?? 0],
@@ -128,26 +129,24 @@ export async function createPixelCaseScene(
       ["REPO", opts.counts.repos ?? 0],
       ["SKILL", opts.counts.skills ?? 0],
     ];
-    g.font = "bold 18px monospace";
+    g.font = "bold 16px monospace";
     rows.forEach(([k, v], i) => {
-      const y = 58 + i * 22;
+      const y = 56 + i * 20;
       g.fillStyle = i === 0 ? "#b93b28" : "#f8f9f6";
-      g.fillText(k, 12, y);
+      g.fillText(k, 10, y);
       g.fillStyle = "#f3d8d0";
-      g.fillText(String(v).padStart(3, "0"), 150, y);
+      g.fillText(String(v).padStart(3, "0"), 140, y);
     });
     lcdTex.needsUpdate = true;
   };
   drawLcd();
   {
-    const b = model.partBoxes.lcd;
-    const w = b.max[0] - b.min[0] - 3;
-    const h = b.max[1] - b.min[1] - 3;
+    const sc = model.lcdScreen;
     const lcd = new THREE.Mesh(
-      new THREE.PlaneGeometry(Math.max(4, w), Math.max(4, h)),
+      new THREE.PlaneGeometry(Math.max(4, sc.w), Math.max(4, sc.h)),
       new THREE.MeshBasicMaterial({ map: lcdTex })
     );
-    lcd.position.set(b.center[0], b.center[1], b.min[2] - 0.6);
+    lcd.position.set(sc.x, sc.y, sc.z);
     lcd.rotation.y = Math.PI; // 前脸朝世界 -z，纹理面向外
     root.add(lcd);
     lcdMesh = lcd;
@@ -178,6 +177,7 @@ export async function createPixelCaseScene(
   const ctrl = new Float32Array(N * 3);
   const dst = new Float32Array(N * 3);
   const delay = new Float32Array(N);
+  const settled = new Uint8Array(N); // 落位即跳过后续帧写入（AC-6 帧率）
   let morphT = -1; // -1 未在变形
   let morphDir: "in" | "out" = "in";
   let morphDone: (() => void) | null = null;
@@ -245,6 +245,7 @@ export async function createPixelCaseScene(
     }
     morphDir = dir;
     morphT = 0;
+    settled.fill(0);
   };
 
   const stepMorph = (dtMs: number) => {
@@ -254,6 +255,7 @@ export async function createPixelCaseScene(
     const arr = mesh.instanceMatrix.array as Float32Array;
     const colArr = mesh.instanceColor?.array as Float32Array | undefined;
     for (let i = 0; i < N; i++) {
+      if (settled[i]) continue;
       const local = clamp01((morphT - delay[i] * 0.38) / 0.62);
       const t = easeInOutCubic(local);
       const u = 1 - t;
@@ -262,10 +264,8 @@ export async function createPixelCaseScene(
       const z = u * u * src[i * 3 + 2] + 2 * u * t * ctrl[i * 3 + 2] + t * t * dst[i * 3 + 2];
       const s = 0.72 + 0.28 * t + 0.1 * Math.sin(Math.PI * t); // 轻微过冲
       const b = i * 16;
-      arr[b] = s; arr[b + 5] = s; arr[b + 10] = s; arr[b + 15] = 1;
-      arr[b + 1] = arr[b + 2] = arr[b + 3] = arr[b + 4] = 0;
-      arr[b + 6] = arr[b + 7] = arr[b + 8] = arr[b + 9] = 0;
-      arr[b + 11] = arr[b + 12] = arr[b + 13] = arr[b + 14] = 0;
+      // 旋转分量与 [15]=1 由初始化矩阵带入，这里只写缩放与位移
+      arr[b] = s; arr[b + 5] = s; arr[b + 10] = s;
       arr[b + 12] = x; arr[b + 13] = y; arr[b + 14] = z;
       if (colArr) {
         // 牛血（标题色）→ 目标陶瓷色
@@ -275,6 +275,7 @@ export async function createPixelCaseScene(
         colArr[bi + 1] = 0.231 * (1 - k) + baseColors[bi + 1] * k;
         colArr[bi + 2] = 0.157 * (1 - k) + baseColors[bi + 2] * k;
       }
+      if (local >= 1) settled[i] = 1;
     }
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;

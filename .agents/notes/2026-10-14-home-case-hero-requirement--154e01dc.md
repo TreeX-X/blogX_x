@@ -4,7 +4,7 @@ id: 154e01dc-39a1-4a08-80d8-74f652b7bd91
 kind: requirement
 lifecycle: proposed
 created: 2026-10-14
-updated: 2026-10-14T16:40:00Z
+updated: 2026-10-22T06:40:15Z
 class: architecture
 ---
 
@@ -39,7 +39,7 @@ class: architecture
 
 ## 约束
 
-- **不引入暗色主题**（`wiki/08-constraints.md`）：机箱活在暖纸语言里；变形前后设计 token 不变。
+- **不引入暗色主题**（`.agents/notes/constraints.md`）：机箱活在暖纸语言里；变形前后设计 token 不变。
 - **原位变化**：不遮罩、不换页、不锁滚动；首页其余部分全程在场。
 - **支持移动端**：点按选中 + 底部卡片；移动端隐藏引线标签只留编号。
 - **反 slop**：无紫渐变、无装饰性 emoji 图标、无圆角卡左 border accent；不凭空发明颜色。
@@ -72,4 +72,4 @@ class: architecture
 - 取舍定案：[决策：机箱 Hero 的画风、形态与变形编排](2026-10-14-decision-case-hero-design--b56db041.md)
 - 概念与脑洞：[想法：机箱 Hero 的概念、映射脑洞与后续可能](2026-10-14-idea-case-hero-concepts--60adaca4.md)
 - 实现（2026-10-14 入站）：`src/components/CaseSvg.tsx`、`src/components/CaseHero.tsx`、`src/styles/case-hero.css`、`src/pages/index.astro` hero 区（入口反向注释在场）；像素标题复用 `src/components/PixelWaveTitle.tsx`。
-- 约束来源：`wiki/01-identity.md`、`wiki/08-constraints.md`。内容真源：[内容云化需求](2026-10-05-content-cloud-requirement--675d3c93.md)。
+- 约束来源：`.agents/notes/identity.md`、`.agents/notes/constraints.md`。内容真源：[内容云化需求](2026-10-05-content-cloud-requirement--675d3c93.md)。
