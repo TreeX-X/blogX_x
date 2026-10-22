@@ -5,7 +5,7 @@
   "kind": "module",
   "lifecycle": "accepted",
   "created": "2026-10-15",
-  "updated": "2026-10-22T02:19:48Z",
+  "updated": "2026-10-22T06:40:15Z",
   "moduleState": "implemented"
 }
 ---
@@ -35,6 +35,6 @@ BlogX_x 工程的持久 agent 记忆库：需求、决策、想法与任务记�
 
 - 维护入口：noteX；任务生命周期经 orchestrateX 各模式。
 - [部署与依赖锁文件](deployment.md)：Vercel 使用 pnpm 冻结安装，依赖变更同步两份锁文件；GitHub Pages 停止旧式 Jekyll 分支构建，新增远端锁文件检查。
-- 工程上下文：`wiki/README.md`（工程 wiki，非本库）。
+- 工程参考主题（2026-10-22 自 repo 根 `wiki/` 迁入，工程 wiki 已移除）：[identity](identity.md)、[architecture](architecture.md)、[routes](routes.md)、[content-model](content-model.md)、[ai-search-graph](ai-search-graph.md)、[interactive-admin](interactive-admin.md)、[pipeline-mcp](pipeline-mcp.md)、[constraints](constraints.md)、[agent-workflow](agent-workflow.md)。站点内容 wiki（`src/content/wiki`）与本库无关，照常维护。
 - 爱好展示探索：[热爱空间与好奇心工作台](2026-10-16-idea-interest-workbench--069c5337.md)，记录火箭 / 汽车 / AI 与 Vitality 观赛收藏；整体仍为草案，关于页顶部五位黄黑队服火柴人捧杯插画已按用户要求实施。
 - 当前活跃主题：**「服务器」tab —— 线条画风 3D 可交互机箱**（[需求](2026-10-15-server-tab-linecase-requirement--103be143.md)）。进度：S1/S2/S3 已用户验收，S4 全景交互层 2026-10-16 已实施待用户验收（[S4](2026-10-15-task-s4-interaction--66c566c7.md)），S5「点击拉近 × 细节丰富」末项待启动（开工门③拉近壳体策略待拍板）；逐项用户验收门控。首页只保留像素标题（变形效果已移除，2026-10-15）；历史主题：像素机箱 Hero 变形（已取代）、纸板壳方向（已否决）、内容云化（2026-10-05）。

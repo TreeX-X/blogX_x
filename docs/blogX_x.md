@@ -2,7 +2,7 @@
 
 > **版本**: v2.1（2026-10-06 按内容云化后的工程实现更新）
 > **更新日期**: 2026-10-06
-> **说明**: 本文档为产品总览。工程细节以 `wiki/`（仓库根 `wiki/` 目录）为当前真相源，不以下文为准。
+> **说明**: 本文档为产品总览。工程细节以 `.agents/notes/`（工程 Notes）为当前真相源，不以下文为准。
 
 ## 1. 🎯 项目概述 (The Vibe)
 
@@ -24,7 +24,7 @@
 | `/posts/[slug]` | 文章详情页（多为外链收藏 + 中英翻译） |
 | `/knowledge-base` | 知识库列表页（分类侧栏 + 锚点跳转） |
 | `/knowledge-base/[...slug]` | 知识库详情页（嵌套路径，由 Obsidian 同步） |
-| `/wiki/[...slug]` | 站点内容 wiki（`src/content/wiki`，区别于工程 wiki） |
+| `/wiki/[...slug]` | 站点内容 wiki（`src/content/wiki`，与工程 Notes 无关） |
 | `/repos` | 仓库目录 |
 | `/skills` / `/skills/[slug]` | Skills 列表与详情（含下载） |
 | `/toolbox` | 外部工具导航页 |
@@ -136,7 +136,7 @@ vault，但只能按条目导入（`npm run sync-kb:import -- --only "<相对路
 | `docs/toolBox-prd.md` | 工具箱导航页 |
 | `docs/mcp-knowledge-base.md` | 知识库 MCP server |
 | `docs/ljj-world-design-extraction.md` | 主题设计提取（独立维护） |
-| `wiki/*.md` | 工程上下文 wiki（当前真相源） |
+| `.agents/notes/*.md` | 工程 Notes（当前真相源） |
 
 ## 6. 🧭 开发里程碑 (历史)
 
@@ -148,4 +148,4 @@ vault，但只能按条目导入（`npm run sync-kb:import -- --only "<相对路
 - ✅ Phase 6: 文章外链采集 + 翻译 + 布局/知识库优化
 - ✅ Phase 7: 留言/点子模块 + 管理后台套件 + 工具箱 + MCP + Obsidian 同步
 - ✅ Phase 8 (2026-10): 内容云化 —— 真源迁出仓库至 LanceDB `content` 单表；公网写入面撤销（`/admin`、`/api/admin` 生产 404）；管理入口为 CLI 与 dev-only 面板；AI 上传处理通道；构建期从 `content` 表拉取写盘；Obsidian 降级为按条目可选输入源
-- ⏳ 延后: 私有内容备份仓（全量内容 + git 历史，`content:restore` 还原）— 见 `wiki/` 与 `.agents/notes/`
+- ⏳ 延后: 私有内容备份仓（全量内容 + git 历史，`content:restore` 还原）— 见 `.agents/notes/`

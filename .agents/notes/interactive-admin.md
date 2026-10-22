@@ -1,4 +1,16 @@
-# 06 — Interactive Modules & Admin
+---
+{
+  "schema": "harness-note/2",
+  "id": "4400ff65-0d32-4253-9873-68dc2223170d",
+  "kind": "note",
+  "lifecycle": "accepted",
+  "created": "2026-10-22",
+  "updated": "2026-10-22T06:40:15Z",
+  "module": "note://f6f78001-d086-47ba-b627-787ada391296/4d500b85-a071-45ab-adb0-c1c2ff26790d"
+}
+---
+
+# Interactive Modules & Admin
 
 ## About-page modules
 
@@ -34,7 +46,7 @@ Page shell: `src/pages/about.astro`.
 | `admin/index.astro` | hub（逐集合计数） | — |
 | `admin/posts.astro` | `api/admin/posts.ts` + `api/admin/intake.ts` | `posts`（含 AI 上传面板：URL / 文件 / 粘贴正文 → 草稿） |
 | `admin/repos.astro` | `api/admin/repos.ts` | `repos` |
-| `admin/projects.astro` | `api/admin/projects.ts` | `projects` |
+| `admin/projects.astro` | `api/admin/projects.ts` + `api/admin/project-readme.ts` | `projects`（README 快照走 `src/lib/project-readme.ts`） |
 | `admin/knowledge-base.astro` | `api/admin/knowledge-base.ts` | `knowledgeBase`（保留嵌套路径） |
 | `admin/wiki.astro` | `api/admin/wiki.ts` | `wiki`（保留嵌套路径） |
 | `admin/toolbox.astro` | `api/admin/toolbox.ts` | `toolbox` |
@@ -61,7 +73,7 @@ Page shell: `src/pages/about.astro`.
 
 ## KV layer
 
-- `src/lib/kv-messages.ts` — messages/ideas persistence helpers
+- `src/lib/kv-messages.ts` — messages/ideas persistence helpers（含留言 AI 审核，走 `LLM_*` 配置）
 - Depends on Vercel KV / Redis env configuration
 - Health check endpoint for ops
 
@@ -71,3 +83,6 @@ Page shell: `src/pages/about.astro`.
 - `docs/toolBox-prd.md`
 
 Prefer implementing against **current code** over outdated PRD field lists.
+
+---
+迁移自 `wiki/06-interactive-admin.md`（2026-10-22 工程 wiki 移除；原文经 git 历史可溯）。

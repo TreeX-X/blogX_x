@@ -1,4 +1,16 @@
-# 02 — Architecture
+---
+{
+  "schema": "harness-note/2",
+  "id": "962f009d-f07e-40d5-ab19-deb13679560f",
+  "kind": "note",
+  "lifecycle": "accepted",
+  "created": "2026-10-22",
+  "updated": "2026-10-22T06:40:15Z",
+  "module": "note://f6f78001-d086-47ba-b627-787ada391296/4d500b85-a071-45ab-adb0-c1c2ff26790d"
+}
+---
+
+# Architecture
 
 ## High-level
 
@@ -32,12 +44,12 @@ LanceDB Cloud「content」表（内容唯一真源，单表 + collection 字段�
 | UI islands | React 19 + `@astrojs/react` | Interactive modules only |
 | Styles | Tailwind 4 + `global.css` tokens | Design system in CSS vars |
 | Content | `astro:content` collections | Schemas in `src/lib/content-schemas.ts`（唯一定义处， Zod from `astro/zod`） |
-| Content store | LanceDB `content` table | `src/lib/content-store.ts` 是唯一读写入口 |
+| Content store | LanceDB `content` 表 | `src/lib/content-store.ts` 是唯一读写入口 |
 | Vector DB | `@lancedb/lancedb` | Local `.lancedb` + optional cloud |
-| LLM | GLM (e.g. GLM-4.5-AIR) | Translation, AI search, intake extraction |
+| LLM | 任一 OpenAI 兼容服务 | `LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL`，唯一配置出口 `getLlmConfig()`（见[外部 LLM 决策](2026-10-06-decision-external-llm-interface--e7f77826.md)）；翻译、AI 搜索、intake 提取、留言审核共用 |
 | KV | `@vercel/kv` | Messages / ideas / health |
 
-Config: `astro.config.mjs` (alias `@` → `src`).
+Config: `astro.config.mjs` (alias `@` → `src`). Env template: `.env.example`。
 
 ## Directory map (engineering)
 
@@ -45,13 +57,13 @@ Config: `astro.config.mjs` (alias `@` → `src`).
 |------|----------------|
 | `src/pages/` | Routes + API endpoints |
 | `src/layouts/` | Shell (`BaseLayout.astro`) |
-| `src/components/` | React/Astro UI pieces |
+| `src/components/` | React/Astro UI pieces（含 `server/` 机箱组件） |
 | `src/lib/` | Content helpers, content store, schemas, KV, auth, toolbox, article DB, intake service |
 | `src/content/` | **构建产物**：`content-pull` 从 `content` 表写出的 markdown，不入 git |
 | `src/styles/global.css` | Design tokens + global styles |
 | `scripts/` | content-pull / content-migrate / content-intake / content-publish / fetch-articles / sync-obsidian-kb / init-db / MCP / maintenance / pack-skills |
 | `public/` | Static assets, skill zips, logo |
-| `wiki/` | **This** engineering wiki |
+| `.agents/notes/` | **本库**：工程 Notes（需求/决策/想法/任务 + 工程参考主题） |
 | `docs/` | Historical PRDs / design extractions notes |
 | `.claude/` / `.codex/` | Agent workflow tooling (WorkflowX) |
 | `.githooks/` | pre-commit（no-op）+ pre-push（本地库自检，见 `AUTOMATION.md`） |
@@ -76,14 +88,16 @@ Config: `astro.config.mjs` (alias `@` → `src`).
 | `sync-kb` / `sync-kb:import` | Obsidian vault 候选清单 / 按条目导入 content 表 |
 | `init-db` | Rebuild vector index |
 | `mcp:kb` / `mcp:kb:http` | MCP servers |
-| `fetch-articles` | Refresh bilingual bodies of posts (top-up by default, `--force` for all) |
+| `fetch-articles` / `fetch-articles:translate` | Refresh bilingual bodies of posts (top-up by default, `--force` for all) |
 | `maintenance*` | Ops helpers |
 | `test:kg` | Knowledge-graph smoke test |
 
 ## Subsystems (deep links)
 
-- Content model → [04-content-model.md](./04-content-model.md)
-- AI + graph → [05-ai-search-graph.md](./05-ai-search-graph.md)
-- Messages/admin → [06-interactive-admin.md](./06-interactive-admin.md)
-- Sync/MCP/CI → [07-pipeline-mcp.md](./07-pipeline-mcp.md)
+- Content model → [content-model](content-model.md)
+- AI + graph → [ai-search-graph](ai-search-graph.md)
+- Messages/admin → [interactive-admin](interactive-admin.md)
+- Sync/MCP/CI → [pipeline-mcp](pipeline-mcp.md)
 
+---
+迁移自 `wiki/02-architecture.md`（2026-10-22 工程 wiki 移除；原文经 git 历史可溯）。

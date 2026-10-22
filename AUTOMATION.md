@@ -4,7 +4,7 @@
 > `predev` / `prebuild` 从表里生成，是构建产物、不入 git（`.gitignore`）。仓库里只有代码、
 > UI 与机制。任何机器 clone + 配好 `.env` 就能构建与管理，不依赖本机 Obsidian vault。
 >
-> 详见 `wiki/02-architecture.md`、`wiki/04-content-model.md`、`wiki/07-pipeline-mcp.md`。
+> 详见 `.agents/notes/architecture.md`、`.agents/notes/content-model.md`、`.agents/notes/pipeline-mcp.md`。
 
 ## Build
 
@@ -20,7 +20,7 @@
 已完整的语料，日常构建不打 GLM、不写云端内容表。一旦有记录缺译文（面板新建后直接发布、或 GLM
 曾失败），这一步会重试它；重试失败时逐条报告并在汇总里列出受影响的 slug，但**不再阻断构建**。
 退出码仍为 1 的只有三种情形：`--force` 显式刷新失败、译文从合格退化为不合格（回归）、抓取失败。
-详见 `wiki/07-pipeline-mcp.md`。
+详见 `.agents/notes/pipeline-mcp.md`。
 
 ## Local hooks
 

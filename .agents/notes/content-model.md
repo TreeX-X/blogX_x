@@ -1,4 +1,16 @@
-# 04 — Content Model
+---
+{
+  "schema": "harness-note/2",
+  "id": "2a28b8f2-3b42-4de6-ad33-c85a8e2b43d2",
+  "kind": "note",
+  "lifecycle": "accepted",
+  "created": "2026-10-22",
+  "updated": "2026-10-22T06:40:15Z",
+  "module": "note://f6f78001-d086-47ba-b627-787ada391296/4d500b85-a071-45ab-adb0-c1c2ff26790d"
+}
+---
+
+# Content Model
 
 Source of truth for schemas: `src/lib/content-schemas.ts`（唯一定义处，`astro/zod`，Astro 与 Node 双端可加载）。  
 Shared read helpers: `src/lib/content.ts`。  
@@ -14,7 +26,7 @@ Content storage: `src/lib/content-store.ts` — LanceDB `content` 表的唯一�
 `status: draft` 只存在于 `content` 表，不写盘，因此天然不进构建产物。草稿跨机器可见，
 不依赖本地文件。`frontmatter.isDraft` 是 glob loader 时代的遗留物，不再作为草稿口径。
 
-克隆一台新机器只需要 `.env`（`LANCEDB_*`、`GLM_API_KEY`、`UPSTASH_*`）+ `npm install`：
+克隆一台新机器只需要 `.env`（模板见 `.env.example`：`LANCEDB_*`、`SF_TOKEN`、`LLM_*`、`UPSTASH_*`）+ `npm install`：
 `prebuild` 的 `content-pull` 会拉全量内容。本机没有 Obsidian vault 不影响构建与管理。
 
 ## Collections
@@ -68,7 +80,7 @@ intake 通道（面板 / `content:intake`）产出的 posts 草稿还带 `frontm
 Optional: `title`, `date`, `description`, `tags`, `isDraft` (default false)。  
 KB 的主要来源是 Obsidian  vault，但**只能按条目导入**：`npm run sync-kb` 列候选，
 `npm run sync-kb:import -- --only "<相对路径>"` 写 content 表。整库导入已禁用（vault 含未发布
-的私人笔记，见 `wiki/07-pipeline-mcp.md`）。导入的条目带 `source: obsidian:<相对路径>`。
+的私人笔记，见 [pipeline-mcp](pipeline-mcp.md)）。导入的条目带 `source: obsidian:<相对路径>`。
 
 ### repos
 
@@ -108,7 +120,7 @@ Required: `name`, `url`, `category`。Optional: `summary` (default `""`), `icon`
 |--------|------|
 | `src/lib/toolbox.ts` | toolbox 集合的读取入口（不经 glob loader，直读 content 表） |
 | `src/lib/article-db.ts` | posts 详情页的双语正文与抓取期元数据读取 |
-| `src/lib/article-intake.service.ts` | 抓取、富媒体翻译、GLM 提取、校验发布的唯一实现 |
+| `src/lib/article-intake.service.ts` | 抓取、富媒体翻译、LLM 提取、校验发布的唯一实现 |
 | LanceDB `blog_index` | 搜索/图谱用的内容派生索引（`scripts/init-db.mjs` 重建） |
 
 ## Editing guidance
@@ -116,3 +128,6 @@ Required: `name`, `url`, `category`。Optional: `summary` (default `""`), `icon`
 - 内容一律通过 content 表编辑：dev 面板、`content:intake` / `content:publish`、`sync-obsidian-kb --to-lancedb`、`fetch-articles`。**不要手动改 `src/content/**`**——那是构建产物，下次 `content-pull` 会被覆盖或清掉。
 - 想让条目下线：把记录 `status` 改成 `draft`（面板或 `content:publish` 的撤回路径），而不是删文件。
 - 新增集合必须同时登记 `src/lib/content-schemas.ts` 与 `src/content.config.ts`（toolbox 例外，只登记 schema）。
+
+---
+迁移自 `wiki/04-content-model.md`（2026-10-22 工程 wiki 移除；原文经 git 历史可溯）。

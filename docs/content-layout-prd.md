@@ -509,7 +509,7 @@ interface ArticleRecord {
 
 # 9. 📌 实现现状（基于当前工程代码，2026-07-29）
 
-> 本节取代历史 point-in-time 评估报告，反映当前代码真实状态。工程真相以 `wiki/` 与源码为准。
+> 本节取代历史 point-in-time 评估报告，反映当前代码真实状态。工程真相以 `.agents/notes/` 与源码为准。
 
 ## 9.1 Part A — 文章外链采集与翻译：已实现
 

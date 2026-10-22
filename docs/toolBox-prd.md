@@ -132,7 +132,7 @@ BlogX_x 需要新增一个轻量级“工具箱”页面，作为资源导航页
 
 ## 9. 📌 实现现状（基于当前工程代码，2026-07-29）
 
-> 本节取代历史 point-in-time 评估报告。工程真相以 `wiki/03-routes.md`、`wiki/06-interactive-admin.md` 与源码为准。
+> 本节取代历史 point-in-time 评估报告。工程真相以 `.agents/notes/routes.md`、`.agents/notes/interactive-admin.md` 与源码为准。
 
 ### 9.1 需求符合度
 

@@ -740,7 +740,7 @@ ADMIN_SESSION_SECRET="<your-session-secret>"
 
 **实际实现时间：约 3 小时**
 
-> **当前工程现状（2026-07-29）**：留言/点子功能仍在 `/about` 运行，KV 层已统一到 `@vercel/kv`（`src/lib/kv-messages.ts`）。管理后台已扩展为完整套件：除 `/admin/ideas`、`/admin/messages` 外，新增 `/admin/posts`、`/admin/projects`、`/admin/repos`、`/admin/skills`、`/admin/toolbox` 与 `/admin` hub（认证统一走 `src/lib/admin-auth.ts`）。详见工程 wiki `wiki/06-interactive-admin.md`。
+> **当前工程现状（2026-07-29）**：留言/点子功能仍在 `/about` 运行，KV 层已统一到 `@vercel/kv`（`src/lib/kv-messages.ts`）。管理后台已扩展为完整套件：除 `/admin/ideas`、`/admin/messages` 外，新增 `/admin/posts`、`/admin/projects`、`/admin/repos`、`/admin/skills`、`/admin/toolbox` 与 `/admin` hub（认证统一走 `src/lib/admin-auth.ts`）。详见 `.agents/notes/interactive-admin.md`。
 
 ---
 

@@ -1,4 +1,16 @@
-# 07 — Pipeline, Automation & MCP
+---
+{
+  "schema": "harness-note/2",
+  "id": "d098eb3b-06a9-4829-b459-16c26d654237",
+  "kind": "note",
+  "lifecycle": "accepted",
+  "created": "2026-10-22",
+  "updated": "2026-10-22T06:40:15Z",
+  "module": "note://f6f78001-d086-47ba-b627-787ada391296/4d500b85-a071-45ab-adb0-c1c2ff26790d"
+}
+---
+
+# Pipeline, Automation & MCP
 
 ## Content pipeline（内容真相源 → 构建产物）
 
@@ -35,15 +47,15 @@
 | Script | Role |
 |--------|------|
 | `scripts/fetch-articles.mjs` | 按 `sourceUrl` 刷新 `content` 表 posts 记录的双语正文 |
-| `src/lib/article-intake.service.ts` | 抓取 + 富媒体翻译 + GLM 提取 + 校验发布的唯一实现 |
-| `src/lib/article-translation.service.mjs` | GLM 翻译与语言检测的唯一实现 |
+| `src/lib/article-intake.service.ts` | 抓取 + 富媒体翻译 + LLM 提取 + 校验发布的唯一实现 |
+| `src/lib/article-translation.service.mjs` | 外部 LLM 翻译与语言检测的唯一实现（`getLlmConfig()` 唯一配置出口） |
 | `src/lib/article-db.ts` | posts 详情页读取（读 `content` 表，不再读 `articles` 表） |
 
 `fetch-articles` 不再扫描 `src/content/posts`（枚举源改为 `content` 表本身，草稿也在表里），
 不再 upsert `articles` 表，不再回写任何 `.md`。默认只补缺：`originalBody` 或 `translatedBody`
 为空（或译文与原文同语言，即上次翻译失败）的记录才会被刷新——**前提是语料已完整**：对已完整的
-文章，`npm run build` 里的这一步是空转，不打 GLM、不写云端；一旦有记录缺译文（面板新建后直接
-发布、或 GLM 曾失败），这一步就会重试它。`--force` 全部重来，`--dry-run` 只看不写。
+文章，`npm run build` 里的这一步是空转，不打 LLM、不写云端；一旦有记录缺译文（面板新建后直接
+发布、或 LLM 曾失败），这一步就会重试它。`--force` 全部重来，`--dry-run` 只看不写。
 
 失败不静默，退出码分情形：抓取失败时原记录一个字节都不动（旧版会写一条空正文的失败记录，把好
 数据冲掉）；翻译失败时保留原有译文，把 intake 记下的原因逐条念出来，汇总里再列出受影响的
@@ -88,6 +100,8 @@ workflow 自身变更时跑 `npm run init-db`。runner 上是干净 checkout、`
 | `reset` | 本地表重置（需 `--confirm`），跳过 `content` 表 |
 | `articles` 表 | 已废弃，本工具不再检查它 |
 
+Logging: `scripts/lib/logger.mjs`。
+
 ## Skills packaging
 
 - `scripts/pack-skills.mjs` on `prebuild`
@@ -117,13 +131,9 @@ workflow 自身变更时跑 `npm run init-db`。runner 上是干净 checkout、`
 
 Longer notes: `docs/mcp-knowledge-base.md`. Project MCP config may also live in `.mcp.json`.
 
-## Maintenance
-
-- `scripts/maintenance.mjs` — `status` / `fix` / `reset` / `verify`
-- 检查对象：`content` 表（内容真源）与 `blog_index`（派生索引）。`articles` 表已废弃，不再检查
-- `scripts/lib/logger.mjs` — shared logging
-
 ## Env cheat sheet
+
+模板：`.env.example`（六类配置一次性模板化）。
 
 | Var | Used for |
 |-----|----------|
@@ -131,7 +141,10 @@ Longer notes: `docs/mcp-knowledge-base.md`. Project MCP config may also live in 
 | `LANCEDB_URI` / `LANCEDB_API_KEY` | 云端 content 表与向量索引；缺失时降级本地，写路径拒绝降级 |
 | `LANCEDB_TABLE` | 向量索引表名，默认 `blog_index` |
 | `LANCEDB_LOCAL_PATH` / `LANCEDB_CLOUD_REQUIRED` | 本地库目录 / 禁止降级 |
-| `SF_TOKEN` / `EMBEDDING_DIM` | 向量嵌入 |
-| `GLM_API_KEY` / `GLM_MODEL` | 翻译、AI 搜索、intake 提取 |
+| `SF_TOKEN` / `SF_MODEL` / `EMBEDDING_DIM` | 向量嵌入 |
+| `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL` | 翻译、AI 搜索、intake 提取、留言审核（任一 OpenAI 兼容端点，三项全必填） |
 | `VERCEL_DEPLOY_HOOK` | 发布后触发重建（表的变更不触发 git push） |
 | Vercel KV / Redis | Messages & ideas |
+
+---
+迁移自 `wiki/07-pipeline-mcp.md`（2026-10-22 工程 wiki 移除；原文经 git 历史可溯）。

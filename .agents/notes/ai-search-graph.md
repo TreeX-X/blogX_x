@@ -1,4 +1,16 @@
-# 05 — AI Search & Knowledge Graph
+---
+{
+  "schema": "harness-note/2",
+  "id": "09c370a4-a81d-4f05-93ca-e5c4f5d70716",
+  "kind": "note",
+  "lifecycle": "accepted",
+  "created": "2026-10-22",
+  "updated": "2026-10-22T06:40:15Z",
+  "module": "note://f6f78001-d086-47ba-b627-787ada391296/4d500b85-a071-45ab-adb0-c1c2ff26790d"
+}
+---
+
+# AI Search & Knowledge Graph
 
 ## Shared foundation
 
@@ -15,7 +27,7 @@
 |------|--------|
 | API | `src/pages/api/ai-search.ts` → `/api/ai-search` |
 | UI | Home form in `src/pages/index.astro` |
-| Model | GLM family (e.g. GLM-4.5-AIR); keys via env |
+| Model | 任一 OpenAI 兼容 LLM（`LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL`，见[外部 LLM 决策](2026-10-06-decision-external-llm-interface--e7f77826.md)） |
 | Behavior | Natural-language query → vector retrieval → ranked cards + AI answer |
 | Scopes | `site` (default) and `toolbox` (uses `searchToolboxItems`) |
 | Rate limit | In-memory per IP; window 60s; max from `AI_SEARCH_RATE_LIMIT` (default 5) |
@@ -23,10 +35,11 @@
 
 ### Env knobs (search)
 
-- `LANCEDB_URI`, `LANCEDB_API_KEY`, `LANCEDB_TABLE`, `LANCEDB_LOCAL_PATH`
-- `EMBEDDING_DIM`, `SF_TOKEN` (embedding provider, as used by init/search)
+- `LANCEDB_URI`, `LANCEDB_API_KEY`, `LANCEDB_TABLE`, `LANCEDB_LOCAL_PATH`, `LANCEDB_CLOUD_REQUIRED`
+- `SF_TOKEN`, `SF_MODEL`, `EMBEDDING_DIM`（embedding provider）
 - `AI_SEARCH_RATE_LIMIT`, `SEARCH_ALLOW_LOCAL_FALLBACK`, `VERCEL`
-- GLM API key / model vars (project `.env`, not committed)
+- `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`（任一 OpenAI 兼容端点，三项全必填）
+- 完整模板：`.env.example`
 
 ## Knowledge graph
 
@@ -51,7 +64,7 @@ content markdown
        └─ knowledge-graph (pairwise similarity edges)
 ```
 
-CI rebuild: `.github/workflows/vector-sync.yml` on content/script/package changes (see [07-pipeline-mcp.md](./07-pipeline-mcp.md)).
+CI rebuild: `.github/workflows/vector-sync.yml` on content/script/package changes (see [pipeline-mcp](pipeline-mcp.md)).
 
 ## Touch points by task
 
@@ -62,3 +75,6 @@ CI rebuild: `.github/workflows/vector-sync.yml` on content/script/package change
 | Graph layout / hover / theme | `src/components/KnowledgeGraph.tsx` |
 | Graph API thresholds | `src/pages/api/knowledge-graph.ts` |
 | Reindex | `scripts/init-db.mjs` |
+
+---
+迁移自 `wiki/05-ai-search-graph.md`（2026-10-22 工程 wiki 移除；原文经 git 历史可溯）。
