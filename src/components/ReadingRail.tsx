@@ -1,5 +1,5 @@
 /**
- * 文章阅读左侧栏：自动解析章节树 + 滚动定位 + 阅读进度条
+ * 阅读左侧栏（文章 / 知识库 / Wiki）：自动解析章节树 + 滚动定位 + 阅读进度条
  * 交互对齐 claude.dev/blog 的 rail：树形目录、当前章节高亮、▓░ 字符进度条。
  * 挂载时解析目标容器内 h2–h4 标题；内容替换（如原文/译文切换）后自动重建。
  */
@@ -209,7 +209,7 @@ export default function ReadingRail({ targetSelector, title, minutes, variant = 
   if (groups.length === 0 && minutes == null) return null;
 
   return (
-    <aside className="read-rail" aria-label="文章目录">
+    <aside className="read-rail" aria-label="阅读目录">
       <div className="read-rail-title" ref={titleRef}>{title}</div>
       {groups.length > 0 && (
         <>
