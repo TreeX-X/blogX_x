@@ -4,6 +4,7 @@ id: a7c1fab4-4118-443f-8de0-60c44714b875
 kind: task
 lifecycle: implemented
 created: 2026-10-05
+updated: 2026-10-22T06:40:15Z
 class: architecture
 execution: completed
 ---
@@ -43,7 +44,7 @@ execution: completed
 ## Known items
 
 - **构建曾因私人笔记而红（已处置，未根除）**。被钩子同步进工作树的 `src/content/knowledge-base/思路记载/未命名.md` 第 30 行引用本地不存在的 `Pasted%20image%2020260918134859.png`，而 `src/pages/knowledge-base/[...slug].astro` 对 glob 到的全部条目 `render()`，Astro 抛 `ImageNotFound` 使整个构建失败。评审方以 `git archive HEAD` 重建基线复现同一点失败，确认非本任务回归。已删除工作树副本使构建恢复通过。**该文件会被 pre-commit 钩子重新同步回来**，每次提交后都可能复现，根除依赖 T2 内容出仓或 T5 改造同步脚本；在此期间构建异常先查此处。
-- **`article-db.getRelatedContent` 仍是同一处双引号 bug 类**。`src/lib/article-db.ts:395`、`:402` 的 `where(\`slug = "${escapeSlug(slug)}"\`)` 与 `where(\`url = "/posts/${escapeSlug(slug)}"\`)` 在构建日志实测 400 → catch 后静默返回 [] → 「相关阅读」区块长期恒空。HEAD 即有（`2cf16d4` 引入）。已立独立任务 [修复相关阅读空列表](2026-10-05-task-t6-fix-related-content--d0a6d506.md)，待 Main Agent 排期。
+- **`article-db.getRelatedContent` 仍是同一处双引号 bug 类**。`src/lib/article-db.ts:395`、`:402` 的 `where(\`slug = "${escapeSlug(slug)}"\`)` 与 `where(\`url = "/posts/${escapeSlug(slug)}"\`)` 在构建日志实测 400 → catch 后静默返回 [] → 「相关阅读」区块长期恒空。HEAD 即有（`2cf16d4` 引入）。已立独立任务 [修复相关阅读空列表](2026-10-05-task-t6-fix-related-content--d9b0811d.md)，待 Main Agent 排期。
 - **写入管线侧尚未收口**。`scripts/fetch-articles.mjs` 仍直写 `articles` 表并改写 `src/content/posts/*.md`。AC-3 的「无第二份正文 master」在站点读取侧成立，在写入管线侧要等 T5 收口。
 - **`/posts` 卡片描述来源变化**。因读取路径恢复，描述改为 `article?.description || post.data.description`：anthropic 篇现为 Anthropic 站点通用英文简介（articles 表数据如此），另两篇为真实摘要；封面、作者、阅读时长、双语徽章随之出现。均为页面既有逻辑加保真映射所致，非映射错误。
 - **写入竞争窗口**。`upsertEntry` 与迁移脚本的先删后插在"删除请求网络失败、随后插入成功"的窄窗口会产生重复行。59 条规模与 CLI 单写者场景下未复现；若重现，改用 `mergeInsert(['collection','path'])` 根治。
