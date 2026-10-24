@@ -58,7 +58,7 @@
 
 ### 2.5 博客 Logo
 
-网页标签页 logo：`/public/logo/treeXLogo.png`。
+「墨印」：圆角墨印（R14）以负形刻出 X（8.5 方端刻痕），纯墨/纸两色单色印。标签页走 `/public/favicon.svg`（随浏览器暗色自适应），配套 `favicon-32.png`、`favicon.ico`（16/32/48）、`apple-touch-icon.png`；`/public/logo/treeXLogo.png` 为同形高清标记（1024）。设计稿含构造图/安全空间/单色反白版，见图标决策记录。
 
 ## 3. 🗄️ 数据结构定义 (Content Collections)
 

@@ -34,7 +34,10 @@ const isActive = (path: string) => {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
-    <link rel="icon" type="image/png" href={toBase("logo/treeXLogo.png")} />
+    <link rel="icon" type="image/svg+xml" sizes="any" href={toBase("favicon.svg")} />
+    <link rel="icon" type="image/png" sizes="32x32" href={toBase("favicon-32.png")} />
+    <link rel="icon" href={toBase("favicon.ico")} sizes="16x16 32x32 48x48" />
+    <link rel="apple-touch-icon" sizes="180x180" href={toBase("apple-touch-icon.png")} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     {/* 字体表非阻塞加载：googleapis 不可达的网络下首屏立即可见（回退系统字），可达时照常套用 */}

@@ -5,7 +5,7 @@
   "kind": "note",
   "lifecycle": "accepted",
   "created": "2026-10-22",
-  "updated": "2026-10-22T06:40:15Z",
+  "updated": "2026-10-24T04:05:00Z",
   "module": "note://f6f78001-d086-47ba-b627-787ada391296/4d500b85-a071-45ab-adb0-c1c2ff26790d"
 }
 ---
@@ -35,6 +35,7 @@
 - Continuous paper background, fine ink boundaries and small corners; no blueprint grid or glass styling
 - 3D server case sits on the shared page with transparent canvas and a soft contact shadow; no floating drafting marks
 - Pixel-wave brand title on home (`PixelWaveTitle`)
+- Icon: **墨印 (ink seal monogram)** — a rounded ink seal (R14) with the X cut in negative space (8.5 square-cap strokes); pure two-tone ink/paper, no accent red (the V-notch sprout of the initial draft was removed in the final). Source `public/favicon.svg`, with `favicon-32.png`, `favicon.ico` (16/32/48) and `apple-touch-icon.png` fallbacks plus `public/logo/treeXLogo.png` (1024 hi-res); the SVG favicon adapts to browser dark mode while the site itself stays light-only (2026-10-24). Design spec incl. clear space X/4 and mono/reversed plates: `_temp/logo-redesign/logo-design-board.html` (scratch). Direction record: [icon decision](2026-10-24-decision-icon-sprout-seal--16f10e25.md)
 - Reading pages share the left chapter rail (`ReadingRail`): posts, knowledge base and site wiki
 - Strong typography, low distraction reading
 - Knowledge graph: desktop-only; hidden on mobile
